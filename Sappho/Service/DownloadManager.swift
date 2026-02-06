@@ -31,13 +31,19 @@ class DownloadManager: NSObject {
 
     private var downloadTasks: [Int: URLSessionDownloadTask] = [:]
     private var api: SapphoAPI?
+    private var _session: URLSession?
 
-    private lazy var session: URLSession = {
+    private var session: URLSession {
+        if let existing = _session {
+            return existing
+        }
         let config = URLSessionConfiguration.background(withIdentifier: "com.sappho.audiobooks.download")
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
-        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
-    }()
+        let newSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        _session = newSession
+        return newSession
+    }
 
     private var downloadsDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!

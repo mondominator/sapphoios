@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -27,7 +27,6 @@
 		C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C36F9F36890A672725A97E /* ProfileView.swift */; };
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
-		DBEAFA11D49B5596ED74DFA3 /* GoogleCast in Frameworks */ = {isa = PBXBuildFile; productRef = D3E631FED308949A9FB6C8ED /* GoogleCast */; };
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
 /* End PBXBuildFile section */
 
@@ -70,23 +69,12 @@
 		D9320ADDDF94250E660D31DB /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoApp.swift; sourceTree = "<group>"; };
 		E22ACA0246E31FF6761AD235 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		E71CC13BFD5841B345761EE1 /* Sappho.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sappho.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E71CC13BFD5841B345761EE1 /* Sappho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sappho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F037A7D40D68AB3F9615452A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F7858DAA70E3FAA3B5222C61 /* Sappho.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sappho.entitlements; sourceTree = "<group>"; };
 		FA1C682221B24D9124ECE67C /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		FF8699D8C7A20599416FDDD8 /* SapphoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		2EE95F195F8A0FD67756F348 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DBEAFA11D49B5596ED74DFA3 /* GoogleCast in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0293B79B748029335C442F5B /* Data */ = {
@@ -306,7 +294,6 @@
 			buildPhases = (
 				A2206F0EC1ABB6A2D1B05CEE /* Sources */,
 				264034FF18D14FF2008E8094 /* Resources */,
-				2EE95F195F8A0FD67756F348 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -314,7 +301,6 @@
 			);
 			name = Sappho;
 			packageProductDependencies = (
-				D3E631FED308949A9FB6C8ED /* GoogleCast */,
 			);
 			productName = Sappho;
 			productReference = E71CC13BFD5841B345761EE1 /* Sappho.app */;
@@ -366,14 +352,13 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					B57CFE5E1E5B573FDDD04963 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					B6DA1D9C58CEB517033A9FCF = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = NR8DLKJ7E6;
 					};
 					BE189DB207BB8203575B74B0 = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = NR8DLKJ7E6;
 						TestTargetID = B57CFE5E1E5B573FDDD04963;
 					};
 				};
@@ -388,10 +373,6 @@
 			);
 			mainGroup = 837EF26EADD372F312A101C6;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				4BC70A0A6ED0DF2A24E4C050 /* XCRemoteSwiftPackageReference "google-cast-sdk-spm" */,
-			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -506,7 +487,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -602,7 +583,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -631,6 +612,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Sappho/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -666,6 +648,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Sappho/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -734,25 +717,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		4BC70A0A6ED0DF2A24E4C050 /* XCRemoteSwiftPackageReference "google-cast-sdk-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nicklauslittle/google-cast-sdk-spm";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 4.8.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		D3E631FED308949A9FB6C8ED /* GoogleCast */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4BC70A0A6ED0DF2A24E4C050 /* XCRemoteSwiftPackageReference "google-cast-sdk-spm" */;
-			productName = GoogleCast;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CA5CACD6020C78B8986A96A8 /* Project object */;
 }

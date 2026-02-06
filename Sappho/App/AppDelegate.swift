@@ -1,6 +1,5 @@
 import UIKit
 import AVFoundation
-import GoogleCast
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -10,8 +9,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Configure audio session for background playback
         configureAudioSession()
 
-        // Configure Google Cast
-        configureCast()
+        // TODO: Configure Google Cast when SDK is added via CocoaPods
+        // configureCast()
 
         return true
     }
@@ -26,19 +25,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
     }
 
-    private func configureCast() {
-        let options = GCKCastOptions(
-            discoveryCriteria: GCKDiscoveryCriteria(applicationID: kGCKDefaultMediaReceiverApplicationID)
-        )
-        options.physicalVolumeButtonsWillControlDeviceVolume = true
-        GCKCastContext.setSharedInstanceWith(options)
-
-        // Enable logger in debug
-        #if DEBUG
-        GCKLogger.sharedInstance().delegate = self
-        #endif
-    }
-
     // Handle background URL session events for downloads
     func application(
         _ application: UIApplication,
@@ -46,14 +32,5 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         completionHandler: @escaping () -> Void
     ) {
         DownloadManager.shared.backgroundCompletionHandler = completionHandler
-    }
-}
-
-// MARK: - GCKLoggerDelegate
-extension AppDelegate: GCKLoggerDelegate {
-    func logMessage(_ message: String, at level: GCKLoggerLevel, fromFunction function: String, location: String) {
-        #if DEBUG
-        print("GoogleCast: \(message)")
-        #endif
     }
 }

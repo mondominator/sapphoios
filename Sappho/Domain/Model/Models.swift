@@ -80,6 +80,67 @@ struct Audiobook: Codable, Identifiable, Hashable {
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
     }
 
+    // Memberwise initializer for previews and testing
+    init(
+        id: Int,
+        title: String,
+        subtitle: String? = nil,
+        author: String? = nil,
+        narrator: String? = nil,
+        series: String? = nil,
+        seriesPosition: Float? = nil,
+        duration: Int? = nil,
+        genre: String? = nil,
+        tags: String? = nil,
+        publishYear: Int? = nil,
+        copyrightYear: Int? = nil,
+        publisher: String? = nil,
+        isbn: String? = nil,
+        asin: String? = nil,
+        language: String? = nil,
+        rating: Float? = nil,
+        userRating: Float? = nil,
+        averageRating: Float? = nil,
+        abridged: Int? = nil,
+        description: String? = nil,
+        coverImage: String? = nil,
+        fileCount: Int = 1,
+        isMultiFile: Int? = nil,
+        createdAt: String = "",
+        progress: Progress? = nil,
+        chapters: [Chapter]? = nil,
+        isFavorite: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.author = author
+        self.narrator = narrator
+        self.series = series
+        self.seriesPosition = seriesPosition
+        self.duration = duration
+        self.genre = genre
+        self.tags = tags
+        self.publishYear = publishYear
+        self.copyrightYear = copyrightYear
+        self.publisher = publisher
+        self.isbn = isbn
+        self.asin = asin
+        self.language = language
+        self.rating = rating
+        self.userRating = userRating
+        self.averageRating = averageRating
+        self.abridged = abridged
+        self.description = description
+        self.coverImage = coverImage
+        self.fileCount = fileCount
+        self.isMultiFile = isMultiFile
+        self.createdAt = createdAt
+        self.progress = progress
+        self.chapters = chapters
+        self.isFavorite = isFavorite
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
