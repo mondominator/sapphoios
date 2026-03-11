@@ -216,18 +216,51 @@ struct AudiobookCard: View {
 
                     Spacer()
 
-                    // Bottom: progress bar
-                    if progressPercent > 0 {
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.5))
-                                Rectangle()
-                                    .fill(Color.sapphoPrimary)
-                                    .frame(width: geo.size.width * progressPercent)
+                    // Bottom row: rating badge + progress bar
+                    VStack(spacing: 0) {
+                        HStack {
+                            // Completed checkmark (bottom-left)
+                            if audiobook.progress?.completed == 1 {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.sapphoSuccess)
+                                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                                    .padding(6)
+                            }
+
+                            Spacer()
+
+                            // Rating badge (bottom-right)
+                            if let rating = audiobook.userRating ?? audiobook.averageRating, rating > 0 {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "star.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.sapphoWarning)
+                                    Text(String(format: "%.1f", rating))
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(4)
+                                .padding(6)
                             }
                         }
-                        .frame(height: 4)
+
+                        // Progress bar
+                        if progressPercent > 0 {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(Color.black.opacity(0.5))
+                                    Rectangle()
+                                        .fill(audiobook.progress?.completed == 1 ? Color.sapphoSuccess : Color.sapphoPrimary)
+                                        .frame(width: geo.size.width * progressPercent)
+                                }
+                            }
+                            .frame(height: 4)
+                        }
                     }
                 }
             }

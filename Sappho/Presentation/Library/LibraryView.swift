@@ -14,6 +14,8 @@ enum LibrarySortOption: String, CaseIterable {
     case series = "Series"
     case dateAdded = "Date Added"
     case progress = "Progress"
+    case duration = "Duration"
+    case rating = "Rating"
 
     var icon: String {
         switch self {
@@ -22,6 +24,26 @@ enum LibrarySortOption: String, CaseIterable {
         case .series: return "books.vertical"
         case .dateAdded: return "calendar"
         case .progress: return "chart.bar"
+        case .duration: return "clock"
+        case .rating: return "star"
+        }
+    }
+}
+
+enum LibraryFilterOption: String, CaseIterable {
+    case all = "All"
+    case hideFinished = "Hide Finished"
+    case inProgress = "In Progress"
+    case notStarted = "Not Started"
+    case finished = "Finished"
+
+    var icon: String {
+        switch self {
+        case .all: return "books.vertical"
+        case .hideFinished: return "eye.slash"
+        case .inProgress: return "play.circle"
+        case .notStarted: return "circle"
+        case .finished: return "checkmark.circle"
         }
     }
 }
@@ -34,6 +56,7 @@ struct LibraryView: View {
     @State private var errorMessage: String?
     @State private var sortOption: LibrarySortOption = .title
     @State private var sortAscending = true
+    @State private var filterOption: LibraryFilterOption = .all
 
     var body: some View {
         NavigationStack {
@@ -84,8 +107,23 @@ struct LibraryView: View {
         }
     }
 
+    private var filteredAudiobooks: [Audiobook] {
+        switch filterOption {
+        case .all:
+            return audiobooks
+        case .hideFinished:
+            return audiobooks.filter { $0.progress?.completed != 1 }
+        case .inProgress:
+            return audiobooks.filter { ($0.progress?.position ?? 0) > 0 && $0.progress?.completed != 1 }
+        case .notStarted:
+            return audiobooks.filter { ($0.progress?.position ?? 0) == 0 && $0.progress?.completed != 1 }
+        case .finished:
+            return audiobooks.filter { $0.progress?.completed == 1 }
+        }
+    }
+
     private var sortedAudiobooks: [Audiobook] {
-        let sorted = audiobooks.sorted { (a: Audiobook, b: Audiobook) -> Bool in
+        let sorted = filteredAudiobooks.sorted { (a: Audiobook, b: Audiobook) -> Bool in
             switch sortOption {
             case .title:
                 return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
@@ -105,6 +143,12 @@ struct LibraryView: View {
                 let progressA = Double(a.progress?.position ?? 0) / Double(max(a.duration ?? 1, 1))
                 let progressB = Double(b.progress?.position ?? 0) / Double(max(b.duration ?? 1, 1))
                 return progressA < progressB
+            case .duration:
+                return (a.duration ?? 0) < (b.duration ?? 0)
+            case .rating:
+                let ratingA = a.userRating ?? a.averageRating ?? 0
+                let ratingB = b.userRating ?? b.averageRating ?? 0
+                return ratingA < ratingB
             }
         }
         return sortAscending ? sorted : sorted.reversed()
@@ -128,8 +172,8 @@ struct LibraryView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Sort controls
-                        HStack(spacing: 12) {
+                        // Sort and filter controls
+                        HStack(spacing: 8) {
                             Menu {
                                 ForEach(LibrarySortOption.allCases, id: \.self) { option in
                                     Button {
@@ -165,9 +209,37 @@ struct LibraryView: View {
                                 .cornerRadius(8)
                             }
 
+                            Menu {
+                                ForEach(LibraryFilterOption.allCases, id: \.self) { option in
+                                    Button {
+                                        filterOption = option
+                                    } label: {
+                                        Label {
+                                            Text(option.rawValue)
+                                        } icon: {
+                                            if filterOption == option {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: filterOption == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                                        .font(.system(size: 14))
+                                    Text(filterOption.rawValue)
+                                        .font(.sapphoCaption)
+                                }
+                                .foregroundColor(filterOption == .all ? .sapphoTextMuted : .sapphoPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.sapphoSurface)
+                                .cornerRadius(8)
+                            }
+
                             Spacer()
 
-                            Text("\(audiobooks.count) books")
+                            Text("\(sortedAudiobooks.count) books")
                                 .font(.sapphoCaption)
                                 .foregroundColor(.sapphoTextMuted)
                         }

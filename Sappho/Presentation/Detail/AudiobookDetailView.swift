@@ -201,11 +201,15 @@ struct AudiobookDetailView: View {
     // MARK: - Rating Section
     private var ratingSection: some View {
         VStack(spacing: 8) {
-            // Star rating
+            // Star rating (tap same star to clear)
             HStack(spacing: 12) {
                 ForEach(1...5, id: \.self) { star in
                     Button {
-                        Task { await setRating(star) }
+                        if userRating == star {
+                            Task { await clearRating() }
+                        } else {
+                            Task { await setRating(star) }
+                        }
                     } label: {
                         Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
                             .font(.system(size: 28))
@@ -346,6 +350,27 @@ struct AudiobookDetailView: View {
                         }
                         .frame(height: 4)
                         .cornerRadius(2)
+                    }
+
+                    // Current chapter info
+                    if let chapters = displayBook.chapters, !chapters.isEmpty {
+                        let currentChapter = chapters.last { $0.startTime <= Double(progress.position) }
+                        if let chapter = currentChapter {
+                            let chapterIndex = chapters.firstIndex(where: { $0.startTime == chapter.startTime }) ?? 0
+                            HStack(spacing: 6) {
+                                Image(systemName: "bookmark.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.sapphoPrimary)
+                                Text(chapter.title ?? "Chapter \(chapterIndex + 1)")
+                                    .font(.sapphoSmall)
+                                    .foregroundColor(.sapphoTextMuted)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text("\(chapterIndex + 1) of \(chapters.count)")
+                                    .font(.sapphoSmall)
+                                    .foregroundColor(.sapphoTextMuted)
+                            }
+                        }
                     }
                 }
                 .padding(16)
