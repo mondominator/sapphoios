@@ -400,12 +400,13 @@ struct AudiobookDetailView: View {
     @ViewBuilder
     private var descriptionSection: some View {
         if let description = displayBook.description, !description.isEmpty {
+            let cleanText = stripHTML(description)
             VStack(alignment: .leading, spacing: 8) {
                 Text("About")
                     .font(.sapphoHeadline)
                     .foregroundColor(.sapphoTextHigh)
 
-                Text(description)
+                Text(cleanText)
                     .font(.sapphoBody)
                     .foregroundColor(.sapphoTextMedium)
                     .lineLimit(descriptionExpanded ? nil : 4)
@@ -423,6 +424,31 @@ struct AudiobookDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
         }
+    }
+
+    private func stripHTML(_ html: String) -> String {
+        guard html.contains("<") else { return html }
+        // Replace common HTML entities
+        var text = html
+            .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(of: "<br/>", with: "\n")
+            .replacingOccurrences(of: "<br />", with: "\n")
+            .replacingOccurrences(of: "</p>", with: "\n")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+        // Strip remaining HTML tags
+        while let range = text.range(of: "<[^>]+>", options: .regularExpression) {
+            text.removeSubrange(range)
+        }
+        // Collapse multiple newlines
+        while text.contains("\n\n\n") {
+            text = text.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isCurrentlyPlaying: Bool {

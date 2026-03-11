@@ -45,6 +45,9 @@ struct SeriesListView: View {
                     .padding(16)
                     .padding(.bottom, 100) // Space for mini player
                 }
+                .refreshable {
+                    await loadData()
+                }
             }
         }
         .background(Color.sapphoBackground)

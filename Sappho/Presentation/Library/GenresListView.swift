@@ -42,6 +42,9 @@ struct GenresListView: View {
                     .padding(16)
                     .padding(.bottom, 100)
                 }
+                .refreshable {
+                    await loadData()
+                }
             }
         }
         .background(Color.sapphoBackground)
