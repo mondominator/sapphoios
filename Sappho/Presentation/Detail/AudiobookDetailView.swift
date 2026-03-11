@@ -19,6 +19,7 @@ struct AudiobookDetailView: View {
     @State private var showShareSheet = false
     @State private var showChaptersSheet = false
     @State private var showMoreMenu = false
+    @State private var descriptionExpanded = false
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -407,7 +408,17 @@ struct AudiobookDetailView: View {
                 Text(description)
                     .font(.sapphoBody)
                     .foregroundColor(.sapphoTextMedium)
-                    .lineLimit(nil)
+                    .lineLimit(descriptionExpanded ? nil : 4)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        descriptionExpanded.toggle()
+                    }
+                } label: {
+                    Text(descriptionExpanded ? "Show Less" : "Show More")
+                        .font(.sapphoCaption)
+                        .foregroundColor(.sapphoPrimary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)

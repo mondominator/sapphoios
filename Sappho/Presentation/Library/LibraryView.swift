@@ -129,7 +129,7 @@ struct LibraryView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         // Sort controls
-                        HStack {
+                        HStack(spacing: 12) {
                             Menu {
                                 ForEach(LibrarySortOption.allCases, id: \.self) { option in
                                     Button {
@@ -188,6 +188,9 @@ struct LibraryView: View {
                         .padding(16)
                         .padding(.bottom, 100) // Space for mini player
                     }
+                }
+                .refreshable {
+                    await loadData()
                 }
                 .navigationDestination(for: Audiobook.self) { audiobook in
                     AudiobookDetailView(audiobook: audiobook)

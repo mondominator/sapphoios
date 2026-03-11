@@ -78,12 +78,133 @@ struct ProfileView: View {
 
                             LazyVGrid(columns: [
                                 GridItem(.flexible()),
+                                GridItem(.flexible()),
                                 GridItem(.flexible())
-                            ], spacing: 16) {
-                                StatCard(title: "Books Started", value: "\(stats.booksStarted)")
-                                StatCard(title: "Books Completed", value: "\(stats.booksCompleted)")
-                                StatCard(title: "Listen Time", value: formatDuration(stats.totalListenTime))
-                                StatCard(title: "Current Streak", value: "\(stats.currentStreak) days")
+                            ], spacing: 12) {
+                                StatCard(title: "Listened", value: formatDuration(stats.totalListenTime))
+                                StatCard(title: "Finished", value: "\(stats.booksCompleted)")
+                                StatCard(title: "In Progress", value: "\(stats.currentlyListening)")
+                            }
+
+                            LazyVGrid(columns: [
+                                GridItem(.flexible()),
+                                GridItem(.flexible()),
+                                GridItem(.flexible())
+                            ], spacing: 12) {
+                                StatCard(title: "Started", value: "\(stats.booksStarted)")
+                                StatCard(title: "Streak", value: "\(stats.currentStreak)d")
+                                StatCard(title: "Active Days", value: "\(stats.activeDaysLast30)")
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+
+                    // Top Authors
+                    if let stats = stats, !stats.topAuthors.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Top Authors")
+                                .font(.sapphoHeadline)
+                                .foregroundColor(.sapphoTextHigh)
+
+                            ForEach(stats.topAuthors.prefix(3), id: \.author) { stat in
+                                HStack {
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.sapphoPrimary)
+                                        .frame(width: 24)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(stat.author)
+                                            .font(.sapphoSubheadline)
+                                            .foregroundColor(.sapphoTextHigh)
+                                        Text("\(stat.bookCount) books · \(formatDuration(stat.listenTime)) listened")
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoTextMuted)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .background(Color.sapphoSurface)
+                                .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+
+                    // Top Genres
+                    if let stats = stats, !stats.topGenres.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Top Genres")
+                                .font(.sapphoHeadline)
+                                .foregroundColor(.sapphoTextHigh)
+
+                            ForEach(stats.topGenres.prefix(3), id: \.genre) { stat in
+                                HStack {
+                                    Image(systemName: "tag.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.sapphoWarning)
+                                        .frame(width: 24)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(stat.genre)
+                                            .font(.sapphoSubheadline)
+                                            .foregroundColor(.sapphoTextHigh)
+                                        Text("\(stat.bookCount) books · \(formatDuration(stat.listenTime)) listened")
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoTextMuted)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .background(Color.sapphoSurface)
+                                .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+
+                    // Recent Activity
+                    if let stats = stats, !stats.recentActivity.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recent Activity")
+                                .font(.sapphoHeadline)
+                                .foregroundColor(.sapphoTextHigh)
+
+                            ForEach(stats.recentActivity.prefix(5)) { activity in
+                                HStack(spacing: 12) {
+                                    CoverImage(audiobookId: activity.id, cornerRadius: 6)
+                                        .frame(width: 44, height: 44)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(activity.title)
+                                            .font(.sapphoSubheadline)
+                                            .foregroundColor(.sapphoTextHigh)
+                                            .lineLimit(1)
+
+                                        HStack(spacing: 4) {
+                                            if activity.completed == 1 {
+                                                Text("Completed")
+                                                    .foregroundColor(.sapphoSuccess)
+                                            } else if let duration = activity.duration, duration > 0 {
+                                                Text("\(Int(Double(activity.position) / Double(duration) * 100))%")
+                                                    .foregroundColor(.sapphoPrimary)
+                                            }
+
+                                            if let author = activity.author {
+                                                Text("· \(author)")
+                                                    .foregroundColor(.sapphoTextMuted)
+                                            }
+                                        }
+                                        .font(.sapphoSmall)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .background(Color.sapphoSurface)
+                                .cornerRadius(10)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -193,11 +314,19 @@ struct ProfileView: View {
 
     private func formatDuration(_ seconds: Int) -> String {
         let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
         if hours >= 24 {
             let days = hours / 24
+            let remainingHours = hours % 24
+            if remainingHours > 0 {
+                return "\(days)d \(remainingHours)h"
+            }
             return "\(days)d"
         }
-        return "\(hours)h"
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
     }
 }
 
@@ -207,17 +336,19 @@ struct StatCard: View {
     let value: String
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Text(value)
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoPrimary)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
 
             Text(title)
                 .font(.sapphoSmall)
                 .foregroundColor(.sapphoTextMuted)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .background(Color.sapphoSurface)
         .cornerRadius(12)
     }
