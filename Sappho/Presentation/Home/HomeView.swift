@@ -14,6 +14,16 @@ struct HomeView: View {
     @State private var errorMessage: String?
     @State private var isOffline = false
 
+    private var downloadedBooks: [Audiobook] {
+        let dm = DownloadManager.shared
+        let allBooks = continueListening + upNext + recentlyAdded + listenAgain
+        let uniqueIds = Set(allBooks.map { $0.id })
+        return uniqueIds.compactMap { id in
+            guard dm.isDownloaded(id) else { return nil }
+            return allBooks.first { $0.id == id }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -79,8 +89,16 @@ struct HomeView: View {
                             )
                         }
 
+                        // Downloaded
+                        if !downloadedBooks.isEmpty {
+                            AudiobookSection(
+                                title: "Downloaded",
+                                audiobooks: downloadedBooks
+                            )
+                        }
+
                         // Empty state
-                        if continueListening.isEmpty && recentlyAdded.isEmpty && listenAgain.isEmpty && upNext.isEmpty {
+                        if continueListening.isEmpty && recentlyAdded.isEmpty && listenAgain.isEmpty && upNext.isEmpty && downloadedBooks.isEmpty {
                             EmptyStateView(
                                 icon: "books.vertical",
                                 title: "No Audiobooks Yet",

@@ -287,23 +287,41 @@ struct AudiobookDetailView: View {
 
     // MARK: - Play Button
     private var playButton: some View {
-        Button {
-            Task {
-                await audioPlayer.play(audiobook: displayBook)
+        HStack(spacing: 12) {
+            // Play/Continue button
+            Button {
+                Task {
+                    await audioPlayer.play(audiobook: displayBook)
+                }
+                showPlayer = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 18))
+                    Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
+                        .font(.sapphoSubheadline)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.sapphoPrimary)
+                .cornerRadius(12)
             }
-            showPlayer = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 18))
-                Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
-                    .font(.sapphoSubheadline)
+
+            // Download button
+            Button {
+                handleDownloadTap()
+            } label: {
+                VStack(spacing: 4) {
+                    downloadIcon
+                    Text(downloadLabel)
+                        .font(.system(size: 10))
+                        .foregroundColor(.sapphoTextMuted)
+                }
+                .frame(width: 64, height: 56)
+                .background(Color.sapphoSurface)
+                .cornerRadius(12)
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(Color.sapphoPrimary)
-            .cornerRadius(12)
         }
         .padding(.horizontal, 16)
     }

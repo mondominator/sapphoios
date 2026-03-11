@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var stats: UserStats?
     @State private var isLoading = true
     @State private var showLogoutConfirmation = false
+    @State private var serverVersion: String?
 
     var body: some View {
         NavigationStack {
@@ -276,10 +277,17 @@ struct ProfileView: View {
 
                     // Server Info
                     if let serverURL = authRepository.serverURL {
-                        Text("Connected to: \(serverURL.host ?? serverURL.absoluteString)")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoTextMuted)
-                            .padding(.top, 8)
+                        VStack(spacing: 4) {
+                            Text("Connected to: \(serverURL.host ?? serverURL.absoluteString)")
+                                .font(.sapphoSmall)
+                                .foregroundColor(.sapphoTextMuted)
+                            if let version = serverVersion {
+                                Text("Server v\(version)")
+                                    .font(.sapphoSmall)
+                                    .foregroundColor(.sapphoTextMuted)
+                            }
+                        }
+                        .padding(.top, 8)
                     }
                 }
                 .padding(.vertical, 16)
@@ -308,6 +316,14 @@ struct ProfileView: View {
             stats = try await api?.getProfileStats()
         } catch {
             print("Failed to load stats: \(error)")
+        }
+
+        // Load server version
+        do {
+            let health = try await api?.getHealth()
+            serverVersion = health?.version
+        } catch {
+            print("Failed to load server version: \(error)")
         }
         isLoading = false
     }
