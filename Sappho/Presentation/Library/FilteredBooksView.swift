@@ -13,6 +13,7 @@ struct FilteredBooksView: View {
     @State private var audiobooks: [Audiobook] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var showRecapSheet = false
 
     let title: String
     let filterType: FilterType
@@ -51,6 +52,9 @@ struct FilteredBooksView: View {
                     .padding(16)
                     .padding(.bottom, 100)
                 }
+                .refreshable {
+                    await loadData()
+                }
             }
         }
         .background(Color.sapphoBackground)
@@ -58,9 +62,30 @@ struct FilteredBooksView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            if case .series = filterType, hasProgress {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showRecapSheet = true
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.sapphoPrimary)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showRecapSheet) {
+            if case .series(let seriesName) = filterType {
+                SeriesRecapSheet(seriesName: seriesName)
+            }
+        }
         .task {
             await loadData()
         }
+    }
+
+    private var hasProgress: Bool {
+        audiobooks.contains { ($0.progress?.position ?? 0) > 0 || $0.progress?.completed == 1 }
     }
 
     private func loadData() async {
@@ -311,6 +336,120 @@ struct BookListItem: View {
             return String(format: "%.0f", position)
         }
         return String(format: "%.1f", position)
+    }
+}
+
+// MARK: - Series Recap Sheet
+struct SeriesRecapSheet: View {
+    @Environment(\.sapphoAPI) private var api
+    @Environment(\.dismiss) private var dismiss
+    let seriesName: String
+
+    @State private var recap: SeriesRecapResponse?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Generating your personalized recap...")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = errorMessage {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.sapphoWarning)
+                        Text(error)
+                            .font(.sapphoBody)
+                            .foregroundColor(.sapphoTextMuted)
+                            .multilineTextAlignment(.center)
+                        Button("Try Again") {
+                            Task { await loadRecap() }
+                        }
+                        .buttonStyle(SapphoPrimaryButtonStyle())
+                    }
+                    .padding(32)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let recap = recap {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if recap.cached {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.system(size: 12))
+                                    Text("Cached recap")
+                                        .font(.sapphoSmall)
+                                }
+                                .foregroundColor(.sapphoTextMuted)
+                            }
+
+                            Text(recap.recap)
+                                .font(.sapphoBody)
+                                .foregroundColor(.sapphoTextHigh)
+                                .lineSpacing(4)
+
+                            if !recap.booksIncluded.isEmpty {
+                                Divider()
+                                    .background(Color.sapphoSurface)
+
+                                Text("Books covered:")
+                                    .font(.sapphoCaption)
+                                    .foregroundColor(.sapphoTextMuted)
+
+                                ForEach(recap.booksIncluded) { book in
+                                    HStack(spacing: 8) {
+                                        if let pos = book.position {
+                                            Text("#\(String(format: "%.0f", pos))")
+                                                .font(.sapphoSmall)
+                                                .foregroundColor(.sapphoPrimary)
+                                                .frame(width: 30)
+                                        }
+                                        Text(book.title)
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoTextMedium)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .background(Color.sapphoBackground)
+            .navigationTitle("Catch Me Up")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.sapphoSurface, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .task {
+            await loadRecap()
+        }
+    }
+
+    private func loadRecap() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            recap = try await api?.getSeriesRecap(seriesName: seriesName)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
     }
 }
 
