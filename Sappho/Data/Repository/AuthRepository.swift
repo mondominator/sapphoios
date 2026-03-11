@@ -8,9 +8,14 @@ class AuthRepository {
     private(set) var serverURL: URL?
     private(set) var token: String?
     private(set) var currentUser: User?
+    private(set) var currentLoginUser: LoginUser?
 
     var isAuthenticated: Bool {
         token != nil && serverURL != nil
+    }
+
+    var isAdmin: Bool {
+        currentUser?.isAdminUser ?? currentLoginUser?.isAdminUser ?? false
     }
 
     init() {
@@ -26,17 +31,21 @@ class AuthRepository {
         if let userData = keychain.getData("currentUser") {
             currentUser = try? JSONDecoder().decode(User.self, from: userData)
         }
+        if let loginUserData = keychain.getData("currentLoginUser") {
+            currentLoginUser = try? JSONDecoder().decode(LoginUser.self, from: loginUserData)
+        }
     }
 
-    func store(serverURL: URL, token: String, user: User) {
+    func store(serverURL: URL, token: String, user: LoginUser) {
         self.serverURL = serverURL
         self.token = token
-        self.currentUser = user
+        self.currentLoginUser = user
+        self.currentUser = nil // Will be loaded from profile later
 
         keychain.set(serverURL.absoluteString, forKey: "serverURL")
         keychain.set(token, forKey: "authToken")
         if let userData = try? JSONEncoder().encode(user) {
-            keychain.setData(userData, forKey: "currentUser")
+            keychain.setData(userData, forKey: "currentLoginUser")
         }
     }
 
@@ -51,10 +60,12 @@ class AuthRepository {
         serverURL = nil
         token = nil
         currentUser = nil
+        currentLoginUser = nil
 
         keychain.delete("serverURL")
         keychain.delete("authToken")
         keychain.delete("currentUser")
+        keychain.delete("currentLoginUser")
     }
 }
 

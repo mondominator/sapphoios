@@ -75,6 +75,9 @@ struct HomeView: View {
             .refreshable {
                 await loadData()
             }
+            .navigationDestination(for: Audiobook.self) { audiobook in
+                AudiobookDetailView(audiobook: audiobook)
+            }
         }
         .task {
             await loadData()
@@ -128,9 +131,6 @@ struct AudiobookSection: View {
                 .padding(.horizontal, 16)
             }
         }
-        .navigationDestination(for: Audiobook.self) { audiobook in
-            AudiobookDetailView(audiobook: audiobook)
-        }
     }
 }
 
@@ -140,29 +140,79 @@ struct AudiobookCard: View {
     let audiobook: Audiobook
 
     private let cardWidth: CGFloat = 140
-    private let coverHeight: CGFloat = 200
+    private let coverHeight: CGFloat = 140  // Square covers like audiobook art
+
+    private var downloadManager: DownloadManager { DownloadManager.shared }
+    private var isDownloaded: Bool { downloadManager.isDownloaded(audiobook.id) }
+
+    private var progressPercent: Double {
+        guard let progress = audiobook.progress,
+              let duration = audiobook.duration,
+              duration > 0 else { return 0 }
+        return Double(progress.position) / Double(duration)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Cover Image
-            AsyncImage(url: api?.coverURL(for: audiobook.id)) { phase in
-                switch phase {
-                case .success(let image):
+            // Cover Image with overlays
+            ZStack {
+                // Cover image
+                AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                case .failure:
+                } placeholder: {
                     coverPlaceholder
-                case .empty:
-                    coverPlaceholder
-                        .overlay(ProgressView())
-                @unknown default:
-                    coverPlaceholder
+                }
+                .frame(width: cardWidth, height: coverHeight)
+                .clipped()
+
+                // Overlay container
+                VStack(spacing: 0) {
+                    // Top row: badges
+                    HStack(alignment: .top) {
+                        // Reading list ribbon (top-left)
+                        if audiobook.isQueued == true {
+                            Image(systemName: "bookmark.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(6)
+                                .background(Color.sapphoPrimary)
+                        }
+
+                        Spacer()
+
+                        // Status badges (top-right)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            if audiobook.isFavorite == true {
+                                statusBadge(icon: "heart.fill", color: .sapphoError)
+                            }
+                            if isDownloaded {
+                                statusBadge(icon: "arrow.down.circle.fill", color: .sapphoSuccess)
+                            }
+                        }
+                        .padding(6)
+                    }
+
+                    Spacer()
+
+                    // Bottom: progress bar
+                    if progressPercent > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.black.opacity(0.5))
+                                Rectangle()
+                                    .fill(Color.sapphoPrimary)
+                                    .frame(width: geo.size.width * progressPercent)
+                            }
+                        }
+                        .frame(height: 4)
+                    }
                 }
             }
             .frame(width: cardWidth, height: coverHeight)
             .cornerRadius(8)
-            .clipped()
 
             // Title
             Text(audiobook.title)
@@ -178,12 +228,6 @@ struct AudiobookCard: View {
                     .foregroundColor(.sapphoTextMuted)
                     .lineLimit(1)
             }
-
-            // Progress bar (if in progress)
-            if let progress = audiobook.progress, let duration = audiobook.duration, duration > 0 {
-                ProgressView(value: Double(progress.position), total: Double(duration))
-                    .tint(.sapphoPrimary)
-            }
         }
         .frame(width: cardWidth)
     }
@@ -196,6 +240,16 @@ struct AudiobookCard: View {
                     .font(.system(size: 32))
                     .foregroundColor(.sapphoTextMuted)
             )
+    }
+
+    private func statusBadge(icon: String, color: Color) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(.white)
+            .padding(4)
+            .background(color)
+            .clipShape(Circle())
+            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
     }
 }
 

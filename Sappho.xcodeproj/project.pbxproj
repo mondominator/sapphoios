@@ -11,6 +11,8 @@
 		0E910386749D27DA69B74339 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B193F831F3EF80C680572FD /* PlayerView.swift */; };
 		0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E33C4FB6DC3423B9A8C4070 /* Theme.swift */; };
 		30DA676E75A9B17228E2DAB5 /* CastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C7B4AA93A45527EBA9022C6 /* CastManager.swift */; };
+		392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */; };
+		454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28474CB2464BD5FF1D9330CC /* ReadingListView.swift */; };
 		4CC985518B90E1A33CF148A3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F037A7D40D68AB3F9615452A /* AppDelegate.swift */; };
 		4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657E1B7511077F283C3F1972 /* AuthRepository.swift */; };
 		52DB44178852809417DBFFA9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7495FDDA796DFDA34333C7C8 /* RootView.swift */; };
@@ -21,13 +23,18 @@
 		8058DFFACF970A9CDC969555 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9320ADDDF94250E660D31DB /* MainView.swift */; };
 		8B8E0A256739691D43C89701 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F48F2CFDFCC70987046A9B8 /* Assets.xcassets */; };
 		95BF144D4EA9CA249A1C5515 /* SapphoAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */; };
+		99D95DB457A584F9C3C6C62A /* AuthorsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F973549065F7560B78B676B9 /* AuthorsListView.swift */; };
 		9D4B268891CF6DD0EF34DFD2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C85AAC170684901D9362C63 /* HomeView.swift */; };
 		A11119800473DFAE129D39A0 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22ACA0246E31FF6761AD235 /* Models.swift */; };
 		A81AA307CFA1EA9436EA01D4 /* AudiobookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */; };
+		AA216E7956ED6D234CE5BCF0 /* CollectionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */; };
+		BE70E78ECA5538D104C503E1 /* GenresListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F45DCB33D32E30D66D44B8C /* GenresListView.swift */; };
 		C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C36F9F36890A672725A97E /* ProfileView.swift */; };
+		C7F175B4645DE4A87C07210A /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFA9AB83C26D3F6BA04B15D2 /* FavoritesView.swift */; };
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
+		FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,9 +58,13 @@
 		0334889B3C2A16A4E53AFFA1 /* SapphoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoTests.swift; sourceTree = "<group>"; };
 		09D48DA2D1495E05D31E31B2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		1C5C653DEA9849EE3405ACDA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeriesListView.swift; sourceTree = "<group>"; };
+		28474CB2464BD5FF1D9330CC /* ReadingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListView.swift; sourceTree = "<group>"; };
+		2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilteredBooksView.swift; sourceTree = "<group>"; };
 		3D92DBB5FC2E3AFA18DCBD17 /* SapphoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C85AAC170684901D9362C63 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		550305815B68B533E1045145 /* SapphoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoUITests.swift; sourceTree = "<group>"; };
+		5F45DCB33D32E30D66D44B8C /* GenresListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenresListView.swift; sourceTree = "<group>"; };
 		657E1B7511077F283C3F1972 /* AuthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepository.swift; sourceTree = "<group>"; };
 		6F48F2CFDFCC70987046A9B8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7495FDDA796DFDA34333C7C8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -64,14 +75,17 @@
 		8E33C4FB6DC3423B9A8C4070 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8F10CE90321BE63745D3C229 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
 		90C36F9F36890A672725A97E /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsListView.swift; sourceTree = "<group>"; };
 		AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPI.swift; sourceTree = "<group>"; };
 		B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
 		D9320ADDDF94250E660D31DB /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		DFA9AB83C26D3F6BA04B15D2 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoApp.swift; sourceTree = "<group>"; };
 		E22ACA0246E31FF6761AD235 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		E71CC13BFD5841B345761EE1 /* Sappho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sappho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F037A7D40D68AB3F9615452A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F7858DAA70E3FAA3B5222C61 /* Sappho.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sappho.entitlements; sourceTree = "<group>"; };
+		F973549065F7560B78B676B9 /* AuthorsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorsListView.swift; sourceTree = "<group>"; };
 		FA1C682221B24D9124ECE67C /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		FF8699D8C7A20599416FDDD8 /* SapphoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -123,7 +137,9 @@
 		2446AB170B42CACBFB1DD2AA /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				DFA9AB83C26D3F6BA04B15D2 /* FavoritesView.swift */,
 				90C36F9F36890A672725A97E /* ProfileView.swift */,
+				28474CB2464BD5FF1D9330CC /* ReadingListView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -229,7 +245,12 @@
 		94FBFF175431737DE9E5BA75 /* Library */ = {
 			isa = PBXGroup;
 			children = (
+				F973549065F7560B78B676B9 /* AuthorsListView.swift */,
+				A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */,
+				2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */,
+				5F45DCB33D32E30D66D44B8C /* GenresListView.swift */,
 				769547B62C0F087079C253F5 /* LibraryView.swift */,
+				1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -356,9 +377,11 @@
 					};
 					B6DA1D9C58CEB517033A9FCF = {
 						DevelopmentTeam = NR8DLKJ7E6;
+						ProvisioningStyle = Automatic;
 					};
 					BE189DB207BB8203575B74B0 = {
 						DevelopmentTeam = NR8DLKJ7E6;
+						ProvisioningStyle = Automatic;
 						TestTargetID = B57CFE5E1E5B573FDDD04963;
 					};
 				};
@@ -419,8 +442,13 @@
 				67ED1EFEE720295DCA598959 /* AudioPlayerService.swift in Sources */,
 				A81AA307CFA1EA9436EA01D4 /* AudiobookDetailView.swift in Sources */,
 				4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */,
+				99D95DB457A584F9C3C6C62A /* AuthorsListView.swift in Sources */,
 				30DA676E75A9B17228E2DAB5 /* CastManager.swift in Sources */,
+				AA216E7956ED6D234CE5BCF0 /* CollectionsListView.swift in Sources */,
 				C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */,
+				C7F175B4645DE4A87C07210A /* FavoritesView.swift in Sources */,
+				392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */,
+				BE70E78ECA5538D104C503E1 /* GenresListView.swift in Sources */,
 				9D4B268891CF6DD0EF34DFD2 /* HomeView.swift in Sources */,
 				E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */,
 				731015E6B088ED705983ACE5 /* LoginView.swift in Sources */,
@@ -428,10 +456,12 @@
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,
 				0E910386749D27DA69B74339 /* PlayerView.swift in Sources */,
 				C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */,
+				454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */,
 				52DB44178852809417DBFFA9 /* RootView.swift in Sources */,
 				95BF144D4EA9CA249A1C5515 /* SapphoAPI.swift in Sources */,
 				D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */,
 				06CCCC6A13B73DFE6E972DC5 /* SearchView.swift in Sources */,
+				FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */,
 				0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -520,6 +550,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -536,6 +568,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -610,7 +644,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
@@ -629,6 +663,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -646,7 +682,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
@@ -665,6 +701,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NR8DLKJ7E6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

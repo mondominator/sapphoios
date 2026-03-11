@@ -9,8 +9,10 @@ struct Audiobook: Codable, Identifiable, Hashable {
     let narrator: String?
     let series: String?
     let seriesPosition: Float?
+    let seriesIndex: Float?
     let duration: Int?
     let genre: String?
+    let normalizedGenre: String?
     let tags: String?
     let publishYear: Int?
     let copyrightYear: Int?
@@ -30,11 +32,15 @@ struct Audiobook: Codable, Identifiable, Hashable {
     let progress: Progress?
     let chapters: [Chapter]?
     let isFavorite: Bool
+    let isQueued: Bool?
+    let lastPlayed: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, subtitle, author, narrator, series, duration, genre, tags
         case publisher, isbn, asin, language, rating, description, chapters
         case seriesPosition = "series_position"
+        case seriesIndex = "series_index"
+        case normalizedGenre = "normalized_genre"
         case publishYear = "published_year"
         case copyrightYear = "copyright_year"
         case userRating = "user_rating"
@@ -46,6 +52,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
         case createdAt = "created_at"
         case progress
         case isFavorite = "is_favorite"
+        case isQueued = "is_queued"
+        case lastPlayed = "last_played"
     }
 
     init(from decoder: Decoder) throws {
@@ -57,8 +65,10 @@ struct Audiobook: Codable, Identifiable, Hashable {
         narrator = try container.decodeIfPresent(String.self, forKey: .narrator)
         series = try container.decodeIfPresent(String.self, forKey: .series)
         seriesPosition = try container.decodeIfPresent(Float.self, forKey: .seriesPosition)
+        seriesIndex = try container.decodeIfPresent(Float.self, forKey: .seriesIndex)
         duration = try container.decodeIfPresent(Int.self, forKey: .duration)
         genre = try container.decodeIfPresent(String.self, forKey: .genre)
+        normalizedGenre = try container.decodeIfPresent(String.self, forKey: .normalizedGenre)
         tags = try container.decodeIfPresent(String.self, forKey: .tags)
         publishYear = try container.decodeIfPresent(Int.self, forKey: .publishYear)
         copyrightYear = try container.decodeIfPresent(Int.self, forKey: .copyrightYear)
@@ -66,7 +76,17 @@ struct Audiobook: Codable, Identifiable, Hashable {
         isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
         asin = try container.decodeIfPresent(String.self, forKey: .asin)
         language = try container.decodeIfPresent(String.self, forKey: .language)
-        rating = try container.decodeIfPresent(Float.self, forKey: .rating)
+
+        // rating can be String or Float from server
+        if let ratingFloat = try? container.decodeIfPresent(Float.self, forKey: .rating) {
+            rating = ratingFloat
+        } else if let ratingString = try? container.decodeIfPresent(String.self, forKey: .rating),
+                  let ratingFloat = Float(ratingString) {
+            rating = ratingFloat
+        } else {
+            rating = nil
+        }
+
         userRating = try container.decodeIfPresent(Float.self, forKey: .userRating)
         averageRating = try container.decodeIfPresent(Float.self, forKey: .averageRating)
         abridged = try container.decodeIfPresent(Int.self, forKey: .abridged)
@@ -77,7 +97,26 @@ struct Audiobook: Codable, Identifiable, Hashable {
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
         progress = try container.decodeIfPresent(Progress.self, forKey: .progress)
         chapters = try container.decodeIfPresent([Chapter].self, forKey: .chapters)
-        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+
+        // is_favorite can be Bool or Int (0/1) from server
+        if let favBool = try? container.decodeIfPresent(Bool.self, forKey: .isFavorite) {
+            isFavorite = favBool ?? false
+        } else if let favInt = try? container.decodeIfPresent(Int.self, forKey: .isFavorite) {
+            isFavorite = favInt == 1
+        } else {
+            isFavorite = false
+        }
+
+        // is_queued can be Bool or Int (0/1) from server
+        if let queuedBool = try? container.decodeIfPresent(Bool.self, forKey: .isQueued) {
+            isQueued = queuedBool
+        } else if let queuedInt = try? container.decodeIfPresent(Int.self, forKey: .isQueued) {
+            isQueued = queuedInt == 1
+        } else {
+            isQueued = nil
+        }
+
+        lastPlayed = try container.decodeIfPresent(String.self, forKey: .lastPlayed)
     }
 
     // Memberwise initializer for previews and testing
@@ -89,8 +128,10 @@ struct Audiobook: Codable, Identifiable, Hashable {
         narrator: String? = nil,
         series: String? = nil,
         seriesPosition: Float? = nil,
+        seriesIndex: Float? = nil,
         duration: Int? = nil,
         genre: String? = nil,
+        normalizedGenre: String? = nil,
         tags: String? = nil,
         publishYear: Int? = nil,
         copyrightYear: Int? = nil,
@@ -109,7 +150,9 @@ struct Audiobook: Codable, Identifiable, Hashable {
         createdAt: String = "",
         progress: Progress? = nil,
         chapters: [Chapter]? = nil,
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        isQueued: Bool? = nil,
+        lastPlayed: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -118,8 +161,10 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.narrator = narrator
         self.series = series
         self.seriesPosition = seriesPosition
+        self.seriesIndex = seriesIndex
         self.duration = duration
         self.genre = genre
+        self.normalizedGenre = normalizedGenre
         self.tags = tags
         self.publishYear = publishYear
         self.copyrightYear = copyrightYear
@@ -139,6 +184,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.progress = progress
         self.chapters = chapters
         self.isFavorite = isFavorite
+        self.isQueued = isQueued
+        self.lastPlayed = lastPlayed
     }
 
     func hash(into hasher: inout Hasher) {
@@ -158,6 +205,7 @@ struct Progress: Codable {
     let position: Int
     let completed: Int
     let lastListened: String?
+    let updatedAt: String?
     let currentChapter: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -165,7 +213,20 @@ struct Progress: Codable {
         case userId = "user_id"
         case audiobookId = "audiobook_id"
         case lastListened = "last_listened"
+        case updatedAt = "updated_at"
         case currentChapter = "current_chapter"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(Int.self, forKey: .id)
+        userId = try container.decodeIfPresent(Int.self, forKey: .userId)
+        audiobookId = try container.decodeIfPresent(Int.self, forKey: .audiobookId)
+        position = try container.decodeIfPresent(Int.self, forKey: .position) ?? 0
+        completed = try container.decodeIfPresent(Int.self, forKey: .completed) ?? 0
+        lastListened = try container.decodeIfPresent(String.self, forKey: .lastListened)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        currentChapter = try container.decodeIfPresent(Int.self, forKey: .currentChapter)
     }
 
     var isCompleted: Bool {
@@ -183,18 +244,35 @@ struct Progress: Codable {
 struct Chapter: Codable, Identifiable {
     let id: Int
     let audiobookId: Int
-    let fileId: Int
+    let chapterNumber: Int
+    let filePath: String?
     let startTime: Double
-    let endTime: Double?
+    let duration: Int?
+    let fileSize: Int?
     let title: String?
-    let duration: Double?
+    let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, duration
         case audiobookId = "audiobook_id"
-        case fileId = "file_id"
+        case chapterNumber = "chapter_number"
+        case filePath = "file_path"
         case startTime = "start_time"
-        case endTime = "end_time"
+        case fileSize = "file_size"
+        case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        audiobookId = try container.decode(Int.self, forKey: .audiobookId)
+        chapterNumber = try container.decodeIfPresent(Int.self, forKey: .chapterNumber) ?? 0
+        filePath = try container.decodeIfPresent(String.self, forKey: .filePath)
+        startTime = try container.decodeIfPresent(Double.self, forKey: .startTime) ?? 0
+        duration = try container.decodeIfPresent(Int.self, forKey: .duration)
+        fileSize = try container.decodeIfPresent(Int.self, forKey: .fileSize)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
     }
 }
 
@@ -206,12 +284,14 @@ struct User: Codable, Identifiable {
     let displayName: String?
     let isAdmin: Int
     let avatar: String?
+    let mustChangePassword: Bool?
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, username, email, avatar
         case displayName = "display_name"
         case isAdmin = "is_admin"
+        case mustChangePassword = "must_change_password"
         case createdAt = "created_at"
     }
 
@@ -223,7 +303,33 @@ struct User: Codable, Identifiable {
 // MARK: - Auth Response
 struct AuthResponse: Codable {
     let token: String
-    let user: User
+    let user: LoginUser
+    let mustChangePassword: Bool?
+    let mfaRequired: Bool?
+    let mfaToken: String?
+
+    enum CodingKeys: String, CodingKey {
+        case token, user
+        case mustChangePassword = "must_change_password"
+        case mfaRequired = "mfa_required"
+        case mfaToken = "mfa_token"
+    }
+}
+
+// MARK: - Login User (minimal user info returned from login)
+struct LoginUser: Codable {
+    let id: Int
+    let username: String
+    let isAdmin: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, username
+        case isAdmin = "is_admin"
+    }
+
+    var isAdminUser: Bool {
+        isAdmin == 1
+    }
 }
 
 // MARK: - Audiobooks Response
@@ -308,10 +414,21 @@ struct GenreInfo: Codable, Identifiable {
     let genre: String
     let count: Int
     let coverIds: [Int]
+    let color: String?
+    let icon: String?
 
     enum CodingKeys: String, CodingKey {
-        case genre, count
+        case genre, count, color, icon
         case coverIds = "cover_ids"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        genre = try container.decode(String.self, forKey: .genre)
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
+        coverIds = try container.decodeIfPresent([Int].self, forKey: .coverIds) ?? []
+        color = try container.decodeIfPresent(String.self, forKey: .color)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
     }
 }
 
@@ -320,10 +437,28 @@ struct SeriesInfo: Codable, Identifiable {
     var id: String { series }
     let series: String
     let bookCount: Int
+    let coverIds: [Int]
+    let completedCount: Int?
+    let averageRating: Float?
+    let ratingCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case series
         case bookCount = "book_count"
+        case coverIds = "cover_ids"
+        case completedCount = "completed_count"
+        case averageRating = "average_rating"
+        case ratingCount = "rating_count"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        series = try container.decode(String.self, forKey: .series)
+        bookCount = try container.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
+        coverIds = try container.decodeIfPresent([Int].self, forKey: .coverIds) ?? []
+        completedCount = try container.decodeIfPresent(Int.self, forKey: .completedCount)
+        averageRating = try container.decodeIfPresent(Float.self, forKey: .averageRating)
+        ratingCount = try container.decodeIfPresent(Int.self, forKey: .ratingCount)
     }
 }
 
@@ -332,10 +467,22 @@ struct AuthorInfo: Codable, Identifiable {
     var id: String { author }
     let author: String
     let bookCount: Int
+    let coverIds: [Int]
+    let completedCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case author
         case bookCount = "book_count"
+        case coverIds = "cover_ids"
+        case completedCount = "completed_count"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        author = try container.decode(String.self, forKey: .author)
+        bookCount = try container.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
+        coverIds = try container.decodeIfPresent([Int].self, forKey: .coverIds) ?? []
+        completedCount = try container.decodeIfPresent(Int.self, forKey: .completedCount)
     }
 }
 
@@ -422,4 +569,94 @@ struct HealthResponse: Codable {
     let status: String
     let message: String
     let version: String?
+}
+
+// MARK: - Collection Detail (single collection with books)
+struct CollectionDetail: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let description: String?
+    let userId: Int
+    let isPublic: Int?
+    let isOwner: Int?
+    let creatorUsername: String?
+    let createdAt: String?
+    let updatedAt: String?
+    let books: [Audiobook]
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, books
+        case userId = "user_id"
+        case isPublic = "is_public"
+        case isOwner = "is_owner"
+        case creatorUsername = "creator_username"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+// MARK: - Collection for Book (checking which collections contain a book)
+struct CollectionForBook: Codable, Identifiable {
+    let id: Int
+    let name: String
+    let isPublic: Int?
+    let userId: Int
+    let creatorUsername: String?
+    let containsBook: Int
+    let isOwner: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case isPublic = "is_public"
+        case userId = "user_id"
+        case creatorUsername = "creator_username"
+        case containsBook = "contains_book"
+        case isOwner = "is_owner"
+    }
+
+    var isInCollection: Bool {
+        containsBook == 1
+    }
+}
+
+// MARK: - Admin User
+struct AdminUser: Codable, Identifiable {
+    let id: Int
+    let username: String
+    let email: String?
+    let displayName: String?
+    let isAdmin: Int
+    let createdAt: String?
+    let lastLogin: String?
+    let isDisabled: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, email
+        case displayName = "display_name"
+        case isAdmin = "is_admin"
+        case createdAt = "created_at"
+        case lastLogin = "last_login"
+        case isDisabled = "is_disabled"
+    }
+
+    var isAdminUser: Bool {
+        isAdmin == 1
+    }
+
+    var isAccountDisabled: Bool {
+        isDisabled == 1
+    }
+}
+
+// MARK: - Scan Response
+struct ScanResponse: Codable {
+    let message: String
+    let newBooks: Int?
+    let totalBooks: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case newBooks = "new_books"
+        case totalBooks = "total_books"
+    }
 }

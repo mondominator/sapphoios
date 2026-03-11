@@ -83,6 +83,12 @@ class SapphoAPI {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
+            // Log raw response for debugging
+            if let json = String(data: data, encoding: .utf8) {
+                print("Decoding error for \(T.self):")
+                print("Response: \(json.prefix(500))")
+                print("Error: \(error)")
+            }
             throw APIError.decodingError(error)
         }
     }
@@ -172,23 +178,56 @@ class SapphoAPI {
     }
 
     func getRecentlyAdded(limit: Int = 10) async throws -> [Audiobook] {
+        // Returns array directly, not wrapped in { audiobooks: [...] }
         try await request("api/audiobooks/meta/recent", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
     }
 
     func getInProgress(limit: Int = 10) async throws -> [Audiobook] {
+        // Returns array directly, not wrapped in { audiobooks: [...] }
         try await request("api/audiobooks/meta/in-progress", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
     }
 
     func getFinished(limit: Int = 10) async throws -> [Audiobook] {
+        // Returns array directly, not wrapped in { audiobooks: [...] }
         try await request("api/audiobooks/meta/finished", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
     }
 
     func getUpNext(limit: Int = 10) async throws -> [Audiobook] {
+        // Returns array directly, not wrapped in { audiobooks: [...] }
         try await request("api/audiobooks/meta/up-next", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
     }
 
     func getGenres() async throws -> [GenreInfo] {
         try await request("api/audiobooks/meta/genres")
+    }
+
+    func getSeries() async throws -> [SeriesInfo] {
+        try await request("api/audiobooks/meta/series")
+    }
+
+    func getAuthors() async throws -> [AuthorInfo] {
+        try await request("api/audiobooks/meta/authors")
+    }
+
+    func getAudiobooksByGenre(_ genre: String) async throws -> [Audiobook] {
+        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
+            URLQueryItem(name: "genre", value: genre)
+        ])
+        return response.audiobooks
+    }
+
+    func getAudiobooksBySeries(_ series: String) async throws -> [Audiobook] {
+        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
+            URLQueryItem(name: "series", value: series)
+        ])
+        return response.audiobooks
+    }
+
+    func getAudiobooksByAuthor(_ author: String) async throws -> [Audiobook] {
+        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
+            URLQueryItem(name: "author", value: author)
+        ])
+        return response.audiobooks
     }
 
     // MARK: - Progress
@@ -204,6 +243,10 @@ class SapphoAPI {
 
     func clearProgress(audiobookId: Int) async throws {
         try await requestVoid("api/audiobooks/\(audiobookId)/progress", method: "DELETE")
+    }
+
+    func markFinished(audiobookId: Int) async throws {
+        try await requestVoid("api/audiobooks/\(audiobookId)/mark-finished", method: "POST")
     }
 
     // MARK: - Chapters
@@ -228,6 +271,32 @@ class SapphoAPI {
         try await request("api/collections")
     }
 
+    func getCollection(id: Int) async throws -> CollectionDetail {
+        try await request("api/collections/\(id)")
+    }
+
+    func createCollection(name: String, description: String? = nil, isPublic: Bool = false) async throws -> Collection {
+        let body = CreateCollectionRequest(name: name, description: description, isPublic: isPublic)
+        return try await request("api/collections", method: "POST", body: body)
+    }
+
+    func deleteCollection(id: Int) async throws {
+        try await requestVoid("api/collections/\(id)", method: "DELETE")
+    }
+
+    func addToCollection(collectionId: Int, audiobookId: Int) async throws {
+        let body = AddToCollectionRequest(audiobookId: audiobookId)
+        try await requestVoid("api/collections/\(collectionId)/items", method: "POST", body: body)
+    }
+
+    func removeFromCollection(collectionId: Int, audiobookId: Int) async throws {
+        try await requestVoid("api/collections/\(collectionId)/items/\(audiobookId)", method: "DELETE")
+    }
+
+    func getCollectionsForBook(audiobookId: Int) async throws -> [CollectionForBook] {
+        try await request("api/collections/for-book/\(audiobookId)")
+    }
+
     // MARK: - Profile
 
     func getProfile() async throws -> User {
@@ -246,6 +315,45 @@ class SapphoAPI {
     func updatePassword(currentPassword: String, newPassword: String) async throws {
         let body = PasswordUpdateRequest(currentPassword: currentPassword, newPassword: newPassword)
         try await requestVoid("api/profile/password", method: "PUT", body: body)
+    }
+
+    func uploadAvatar(imageData: Data) async throws {
+        guard let baseURL = authRepository.serverURL else {
+            throw APIError.notAuthenticated
+        }
+
+        guard let url = URL(string: "api/profile/avatar", relativeTo: baseURL) else {
+            throw APIError.invalidURL
+        }
+
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        if let token = authRepository.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        }
     }
 
     // MARK: - Ratings
@@ -274,6 +382,36 @@ class SapphoAPI {
 
     func getHealth() async throws -> HealthResponse {
         try await request("api/health")
+    }
+
+    // MARK: - Admin: Users
+
+    func getUsers() async throws -> [AdminUser] {
+        try await request("api/users")
+    }
+
+    func createUser(username: String, password: String, isAdmin: Bool) async throws -> AdminUser {
+        let body = CreateUserRequest(username: username, password: password, isAdmin: isAdmin)
+        return try await request("api/users", method: "POST", body: body)
+    }
+
+    func deleteUser(id: Int) async throws {
+        try await requestVoid("api/users/\(id)", method: "DELETE")
+    }
+
+    func toggleUserAdmin(id: Int, isAdmin: Bool) async throws {
+        let body = UpdateUserRequest(isAdmin: isAdmin)
+        try await requestVoid("api/users/\(id)", method: "PUT", body: body)
+    }
+
+    // MARK: - Admin: Maintenance
+
+    func scanLibrary() async throws -> ScanResponse {
+        try await request("api/maintenance/scan", method: "POST")
+    }
+
+    func forceRescan() async throws -> ScanResponse {
+        try await request("api/maintenance/force-rescan", method: "POST")
     }
 
     // MARK: - URL Builders
@@ -331,4 +469,42 @@ private struct PasswordUpdateRequest: Codable {
 private struct RatingRequest: Codable {
     let rating: Int?
     let review: String?
+}
+
+private struct CreateCollectionRequest: Codable {
+    let name: String
+    let description: String?
+    let isPublic: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, description
+        case isPublic = "is_public"
+    }
+}
+
+private struct AddToCollectionRequest: Codable {
+    let audiobookId: Int
+
+    enum CodingKeys: String, CodingKey {
+        case audiobookId = "audiobook_id"
+    }
+}
+
+private struct CreateUserRequest: Codable {
+    let username: String
+    let password: String
+    let isAdmin: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case username, password
+        case isAdmin = "is_admin"
+    }
+}
+
+private struct UpdateUserRequest: Codable {
+    let isAdmin: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isAdmin = "is_admin"
+    }
 }

@@ -5,6 +5,9 @@ struct PlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
+    @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
+
     @State private var showSpeedPicker = false
     @State private var showSleepTimer = false
     @State private var showChapters = false
@@ -109,9 +112,9 @@ struct PlayerView: View {
                         HStack(spacing: 40) {
                             // Skip backward
                             Button {
-                                audioPlayer.skipBackward()
+                                audioPlayer.skipBackward(seconds: TimeInterval(skipBackwardSeconds))
                             } label: {
-                                Image(systemName: "gobackward.15")
+                                Image(systemName: skipBackwardIcon)
                                     .font(.system(size: 32))
                                     .foregroundColor(.sapphoTextHigh)
                             }
@@ -127,9 +130,9 @@ struct PlayerView: View {
 
                             // Skip forward
                             Button {
-                                audioPlayer.skipForward()
+                                audioPlayer.skipForward(seconds: TimeInterval(skipForwardSeconds))
                             } label: {
-                                Image(systemName: "goforward.30")
+                                Image(systemName: skipForwardIcon)
                                     .font(.system(size: 32))
                                     .foregroundColor(.sapphoTextHigh)
                             }
@@ -224,6 +227,20 @@ struct PlayerView: View {
             return String(format: "%d:%02d:%02d", hours, minutes, secs)
         }
         return String(format: "%d:%02d", minutes, secs)
+    }
+
+    private var skipBackwardIcon: String {
+        // SF Symbols supports: gobackward.5, .10, .15, .30, .45, .60, .75, .90
+        let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
+        let seconds = validSeconds.contains(skipBackwardSeconds) ? skipBackwardSeconds : 15
+        return "gobackward.\(seconds)"
+    }
+
+    private var skipForwardIcon: String {
+        // SF Symbols supports: goforward.5, .10, .15, .30, .45, .60, .75, .90
+        let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
+        let seconds = validSeconds.contains(skipForwardSeconds) ? skipForwardSeconds : 30
+        return "goforward.\(seconds)"
     }
 }
 

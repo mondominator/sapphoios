@@ -46,60 +46,118 @@ struct MainView: View {
 struct MiniPlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
     @Environment(\.sapphoAPI) private var api
+    @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
+    @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
     @State private var showFullPlayer = false
+
+    private var progressPercent: Double {
+        guard audioPlayer.duration > 0 else { return 0 }
+        return audioPlayer.position / audioPlayer.duration
+    }
+
+    private var skipBackwardIcon: String {
+        let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
+        let seconds = validSeconds.contains(skipBackwardSeconds) ? skipBackwardSeconds : 15
+        return "gobackward.\(seconds)"
+    }
+
+    private var skipForwardIcon: String {
+        let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
+        let seconds = validSeconds.contains(skipForwardSeconds) ? skipForwardSeconds : 30
+        return "goforward.\(seconds)"
+    }
 
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
-            Button {
-                showFullPlayer = true
-            } label: {
-                HStack(spacing: 12) {
-                    // Cover Image
-                    AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.sapphoSurface)
-                            .overlay(
-                                Image(systemName: "book.closed.fill")
-                                    .foregroundColor(.sapphoTextMuted)
-                            )
-                    }
-                    .frame(width: 48, height: 48)
-                    .cornerRadius(6)
+            VStack(spacing: 0) {
+                // Progress bar at top
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(Color.sapphoPrimary)
+                        .frame(width: geometry.size.width * progressPercent)
+                }
+                .frame(height: 3)
+                .background(Color.sapphoSurface)
 
-                    // Title and Author
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(audiobook.title)
-                            .font(.sapphoSubheadline)
-                            .foregroundColor(.sapphoTextHigh)
-                            .lineLimit(1)
+                // Main content
+                Button {
+                    showFullPlayer = true
+                } label: {
+                    HStack(spacing: 12) {
+                        // Cover Image
+                        AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.sapphoSurface)
+                                .overlay(
+                                    Image(systemName: "book.closed.fill")
+                                        .foregroundColor(.sapphoTextMuted)
+                                )
+                        }
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(6)
 
-                        Text(audiobook.author ?? "Unknown Author")
+                        // Title and Author
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(audiobook.title)
+                                .font(.sapphoSubheadline)
+                                .foregroundColor(.sapphoTextHigh)
+                                .lineLimit(1)
+
+                            HStack(spacing: 4) {
+                                Text(audiobook.author ?? "Unknown Author")
+                                    .lineLimit(1)
+
+                                if audioPlayer.isBuffering {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                }
+                            }
                             .font(.sapphoCaption)
                             .foregroundColor(.sapphoTextMuted)
-                            .lineLimit(1)
-                    }
+                        }
 
-                    Spacer()
+                        Spacer()
 
-                    // Play/Pause Button
-                    Button {
-                        audioPlayer.togglePlayPause()
-                    } label: {
-                        Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.sapphoTextHigh)
+                        // Skip backward
+                        Button {
+                            audioPlayer.skipBackward(seconds: TimeInterval(skipBackwardSeconds))
+                        } label: {
+                            Image(systemName: skipBackwardIcon)
+                                .font(.system(size: 18))
+                                .foregroundColor(.sapphoTextMuted)
+                        }
+                        .padding(.horizontal, 4)
+
+                        // Play/Pause Button
+                        Button {
+                            audioPlayer.togglePlayPause()
+                        } label: {
+                            Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.sapphoTextHigh)
+                        }
+                        .padding(.horizontal, 4)
+
+                        // Skip forward
+                        Button {
+                            audioPlayer.skipForward(seconds: TimeInterval(skipForwardSeconds))
+                        } label: {
+                            Image(systemName: skipForwardIcon)
+                                .font(.system(size: 18))
+                                .foregroundColor(.sapphoTextMuted)
+                        }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.sapphoSurfaceElevated)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .background(Color.sapphoSurfaceElevated)
             .fullScreenCover(isPresented: $showFullPlayer) {
                 PlayerView()
             }
