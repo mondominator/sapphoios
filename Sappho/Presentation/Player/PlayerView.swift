@@ -1,7 +1,7 @@
 import SwiftUI
+import AVKit
 
 struct PlayerView: View {
-
     @Environment(AudioPlayerService.self) private var audioPlayer
     @Environment(\.dismiss) private var dismiss
 
@@ -11,10 +11,17 @@ struct PlayerView: View {
     @State private var showSpeedPicker = false
     @State private var showSleepTimer = false
     @State private var showChapters = false
+    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
             VStack(spacing: 0) {
+                // Drag indicator
+                Capsule()
+                    .fill(Color.sapphoTextMuted.opacity(0.5))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 8)
+
                 // Header
                 HStack {
                     Button {
@@ -28,7 +35,7 @@ struct PlayerView: View {
                     Spacer()
 
                     // Chapter button
-                    if audiobook.chapters != nil {
+                    if let chapters = audiobook.chapters, !chapters.isEmpty {
                         Button {
                             showChapters = true
                         } label: {
@@ -39,21 +46,22 @@ struct PlayerView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
 
                 ScrollView {
-                    VStack(spacing: 32) {
+                    VStack(spacing: 28) {
                         // Cover
                         CoverImage(audiobookId: audiobook.id, cornerRadius: 12)
-                            .frame(width: 300, height: 300)
+                            .frame(width: 280, height: 280)
                             .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
 
                         // Title and Author
-                        VStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             Text(audiobook.title)
                                 .font(.sapphoHeadline)
                                 .foregroundColor(.sapphoTextHigh)
                                 .multilineTextAlignment(.center)
+                                .lineLimit(2)
 
                             Text(audiobook.author ?? "Unknown Author")
                                 .font(.sapphoBody)
@@ -64,7 +72,7 @@ struct PlayerView: View {
                                 Text(chapter.title ?? "Chapter \(chapter.id)")
                                     .font(.sapphoCaption)
                                     .foregroundColor(.sapphoPrimary)
-                                    .padding(.top, 4)
+                                    .padding(.top, 2)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -95,33 +103,69 @@ struct PlayerView: View {
                         .padding(.horizontal, 20)
 
                         // Playback Controls
-                        HStack(spacing: 40) {
+                        HStack(spacing: 0) {
+                            Spacer()
+
+                            // Previous chapter
+                            Button {
+                                jumpToPreviousChapter()
+                            } label: {
+                                Image(systemName: "backward.end.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : .sapphoTextDisabled)
+                            }
+                            .disabled(!hasChapters)
+                            .frame(width: 44)
+
+                            Spacer()
+
                             // Skip backward
                             Button {
                                 audioPlayer.skipBackward(seconds: TimeInterval(skipBackwardSeconds))
                             } label: {
                                 Image(systemName: skipBackwardIcon)
-                                    .font(.system(size: 32))
+                                    .font(.system(size: 30))
                                     .foregroundColor(.sapphoTextHigh)
                             }
+                            .frame(width: 52)
+
+                            Spacer()
 
                             // Play/Pause
                             Button {
                                 audioPlayer.togglePlayPause()
                             } label: {
                                 Image(systemName: audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                    .font(.system(size: 72))
+                                    .font(.system(size: 68))
                                     .foregroundColor(.sapphoPrimary)
                             }
+
+                            Spacer()
 
                             // Skip forward
                             Button {
                                 audioPlayer.skipForward(seconds: TimeInterval(skipForwardSeconds))
                             } label: {
                                 Image(systemName: skipForwardIcon)
-                                    .font(.system(size: 32))
+                                    .font(.system(size: 30))
                                     .foregroundColor(.sapphoTextHigh)
                             }
+                            .frame(width: 52)
+
+                            Spacer()
+
+                            // Next chapter
+                            Button {
+                                jumpToNextChapter()
+                            } label: {
+                                Image(systemName: "forward.end.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : .sapphoTextDisabled)
+                            }
+                            .disabled(!hasChapters)
+                            .frame(width: 44)
+
+                            Spacer()
                         }
 
                         // Secondary Controls
@@ -131,7 +175,7 @@ struct PlayerView: View {
                                 showSpeedPicker = true
                             } label: {
                                 VStack(spacing: 4) {
-                                    Text(String(format: "%.1fx", audioPlayer.playbackSpeed))
+                                    Text(String(format: "%.2gx", audioPlayer.playbackSpeed))
                                         .font(.sapphoSubheadline)
                                         .foregroundColor(.sapphoTextHigh)
                                     Text("Speed")
@@ -161,15 +205,38 @@ struct PlayerView: View {
                             }
 
                             // AirPlay
-                            AirPlayButton()
-                                .frame(width: 44, height: 44)
+                            VStack(spacing: 4) {
+                                AirPlayButton()
+                                    .frame(width: 28, height: 28)
+                                Text("AirPlay")
+                                    .font(.sapphoSmall)
+                                    .foregroundColor(.sapphoTextMuted)
+                            }
                         }
-                        .padding(.top, 16)
+                        .padding(.top, 8)
                     }
-                    .padding(.vertical, 20)
+                    .padding(.vertical, 16)
                 }
             }
             .background(Color.sapphoBackground)
+            .offset(y: dragOffset)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        if value.translation.height > 0 {
+                            dragOffset = value.translation.height
+                        }
+                    }
+                    .onEnded { value in
+                        if value.translation.height > 150 {
+                            dismiss()
+                        } else {
+                            withAnimation(.spring(response: 0.3)) {
+                                dragOffset = 0
+                            }
+                        }
+                    }
+            )
             .sheet(isPresented: $showSpeedPicker) {
                 SpeedPickerSheet(currentSpeed: audioPlayer.playbackSpeed) { speed in
                     audioPlayer.setPlaybackSpeed(speed)
@@ -189,7 +256,10 @@ struct PlayerView: View {
                 .presentationDetents([.height(350)])
             }
             .sheet(isPresented: $showChapters) {
-                ChaptersSheet(chapters: audiobook.chapters ?? [], currentChapter: audioPlayer.currentChapter) { chapter in
+                ChaptersSheet(
+                    chapters: audiobook.chapters ?? [],
+                    currentChapter: audioPlayer.currentChapter
+                ) { chapter in
                     audioPlayer.jumpToChapter(chapter)
                     showChapters = false
                 }
@@ -202,6 +272,31 @@ struct PlayerView: View {
             )
         }
     }
+
+    // MARK: - Chapter Navigation
+
+    private var hasChapters: Bool {
+        guard let chapters = audioPlayer.currentAudiobook?.chapters else { return false }
+        return !chapters.isEmpty
+    }
+
+    private func jumpToPreviousChapter() {
+        guard let chapters = audioPlayer.currentAudiobook?.chapters,
+              let current = audioPlayer.currentChapter,
+              let currentIndex = chapters.firstIndex(where: { $0.id == current.id }),
+              currentIndex > 0 else { return }
+        audioPlayer.jumpToChapter(chapters[currentIndex - 1])
+    }
+
+    private func jumpToNextChapter() {
+        guard let chapters = audioPlayer.currentAudiobook?.chapters,
+              let current = audioPlayer.currentChapter,
+              let currentIndex = chapters.firstIndex(where: { $0.id == current.id }),
+              currentIndex < chapters.count - 1 else { return }
+        audioPlayer.jumpToChapter(chapters[currentIndex + 1])
+    }
+
+    // MARK: - Formatting
 
     private func formatTime(_ seconds: TimeInterval) -> String {
         let totalSeconds = Int(seconds)
@@ -216,14 +311,12 @@ struct PlayerView: View {
     }
 
     private var skipBackwardIcon: String {
-        // SF Symbols supports: gobackward.5, .10, .15, .30, .45, .60, .75, .90
         let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
         let seconds = validSeconds.contains(skipBackwardSeconds) ? skipBackwardSeconds : 15
         return "gobackward.\(seconds)"
     }
 
     private var skipForwardIcon: String {
-        // SF Symbols supports: goforward.5, .10, .15, .30, .45, .60, .75, .90
         let validSeconds = [5, 10, 15, 30, 45, 60, 75, 90]
         let seconds = validSeconds.contains(skipForwardSeconds) ? skipForwardSeconds : 30
         return "goforward.\(seconds)"
@@ -241,8 +334,6 @@ struct AirPlayButton: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {}
 }
-
-import AVKit
 
 // MARK: - Speed Picker Sheet
 struct SpeedPickerSheet: View {

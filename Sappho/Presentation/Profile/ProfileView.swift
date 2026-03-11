@@ -255,6 +255,8 @@ struct SettingsView: View {
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
     @AppStorage("defaultPlaybackSpeed") private var defaultPlaybackSpeed = 1.0
+    @AppStorage("rewindOnResume") private var rewindOnResume = 0
+    @AppStorage("showChapterProgress") private var showChapterProgress = false
     @AppStorage("autoSleepTimer") private var autoSleepTimer = false
     @AppStorage("sleepTimerMinutes") private var sleepTimerMinutes = 30
     @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
@@ -289,6 +291,15 @@ struct SettingsView: View {
                     Text("1.75x").tag(1.75)
                     Text("2.0x").tag(2.0)
                 }
+
+                Picker("Rewind on Resume", selection: $rewindOnResume) {
+                    Text("Off").tag(0)
+                    Text("10 seconds").tag(10)
+                    Text("30 seconds").tag(30)
+                    Text("60 seconds").tag(60)
+                }
+
+                Toggle("Show Chapter Progress", isOn: $showChapterProgress)
             }
 
             // Sleep Timer Settings
