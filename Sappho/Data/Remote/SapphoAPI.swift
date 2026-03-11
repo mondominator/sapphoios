@@ -69,7 +69,13 @@ class SapphoAPI {
             request.httpBody = try JSONEncoder().encode(body)
         }
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -123,7 +129,13 @@ class SapphoAPI {
             request.httpBody = try JSONEncoder().encode(body)
         }
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -256,7 +268,8 @@ class SapphoAPI {
     }
 
     func markFinished(audiobookId: Int) async throws {
-        try await requestVoid("api/audiobooks/\(audiobookId)/mark-finished", method: "POST")
+        let body = ProgressUpdateRequest(position: 0, completed: 1, state: "stopped")
+        try await requestVoid("api/audiobooks/\(audiobookId)/progress", method: "POST", body: body)
     }
 
     // MARK: - Chapters

@@ -1,4 +1,5 @@
 import SwiftUI
+import Network
 
 struct HomeView: View {
     @Environment(\.sapphoAPI) private var api
@@ -11,10 +12,33 @@ struct HomeView: View {
 
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var isOffline = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
+                VStack(spacing: 0) {
+                    // Offline banner
+                    if isOffline {
+                        HStack(spacing: 8) {
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 14))
+                            Text("No internet connection")
+                                .font(.sapphoCaption)
+                            Spacer()
+                            Button("Retry") {
+                                Task { await loadData() }
+                            }
+                            .font(.sapphoCaption)
+                            .foregroundColor(.white)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.sapphoError.opacity(0.9))
+                    }
+                }
+
                 if isLoading {
                     LoadingView(message: "Loading your library...")
                 } else if let error = errorMessage {
@@ -99,7 +123,11 @@ struct HomeView: View {
             upNext = try await next ?? []
 
             errorMessage = nil
+            isOffline = false
         } catch {
+            if case APIError.networkError = error {
+                isOffline = true
+            }
             errorMessage = error.localizedDescription
         }
 
