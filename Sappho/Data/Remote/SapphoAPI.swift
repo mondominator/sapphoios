@@ -257,12 +257,20 @@ class SapphoAPI {
 
     // MARK: - Favorites
 
-    func getFavorites() async throws -> [Audiobook] {
-        try await request("api/audiobooks/favorites")
+    func getFavorites(sort: String = "custom") async throws -> [Audiobook] {
+        try await request("api/audiobooks/favorites?sort=\(sort)")
     }
 
     func toggleFavorite(audiobookId: Int) async throws -> FavoriteResponse {
         try await request("api/audiobooks/\(audiobookId)/favorite/toggle", method: "POST")
+    }
+
+    func removeFavorite(audiobookId: Int) async throws {
+        try await requestVoid("api/audiobooks/\(audiobookId)/favorite", method: "DELETE")
+    }
+
+    func reorderFavorites(order: [Int]) async throws {
+        try await requestVoid("api/audiobooks/favorites/reorder", method: "PUT", body: ["order": order])
     }
 
     // MARK: - Collections

@@ -2,9 +2,17 @@ import SwiftUI
 
 struct ReadingListView: View {
     @Environment(\.sapphoAPI) private var api
-    @State private var upNext: [Audiobook] = []
+    @State private var books: [Audiobook] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var sortOption: String = "custom"
+    @State private var editMode: EditMode = .inactive
+
+    private let sortOptions = [
+        ("custom", "Custom"),
+        ("title", "Title"),
+        ("date_added", "Date Added")
+    ]
 
     var body: some View {
         Group {
@@ -14,31 +22,69 @@ struct ReadingListView: View {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
-            } else if upNext.isEmpty {
+            } else if books.isEmpty {
                 EmptyStateView(
                     icon: "list.bullet",
                     title: "Nothing Up Next",
-                    message: "Add audiobooks to your Up Next queue from the book detail page."
+                    message: "Add audiobooks to your reading list from the book detail page."
                 )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(Array(upNext.enumerated()), id: \.element.id) { index, audiobook in
+                VStack(spacing: 0) {
+                    // Sort picker
+                    HStack {
+                        Text("Sort by")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+
+                        Picker("Sort", selection: $sortOption) {
+                            ForEach(sortOptions, id: \.0) { option in
+                                Text(option.1).tag(option.0)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(.sapphoPrimary)
+
+                        Spacer()
+
+                        if sortOption == "custom" {
+                            Button(editMode == .active ? "Done" : "Reorder") {
+                                withAnimation {
+                                    editMode = editMode == .active ? .inactive : .active
+                                }
+                            }
+                            .font(.sapphoSubheadline)
+                            .foregroundColor(.sapphoPrimary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+
+                    List {
+                        ForEach(Array(books.enumerated()), id: \.element.id) { index, audiobook in
                             NavigationLink {
                                 AudiobookDetailView(audiobook: audiobook)
                             } label: {
-                                UpNextRow(audiobook: audiobook, position: index + 1)
+                                ReadingListRow(audiobook: audiobook, position: index + 1)
                             }
-                            .buttonStyle(.plain)
+                            .listRowBackground(Color.sapphoSurface)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task { await removeBook(audiobook) }
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                            }
                         }
+                        .onMove(perform: sortOption == "custom" ? moveBooks : nil)
                     }
-                    .padding(16)
-                    .padding(.bottom, 100)
+                    .listStyle(.plain)
+                    .environment(\.editMode, $editMode)
                 }
             }
         }
         .background(Color.sapphoBackground)
-        .navigationTitle("Up Next")
+        .navigationTitle("Reading List")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -48,23 +94,58 @@ struct ReadingListView: View {
         .refreshable {
             await loadData()
         }
+        .onChange(of: sortOption) { _, _ in
+            editMode = .inactive
+            Task { await loadData() }
+        }
     }
 
     private func loadData() async {
-        isLoading = upNext.isEmpty
+        isLoading = books.isEmpty
         errorMessage = nil
 
         do {
-            upNext = try await api?.getUpNext(limit: 50) ?? []
+            books = try await api?.getFavorites(sort: sortOption) ?? []
         } catch {
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
     }
+
+    private func moveBooks(from source: IndexSet, to destination: Int) {
+        books.move(fromOffsets: source, toOffset: destination)
+
+        // Send new order to server
+        let order = books.map { $0.id }
+        Task {
+            do {
+                try await api?.reorderFavorites(order: order)
+            } catch {
+                print("Failed to reorder: \(error)")
+                // Reload to restore server state
+                await loadData()
+            }
+        }
+    }
+
+    private func removeBook(_ audiobook: Audiobook) async {
+        // Optimistic removal
+        withAnimation {
+            books.removeAll { $0.id == audiobook.id }
+        }
+
+        do {
+            try await api?.removeFavorite(audiobookId: audiobook.id)
+        } catch {
+            print("Failed to remove: \(error)")
+            await loadData()
+        }
+    }
 }
 
-struct UpNextRow: View {
+// MARK: - Reading List Row
+struct ReadingListRow: View {
     @Environment(\.sapphoAPI) private var api
     let audiobook: Audiobook
     let position: Int
@@ -80,53 +161,35 @@ struct UpNextRow: View {
         HStack(spacing: 12) {
             // Position number
             Text("\(position)")
-                .font(.sapphoHeadline)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(.sapphoPrimary)
-                .frame(width: 30)
+                .frame(width: 28)
 
             // Cover
             CoverImage(audiobookId: audiobook.id)
-                .frame(width: 60, height: 85)
-                .cornerRadius(8)
+                .frame(width: 56, height: 56)
+                .cornerRadius(6)
 
             // Info
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(audiobook.title)
                     .font(.sapphoSubheadline)
                     .foregroundColor(.sapphoTextHigh)
-                    .lineLimit(2)
-
-                if let author = audiobook.author {
-                    Text(author)
-                        .font(.sapphoSmall)
-                        .foregroundColor(.sapphoTextMuted)
-                        .lineLimit(1)
-                }
-
-                if let series = audiobook.series {
-                    HStack(spacing: 4) {
-                        Text(series)
-                        if let pos = audiobook.seriesPosition {
-                            Text("#\(formatSeriesPosition(pos))")
-                        }
-                    }
-                    .font(.sapphoSmall)
-                    .foregroundColor(.sapphoPrimary)
                     .lineLimit(1)
-                }
 
-                Spacer().frame(height: 4)
-
-                // Duration
-                if let duration = audiobook.duration {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 10))
-                        Text(formatDuration(duration))
-                            .font(.sapphoSmall)
+                HStack(spacing: 8) {
+                    if let author = audiobook.author {
+                        Text(author)
+                            .lineLimit(1)
                     }
-                    .foregroundColor(.sapphoTextMuted)
+
+                    if let duration = audiobook.duration {
+                        Text("·")
+                        Text(formatDuration(duration))
+                    }
                 }
+                .font(.sapphoSmall)
+                .foregroundColor(.sapphoTextMuted)
 
                 // Progress bar if started
                 if let percent = progressPercent, percent > 0 {
@@ -137,14 +200,8 @@ struct UpNextRow: View {
             }
 
             Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14))
-                .foregroundColor(.sapphoTextMuted)
         }
-        .padding(12)
-        .background(Color.sapphoSurface)
-        .cornerRadius(12)
+        .padding(.vertical, 4)
     }
 
     private func formatDuration(_ seconds: Int) -> String {
@@ -154,13 +211,6 @@ struct UpNextRow: View {
             return "\(hours)h \(minutes)m"
         }
         return "\(minutes)m"
-    }
-
-    private func formatSeriesPosition(_ position: Float) -> String {
-        if position == floor(position) {
-            return String(format: "%.0f", position)
-        }
-        return String(format: "%.1f", position)
     }
 }
 
