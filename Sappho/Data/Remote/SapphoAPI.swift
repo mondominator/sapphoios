@@ -75,6 +75,11 @@ class SapphoAPI {
             throw APIError.invalidResponse
         }
 
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            await MainActor.run { authRepository.clear() }
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
+        }
+
         guard 200..<300 ~= httpResponse.statusCode else {
             let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
@@ -122,6 +127,11 @@ class SapphoAPI {
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            await MainActor.run { authRepository.clear() }
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
