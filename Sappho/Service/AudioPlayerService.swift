@@ -23,6 +23,11 @@ class AudioPlayerService: NSObject {
     private var api: SapphoAPI?
     private var lastSyncPosition: Int = 0
     private let syncThreshold: Int = 20 // Sync every 20 seconds (matching Android)
+    private var lastSavePosition: Int = 0
+
+    // Persistence keys
+    private static let lastAudiobookIdKey = "lastPlayedAudiobookId"
+    private static let lastPositionKey = "lastPlayedPosition"
 
     // MARK: - Initialization
 
@@ -139,6 +144,7 @@ class AudioPlayerService: NSObject {
         isPlaying = false
         updateNowPlayingInfo()
         syncProgressToServer()
+        savePlaybackState()
     }
 
     func resume() {
@@ -174,6 +180,9 @@ class AudioPlayerService: NSObject {
         duration = 0
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+        UserDefaults.standard.removeObject(forKey: Self.lastAudiobookIdKey)
+        UserDefaults.standard.removeObject(forKey: Self.lastPositionKey)
     }
 
     func seek(to time: TimeInterval) async {
@@ -237,6 +246,79 @@ class AudioPlayerService: NSObject {
         sleepTimerRemaining = nil
     }
 
+    // MARK: - State Persistence
+
+    private func savePlaybackState() {
+        guard let audiobook = currentAudiobook else {
+            UserDefaults.standard.removeObject(forKey: Self.lastAudiobookIdKey)
+            UserDefaults.standard.removeObject(forKey: Self.lastPositionKey)
+            return
+        }
+        UserDefaults.standard.set(audiobook.id, forKey: Self.lastAudiobookIdKey)
+        UserDefaults.standard.set(Int(position), forKey: Self.lastPositionKey)
+    }
+
+    /// Restore last played audiobook on app launch. Call after configure(api:).
+    func restoreLastPlayed() async {
+        let audiobookId = UserDefaults.standard.integer(forKey: Self.lastAudiobookIdKey)
+        guard audiobookId > 0, let api = api else { return }
+
+        do {
+            let audiobook = try await api.getAudiobook(id: audiobookId)
+            await MainActor.run {
+                self.currentAudiobook = audiobook
+                // Use server progress if available, fall back to saved position
+                if let serverPosition = audiobook.progress?.position, serverPosition > 0 {
+                    self.position = TimeInterval(serverPosition)
+                } else {
+                    let savedPosition = UserDefaults.standard.integer(forKey: Self.lastPositionKey)
+                    self.position = TimeInterval(savedPosition)
+                }
+                if let dur = audiobook.duration {
+                    self.duration = TimeInterval(dur)
+                }
+            }
+            // Load chapters
+            if let chapters = try? await api.getChapters(audiobookId: audiobookId) {
+                await MainActor.run {
+                    self.currentAudiobook = Audiobook(
+                        id: audiobook.id,
+                        title: audiobook.title,
+                        subtitle: audiobook.subtitle,
+                        author: audiobook.author,
+                        narrator: audiobook.narrator,
+                        series: audiobook.series,
+                        seriesPosition: audiobook.seriesPosition,
+                        duration: audiobook.duration,
+                        genre: audiobook.genre,
+                        tags: audiobook.tags,
+                        publishYear: audiobook.publishYear,
+                        copyrightYear: audiobook.copyrightYear,
+                        publisher: audiobook.publisher,
+                        isbn: audiobook.isbn,
+                        asin: audiobook.asin,
+                        language: audiobook.language,
+                        rating: audiobook.rating,
+                        userRating: audiobook.userRating,
+                        averageRating: audiobook.averageRating,
+                        abridged: audiobook.abridged,
+                        description: audiobook.description,
+                        coverImage: audiobook.coverImage,
+                        fileCount: audiobook.fileCount,
+                        isMultiFile: audiobook.isMultiFile,
+                        createdAt: audiobook.createdAt,
+                        progress: audiobook.progress,
+                        chapters: chapters,
+                        isFavorite: audiobook.isFavorite
+                    )
+                    self.updateCurrentChapter()
+                }
+            }
+        } catch {
+            print("Failed to restore last played: \(error)")
+        }
+    }
+
     // MARK: - Private Methods
 
     private func startTimeObserver() {
@@ -246,6 +328,12 @@ class AudioPlayerService: NSObject {
             self.position = time.seconds
             self.updateCurrentChapter()
             self.checkProgressSync()
+            // Save to UserDefaults every ~5 seconds
+            let currentPos = Int(time.seconds)
+            if abs(currentPos - self.lastSavePosition) >= 5 {
+                self.savePlaybackState()
+                self.lastSavePosition = currentPos
+            }
         }
     }
 

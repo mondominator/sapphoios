@@ -20,9 +20,12 @@ struct SapphoApp: App {
                 .environment(audioPlayer)
                 .environment(\.sapphoAPI, api)
                 .preferredColorScheme(.dark)
-                .onAppear {
+                .task {
                     audioPlayer.configure(api: api)
                     DownloadManager.shared.configure(api: api)
+                    if authRepository.isAuthenticated {
+                        await audioPlayer.restoreLastPlayed()
+                    }
                 }
         }
     }
