@@ -33,8 +33,18 @@ class AudioPlayerService: NSObject {
 
     override init() {
         super.init()
+        setupAudioSession()
         setupRemoteCommands()
         setupInterruptionHandling()
+    }
+
+    private func setupAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Failed to configure audio session: \(error)")
+        }
     }
 
     func configure(api: SapphoAPI) {
@@ -148,6 +158,20 @@ class AudioPlayerService: NSObject {
     }
 
     func resume() {
+        // Apply rewind-on-resume setting
+        let rewindSeconds = UserDefaults.standard.integer(forKey: "rewindOnResume")
+        if rewindSeconds > 0 && position > TimeInterval(rewindSeconds) {
+            let newPosition = position - TimeInterval(rewindSeconds)
+            Task {
+                await seek(to: newPosition)
+                player?.play()
+                player?.rate = playbackSpeed
+                isPlaying = true
+                updateNowPlayingInfo()
+            }
+            return
+        }
+
         player?.play()
         player?.rate = playbackSpeed
         isPlaying = true
@@ -426,15 +450,19 @@ class AudioPlayerService: NSObject {
             return .success
         }
 
-        commandCenter.skipForwardCommand.preferredIntervals = [30]
+        let skipForward = UserDefaults.standard.integer(forKey: "skipForwardSeconds")
+        let skipBackward = UserDefaults.standard.integer(forKey: "skipBackwardSeconds")
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: skipForward > 0 ? skipForward : 30)]
         commandCenter.skipForwardCommand.addTarget { [weak self] _ in
-            self?.skipForward()
+            let seconds = UserDefaults.standard.integer(forKey: "skipForwardSeconds")
+            self?.skipForward(seconds: TimeInterval(seconds > 0 ? seconds : 30))
             return .success
         }
 
-        commandCenter.skipBackwardCommand.preferredIntervals = [15]
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: skipBackward > 0 ? skipBackward : 15)]
         commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
-            self?.skipBackward()
+            let seconds = UserDefaults.standard.integer(forKey: "skipBackwardSeconds")
+            self?.skipBackward(seconds: TimeInterval(seconds > 0 ? seconds : 15))
             return .success
         }
 
