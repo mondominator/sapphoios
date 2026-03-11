@@ -45,7 +45,7 @@ struct MainView: View {
 // MARK: - Mini Player
 struct MiniPlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
-    @Environment(\.sapphoAPI) private var api
+
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
     @State private var showFullPlayer = false
@@ -85,20 +85,8 @@ struct MiniPlayerView: View {
                 } label: {
                     HStack(spacing: 12) {
                         // Cover Image
-                        AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.sapphoSurface)
-                                .overlay(
-                                    Image(systemName: "book.closed.fill")
-                                        .foregroundColor(.sapphoTextMuted)
-                                )
-                        }
-                        .frame(width: 48, height: 48)
-                        .cornerRadius(6)
+                        CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
+                            .frame(width: 48, height: 48)
 
                         // Title and Author
                         VStack(alignment: .leading, spacing: 2) {

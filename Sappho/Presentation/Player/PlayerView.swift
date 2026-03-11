@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PlayerView: View {
-    @Environment(\.sapphoAPI) private var api
+
     @Environment(AudioPlayerService.self) private var audioPlayer
     @Environment(\.dismiss) private var dismiss
 
@@ -44,23 +44,9 @@ struct PlayerView: View {
                 ScrollView {
                     VStack(spacing: 32) {
                         // Cover
-                        AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.sapphoSurface)
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay(
-                                    Image(systemName: "book.closed.fill")
-                                        .font(.system(size: 64))
-                                        .foregroundColor(.sapphoTextMuted)
-                                )
-                        }
-                        .frame(maxWidth: 300, maxHeight: 300)
-                        .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
+                        CoverImage(audiobookId: audiobook.id, cornerRadius: 12)
+                            .frame(width: 300, height: 300)
+                            .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
 
                         // Title and Author
                         VStack(spacing: 8) {

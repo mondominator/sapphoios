@@ -172,26 +172,13 @@ struct SearchSection<Content: View>: View {
 
 // MARK: - Book Search Result
 struct BookSearchResult: View {
-    @Environment(\.sapphoAPI) private var api
     let audiobook: Audiobook
 
     var body: some View {
         HStack(spacing: 12) {
             // Cover
-            AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.sapphoSurface)
-                    .overlay(
-                        Image(systemName: "book.closed.fill")
-                            .foregroundColor(.sapphoTextMuted)
-                    )
-            }
-            .frame(width: 48, height: 48)
-            .cornerRadius(6)
+            CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
+                .frame(width: 48, height: 48)
 
             // Info
             VStack(alignment: .leading, spacing: 2) {

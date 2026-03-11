@@ -140,21 +140,8 @@ struct AudiobookDetailView: View {
         } label: {
             ZStack {
                 // Cover Image
-                AsyncImage(url: api?.coverURL(for: displayBook.id)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.sapphoSurface)
-                        .overlay(
-                            Image(systemName: "book.closed.fill")
-                                .font(.system(size: 64))
-                                .foregroundColor(.sapphoTextMuted)
-                        )
-                }
-                .frame(width: 280, height: 280)
-                .clipped()
+                CoverImage(audiobookId: displayBook.id, cornerRadius: 0)
+                    .frame(width: 280, height: 280)
 
                 // Play overlay
                 Circle()

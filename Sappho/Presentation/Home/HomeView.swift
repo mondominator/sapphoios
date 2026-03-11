@@ -136,7 +136,6 @@ struct AudiobookSection: View {
 
 // MARK: - Audiobook Card
 struct AudiobookCard: View {
-    @Environment(\.sapphoAPI) private var api
     let audiobook: Audiobook
 
     private let cardWidth: CGFloat = 140
@@ -157,15 +156,8 @@ struct AudiobookCard: View {
             // Cover Image with overlays
             ZStack {
                 // Cover image
-                AsyncImage(url: api?.coverURL(for: audiobook.id)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    coverPlaceholder
-                }
-                .frame(width: cardWidth, height: coverHeight)
-                .clipped()
+                CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
+                    .frame(width: cardWidth, height: coverHeight)
 
                 // Overlay container
                 VStack(spacing: 0) {
@@ -230,16 +222,6 @@ struct AudiobookCard: View {
             }
         }
         .frame(width: cardWidth)
-    }
-
-    private var coverPlaceholder: some View {
-        Rectangle()
-            .fill(Color.sapphoSurface)
-            .overlay(
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.sapphoTextMuted)
-            )
     }
 
     private func statusBadge(icon: String, color: Color) -> some View {

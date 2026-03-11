@@ -199,32 +199,6 @@ struct SeriesCard: View {
     }
 }
 
-struct CoverImage: View {
-    @Environment(\.sapphoAPI) private var api
-    let audiobookId: Int
-
-    var body: some View {
-        AsyncImage(url: api?.coverURL(for: audiobookId)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            case .failure, .empty:
-                Rectangle()
-                    .fill(Color.sapphoSurface)
-                    .overlay(
-                        Image(systemName: "book.closed.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.sapphoTextMuted)
-                    )
-            @unknown default:
-                Rectangle()
-                    .fill(Color.sapphoSurface)
-            }
-        }
-    }
-}
 
 #Preview {
     NavigationStack {
