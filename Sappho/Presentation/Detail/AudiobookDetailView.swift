@@ -10,6 +10,7 @@ struct AudiobookDetailView: View {
     var onSeriesTap: ((String) -> Void)? = nil
 
     @State private var fullAudiobook: Audiobook?
+    @State private var chapters: [Chapter] = []
     @State private var isFavorite: Bool = false
     @State private var isLoading = true
     @State private var showPlayer = false
@@ -77,9 +78,14 @@ struct AudiobookDetailView: View {
         .navigationDestination(isPresented: $showSeriesView) {
             FilteredBooksView(title: seriesToNavigate, filterType: .series(seriesToNavigate))
         }
-        .fullScreenCover(isPresented: $showPlayer) {
-            PlayerView()
+        .overlay {
+            if showPlayer {
+                PlayerView(showFullPlayer: $showPlayer)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(1)
+            }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showPlayer)
         .sheet(isPresented: $showCollectionsSheet) {
             AddToCollectionSheet(
                 audiobookId: displayBook.id,
@@ -91,7 +97,7 @@ struct AudiobookDetailView: View {
         }
         .sheet(isPresented: $showChaptersSheet) {
             ChaptersSheet(
-                chapters: displayBook.chapters ?? [],
+                chapters: chapters,
                 currentChapter: nil,
                 onSelect: { chapter in
                     Task {
@@ -102,27 +108,86 @@ struct AudiobookDetailView: View {
                 }
             )
         }
-        .confirmationDialog("More Options", isPresented: $showMoreMenu, titleVisibility: .hidden) {
-            if let chapters = displayBook.chapters, !chapters.isEmpty {
-                Button("\(chapters.count) Chapters") {
-                    showChaptersSheet = true
+        .sheet(isPresented: $showMoreMenu) {
+            VStack(spacing: 0) {
+                // Drag indicator
+                Capsule()
+                    .fill(Color.white.opacity(0.3))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 10)
+                    .padding(.bottom, 20)
+
+                // Menu items
+                VStack(spacing: 4) {
+                    if !chapters.isEmpty {
+                        moreMenuItem(
+                            icon: "list.bullet",
+                            title: "\(chapters.count) Chapters",
+                            subtitle: "Browse & jump to chapters",
+                            color: .sapphoPrimary
+                        ) {
+                            showMoreMenu = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                showChaptersSheet = true
+                            }
+                        }
+                    }
+
+                    moreMenuItem(
+                        icon: "folder.badge.plus",
+                        title: "Add to Collection",
+                        subtitle: "Organize your library",
+                        color: .sapphoWarning
+                    ) {
+                        showMoreMenu = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showCollectionsSheet = true
+                        }
+                    }
+
+                    moreMenuItem(
+                        icon: "checkmark.circle",
+                        title: "Mark Finished",
+                        subtitle: "Mark as completed",
+                        color: .sapphoSuccess
+                    ) {
+                        showMoreMenu = false
+                        Task { await markFinished() }
+                    }
+
+                    if hasProgress {
+                        moreMenuItem(
+                            icon: "xmark.circle",
+                            title: "Clear Progress",
+                            subtitle: "Reset listening position",
+                            color: .sapphoError
+                        ) {
+                            showMoreMenu = false
+                            Task { await clearProgress() }
+                        }
+                    }
+
+                    moreMenuItem(
+                        icon: "square.and.arrow.up",
+                        title: "Share",
+                        subtitle: "Share this audiobook",
+                        color: .sapphoTextMuted
+                    ) {
+                        showMoreMenu = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showShareSheet = true
+                        }
+                    }
                 }
+                .padding(.horizontal, 16)
+
+                Spacer()
             }
-            Button("Add to Collection") {
-                showCollectionsSheet = true
-            }
-            Button("Mark Finished") {
-                Task { await markFinished() }
-            }
-            if hasProgress {
-                Button("Clear Progress", role: .destructive) {
-                    Task { await clearProgress() }
-                }
-            }
-            Button("Share") {
-                showShareSheet = true
-            }
-            Button("Cancel", role: .cancel) {}
+            .frame(maxWidth: .infinity)
+            .background(Color.sapphoSurface)
+            .presentationDetents([.fraction(chapters.isEmpty ? 0.38 : 0.45)])
+            .presentationDragIndicator(.hidden)
+            .presentationCornerRadius(24)
         }
         .task {
             await loadFullAudiobook()
@@ -359,7 +424,7 @@ struct AudiobookDetailView: View {
                     }
 
                     // Current chapter info
-                    if let chapters = displayBook.chapters, !chapters.isEmpty {
+                    if !chapters.isEmpty {
                         let currentChapter = chapters.last { $0.startTime <= Double(progress.position) }
                         if let chapter = currentChapter {
                             let chapterIndex = chapters.firstIndex(where: { $0.startTime == chapter.startTime }) ?? 0
@@ -503,6 +568,39 @@ struct AudiobookDetailView: View {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func moreMenuItem(icon: String, title: String, subtitle: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(color)
+                    .frame(width: 40, height: 40)
+                    .background(color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.sapphoTextHigh)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(.sapphoTextMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.sapphoTextMuted.opacity(0.5))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.sapphoBackground.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var isCurrentlyPlaying: Bool {
         audioPlayer.currentAudiobook?.id == displayBook.id && audioPlayer.isPlaying
     }
@@ -583,7 +681,10 @@ struct AudiobookDetailView: View {
 
     private func loadFullAudiobook() async {
         do {
-            fullAudiobook = try await api?.getAudiobook(id: audiobook.id)
+            async let bookRequest = api?.getAudiobook(id: audiobook.id)
+            async let chaptersRequest = api?.getChapters(audiobookId: audiobook.id)
+            fullAudiobook = try await bookRequest
+            chapters = (try? await chaptersRequest) ?? []
             isFavorite = fullAudiobook?.isFavorite ?? false
         } catch {
             print("Failed to load audiobook: \(error)")

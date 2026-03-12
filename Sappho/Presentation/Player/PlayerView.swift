@@ -3,7 +3,7 @@ import AVKit
 
 struct PlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
-    @Environment(\.dismiss) private var dismiss
+    @Binding var showFullPlayer: Bool
 
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
@@ -25,7 +25,7 @@ struct PlayerView: View {
 
                     HStack {
                         Button {
-                            dismiss()
+                            showFullPlayer = false
                         } label: {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 20, weight: .semibold))
@@ -41,21 +41,6 @@ struct PlayerView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            if value.translation.height > 0 {
-                                dragOffset = value.translation.height
-                            }
-                        }
-                        .onEnded { value in
-                            if value.translation.height > 100 {
-                                dismiss()
-                            }
-                            dragOffset = 0
-                        }
-                )
 
                 Spacer()
 
@@ -197,24 +182,23 @@ struct PlayerView: View {
 
                         // Secondary Controls (matches Android: Chapters | Speed | Sleep)
                         HStack(spacing: 0) {
-                            // Chapters
-                            if let chapters = audiobook.chapters, !chapters.isEmpty {
-                                Button {
-                                    showChapters = true
-                                } label: {
-                                    VStack(spacing: 6) {
-                                        Image(systemName: "list.bullet")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.sapphoPrimary)
-                                        Text(audioPlayer.currentChapter?.title ?? "Chapters")
-                                            .font(.sapphoSmall)
-                                            .foregroundColor(.sapphoTextHigh)
-                                            .lineLimit(1)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
+                            // Chapters (always visible, disabled if no chapters)
+                            Button {
+                                showChapters = true
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "list.bullet")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(hasChapters ? .sapphoPrimary : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                    Text(audioPlayer.currentChapter?.title ?? "Chapters")
+                                        .font(.sapphoSmall)
+                                        .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                        .lineLimit(1)
                                 }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                             }
+                            .disabled(!hasChapters)
 
                             // Speed
                             Button {
@@ -268,9 +252,25 @@ struct PlayerView: View {
 
                 Spacer()
             }
+            .contentShape(Rectangle())
             .offset(y: dragOffset)
             .animation(.interactiveSpring(), value: dragOffset)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        if value.translation.height > 0 {
+                            dragOffset = value.translation.height
+                        }
+                    }
+                    .onEnded { value in
+                        if value.translation.height > 120 {
+                            showFullPlayer = false
+                        }
+                        dragOffset = 0
+                    }
+            )
             .background(Color.sapphoBackground)
+            .ignoresSafeArea()
             .sheet(isPresented: $showSpeedPicker) {
                 SpeedPickerSheet(currentSpeed: audioPlayer.playbackSpeed) { speed in
                     audioPlayer.setPlaybackSpeed(speed)
@@ -383,26 +383,70 @@ struct SpeedPickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private let speeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    @State private var speed: Float
+
+    init(currentSpeed: Float, onSelect: @escaping (Float) -> Void) {
+        self.currentSpeed = currentSpeed
+        self.onSelect = onSelect
+        self._speed = State(initialValue: currentSpeed)
+    }
+
+    private let presets: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+
+    private var displaySpeed: String {
+        if speed == Float(Int(speed)) {
+            return String(format: "%.0fx", speed)
+        } else if speed * 100 == Float(Int(speed * 100)) {
+            return String(format: "%.2gx", speed)
+        } else {
+            return String(format: "%.2fx", speed)
+        }
+    }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Text("Playback Speed")
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoTextHigh)
                 .padding(.top, 20)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 70))], spacing: 12) {
-                ForEach(speeds, id: \.self) { speed in
+            // Current speed display with fine-tune controls
+            HStack(spacing: 20) {
+                Button {
+                    adjustSpeed(by: -0.05)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.sapphoPrimary)
+                }
+
+                Text(displaySpeed)
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundColor(.sapphoTextHigh)
+                    .frame(minWidth: 100)
+                    .contentTransition(.numericText())
+
+                Button {
+                    adjustSpeed(by: 0.05)
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.sapphoPrimary)
+                }
+            }
+
+            // Preset buttons
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 10) {
+                ForEach(presets, id: \.self) { preset in
                     Button {
-                        onSelect(speed)
-                        dismiss()
+                        speed = preset
+                        onSelect(preset)
                     } label: {
-                        Text(String(format: "%.2gx", speed))
+                        Text(String(format: "%.2gx", preset))
                             .font(.sapphoSubheadline)
-                            .foregroundColor(speed == currentSpeed ? .white : .sapphoTextHigh)
-                            .frame(width: 60, height: 44)
-                            .background(speed == currentSpeed ? Color.sapphoPrimary : Color.sapphoSurface)
+                            .foregroundColor(speed == preset ? .white : .sapphoTextHigh)
+                            .frame(width: 56, height: 40)
+                            .background(speed == preset ? Color.sapphoPrimary : Color.sapphoSurface)
                             .cornerRadius(8)
                     }
                 }
@@ -412,6 +456,12 @@ struct SpeedPickerSheet: View {
             Spacer()
         }
         .background(Color.sapphoBackground)
+    }
+
+    private func adjustSpeed(by delta: Float) {
+        let newSpeed = max(0.25, min(3.0, speed + delta))
+        speed = (newSpeed * 20).rounded() / 20 // Snap to 0.05 increments
+        onSelect(speed)
     }
 }
 
@@ -548,7 +598,7 @@ struct PlayingAnimationBars: View {
 }
 
 #Preview {
-    PlayerView()
+    PlayerView(showFullPlayer: .constant(true))
         .environment(AuthRepository())
         .environment(AudioPlayerService())
 }

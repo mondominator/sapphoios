@@ -247,7 +247,7 @@ struct Chapter: Codable, Identifiable {
     let chapterNumber: Int
     let filePath: String?
     let startTime: Double
-    let duration: Int?
+    let duration: Double?
     let fileSize: Int?
     let title: String?
     let createdAt: String?
@@ -269,7 +269,7 @@ struct Chapter: Codable, Identifiable {
         chapterNumber = try container.decodeIfPresent(Int.self, forKey: .chapterNumber) ?? 0
         filePath = try container.decodeIfPresent(String.self, forKey: .filePath)
         startTime = try container.decodeIfPresent(Double.self, forKey: .startTime) ?? 0
-        duration = try container.decodeIfPresent(Int.self, forKey: .duration)
+        duration = try container.decodeIfPresent(Double.self, forKey: .duration)
         fileSize = try container.decodeIfPresent(Int.self, forKey: .fileSize)
         title = try container.decodeIfPresent(String.self, forKey: .title)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)

@@ -70,11 +70,14 @@ struct MainView: View {
                 MiniPlayerView(showFullPlayer: $showFullPlayer)
             }
         }
-        .sheet(isPresented: $showFullPlayer) {
-            PlayerView()
-                .presentationDragIndicator(.hidden)
-                .presentationBackground(Color.sapphoBackground)
+        .overlay {
+            if showFullPlayer {
+                PlayerView(showFullPlayer: $showFullPlayer)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(1)
+            }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showFullPlayer)
         .sheet(isPresented: $showDownloads) {
             NavigationStack {
                 DownloadsView()
@@ -397,32 +400,14 @@ struct MiniPlayerTimeDisplay: View {
     let duration: TimeInterval
     let isPlaying: Bool
 
-    @State private var pulsePhase = false
-
-    private var timeText: String {
-        "\(formatTime(position)) / \(formatTime(duration))"
-    }
-
-    private var textColor: Color {
-        if isPlaying {
-            return pulsePhase
-                ? Color(red: 0.376, green: 0.647, blue: 0.980)  // #60A5FA
-                : Color(red: 0.576, green: 0.773, blue: 0.988)  // #93C5FD
-        }
-        return .sapphoTextMuted
-    }
-
     var body: some View {
-        Text(timeText)
+        Text("\(formatTime(position)) / \(formatTime(duration))")
             .font(.system(size: 10))
-            .foregroundColor(textColor)
-            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsePhase)
-            .onAppear {
-                pulsePhase = true
-            }
-            .onChange(of: isPlaying) { _, playing in
-                pulsePhase = playing
-            }
+            .foregroundColor(isPlaying
+                ? Color(red: 0.376, green: 0.647, blue: 0.980)  // #60A5FA
+                : .sapphoTextMuted
+            )
+            .contentTransition(.numericText())
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
