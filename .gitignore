@@ -43,6 +43,7 @@ fastlane/test_output
 # Code Signing
 *.mobileprovision
 *.provisionprofile
+ExportOptions.plist
 
 # OS generated
 .DS_Store
