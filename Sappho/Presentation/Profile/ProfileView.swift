@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @Environment(AuthRepository.self) private var authRepository
+    @Environment(AudioPlayerService.self) private var audioPlayer
     @Environment(\.sapphoAPI) private var api
 
     @State private var stats: UserStats?
@@ -87,6 +88,7 @@ struct ProfileView: View {
             .alert("Logout", isPresented: $showLogoutConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Logout", role: .destructive) {
+                    audioPlayer.stop()
                     authRepository.clear()
                 }
             } message: {
@@ -220,7 +222,7 @@ struct ProfileView: View {
 
             // Divider
             Rectangle()
-                .fill(Color(hex: "374151"))
+                .fill(Color.sapphoBorder)
                 .frame(width: 1, height: 40)
 
             // Finished
@@ -236,7 +238,7 @@ struct ProfileView: View {
 
             // Divider
             Rectangle()
-                .fill(Color(hex: "374151"))
+                .fill(Color.sapphoBorder)
                 .frame(width: 1, height: 40)
 
             // In Progress
@@ -254,7 +256,7 @@ struct ProfileView: View {
 
         // Full-width divider
         Rectangle()
-            .fill(Color(hex: "374151"))
+            .fill(Color.sapphoBorder)
             .frame(height: 1)
             .padding(.horizontal, 16)
     }
@@ -312,7 +314,7 @@ struct ProfileView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color(hex: "1E293B"))
+                .fill(Color.sapphoSurfaceSlate)
         )
     }
 
@@ -393,7 +395,7 @@ struct ProfileView: View {
                         .padding(.vertical, 14)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: "374151"), lineWidth: 1)
+                                .stroke(Color.sapphoBorder, lineWidth: 1)
                         )
                 }
                 .padding(.horizontal, 16)
@@ -434,7 +436,7 @@ struct ProfileView: View {
                                 .padding(.vertical, 14)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color(hex: "374151"), lineWidth: 1)
+                                        .stroke(Color.sapphoBorder, lineWidth: 1)
                                 )
                         }
 
@@ -485,7 +487,7 @@ struct ProfileView: View {
                 .padding(.vertical, 14)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(hex: "374151"), lineWidth: 1)
+                        .stroke(Color.sapphoBorder, lineWidth: 1)
                 )
             }
             .padding(.horizontal, 16)
@@ -530,7 +532,7 @@ struct ProfileView: View {
                 }
             }
             .padding(16)
-            .background(Color(hex: "1E293B"))
+            .background(Color.sapphoSurfaceSlate)
             .cornerRadius(8)
             .padding(.horizontal, 16)
 
@@ -573,7 +575,7 @@ struct ProfileView: View {
             .background(Color.clear)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(hex: "374151"), lineWidth: 1)
+                    .stroke(Color.sapphoBorder, lineWidth: 1)
             )
     }
 
@@ -585,7 +587,7 @@ struct ProfileView: View {
             .background(Color.clear)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(hex: "374151"), lineWidth: 1)
+                    .stroke(Color.sapphoBorder, lineWidth: 1)
             )
     }
 
@@ -768,12 +770,7 @@ struct ProfileView: View {
 struct SettingsView: View {
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
-    @AppStorage("defaultPlaybackSpeed") private var defaultPlaybackSpeed = 1.0
     @AppStorage("rewindOnResume") private var rewindOnResume = 0
-    @AppStorage("showChapterProgress") private var showChapterProgress = false
-    @AppStorage("autoSleepTimer") private var autoSleepTimer = false
-    @AppStorage("sleepTimerMinutes") private var sleepTimerMinutes = 30
-    @AppStorage("autoDownloadSeries") private var autoDownloadSeries = false
 
     var body: some View {
         Form {
@@ -795,16 +792,6 @@ struct SettingsView: View {
                     Text("60 seconds").tag(60)
                 }
 
-                Picker("Default Speed", selection: $defaultPlaybackSpeed) {
-                    Text("0.5x").tag(0.5)
-                    Text("0.75x").tag(0.75)
-                    Text("1.0x").tag(1.0)
-                    Text("1.25x").tag(1.25)
-                    Text("1.5x").tag(1.5)
-                    Text("1.75x").tag(1.75)
-                    Text("2.0x").tag(2.0)
-                }
-
                 Picker("Rewind on Resume", selection: $rewindOnResume) {
                     Text("Off").tag(0)
                     Text("10 seconds").tag(10)
@@ -812,27 +799,6 @@ struct SettingsView: View {
                     Text("60 seconds").tag(60)
                 }
 
-                Toggle("Show Chapter Progress", isOn: $showChapterProgress)
-            }
-
-            // Sleep Timer Settings
-            Section("Sleep Timer") {
-                Toggle("Auto Sleep Timer", isOn: $autoSleepTimer)
-
-                if autoSleepTimer {
-                    Picker("Default Duration", selection: $sleepTimerMinutes) {
-                        Text("15 minutes").tag(15)
-                        Text("30 minutes").tag(30)
-                        Text("45 minutes").tag(45)
-                        Text("60 minutes").tag(60)
-                        Text("90 minutes").tag(90)
-                    }
-                }
-            }
-
-            // Download Settings
-            Section("Downloads") {
-                Toggle("Auto-download Series", isOn: $autoDownloadSeries)
             }
 
             // About
@@ -1019,14 +985,6 @@ struct DownloadedBookRow: View {
         .cornerRadius(12)
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
-    }
 }
 
 struct AdminView: View {

@@ -2,24 +2,55 @@ import SwiftUI
 
 // MARK: - Image Cache
 
-/// In-memory image cache backed by NSCache for automatic eviction under memory pressure.
+/// Two-tier image cache: in-memory (NSCache) + on-disk (Caches directory).
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
 
-    private let cache = NSCache<NSString, UIImage>()
+    private let memory = NSCache<NSString, UIImage>()
+    private let diskURL: URL
 
     private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+        memory.countLimit = 200
+        memory.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        diskURL = caches.appendingPathComponent("CoverImages", isDirectory: true)
+        try? FileManager.default.createDirectory(at: diskURL, withIntermediateDirectories: true)
     }
 
     func image(for key: String) -> UIImage? {
-        cache.object(forKey: key as NSString)
+        // Check memory first
+        if let cached = memory.object(forKey: key as NSString) {
+            return cached
+        }
+        // Check disk
+        let file = diskURL.appendingPathComponent(diskKey(for: key))
+        guard let data = try? Data(contentsOf: file),
+              let image = UIImage(data: data) else { return nil }
+        // Promote to memory cache
+        let cost = data.count
+        memory.setObject(image, forKey: key as NSString, cost: cost)
+        return image
     }
 
     func setImage(_ image: UIImage, for key: String) {
         let cost = image.jpegData(compressionQuality: 1)?.count ?? 0
-        cache.setObject(image, forKey: key as NSString, cost: cost)
+        memory.setObject(image, forKey: key as NSString, cost: cost)
+        // Write to disk in background
+        let file = diskURL.appendingPathComponent(diskKey(for: key))
+        DispatchQueue.global(qos: .utility).async {
+            if let data = image.jpegData(compressionQuality: 0.85) {
+                try? data.write(to: file, options: .atomic)
+            }
+        }
+    }
+
+    private func diskKey(for key: String) -> String {
+        // SHA256-like hash using built-in — use simple hash for filename safety
+        let hash = key.utf8.reduce(into: UInt64(5381)) { result, byte in
+            result = result &* 33 &+ UInt64(byte)
+        }
+        return String(hash, radix: 16)
     }
 }
 
@@ -35,7 +66,7 @@ final class ImageLoader {
     private var currentURL: URL?
     private var task: Task<Void, Never>?
 
-    func load(url: URL?) {
+    func load(url: URL?, headers: [String: String] = [:]) {
         guard let url else {
             failed = true
             return
@@ -49,7 +80,7 @@ final class ImageLoader {
 
         let key = url.absoluteString
 
-        // Check cache first
+        // Check cache first (memory + disk)
         if let cached = ImageCache.shared.image(for: key) {
             self.image = cached
             return
@@ -60,7 +91,11 @@ final class ImageLoader {
 
         task = Task {
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                var request = URLRequest(url: url)
+                for (field, value) in headers {
+                    request.setValue(value, forHTTPHeaderField: field)
+                }
+                let (data, response) = try await URLSession.shared.data(for: request)
                 guard !Task.isCancelled else { return }
 
                 guard let httpResponse = response as? HTTPURLResponse,
@@ -86,12 +121,13 @@ final class ImageLoader {
     func cancel() {
         task?.cancel()
         task = nil
+        isLoading = false
     }
 }
 
 // MARK: - CoverImage View
 
-/// Reusable cover image view with in-memory caching, loading state, and error fallback.
+/// Reusable cover image view with two-tier caching, loading state, and error fallback.
 struct CoverImage: View {
     @Environment(\.sapphoAPI) private var api
     let audiobookId: Int
@@ -100,10 +136,17 @@ struct CoverImage: View {
 
     @State private var loader = ImageLoader()
 
+    /// Check cache synchronously so the first render already has the image
+    /// (avoids placeholder flash in lazy containers).
+    private var cachedImage: UIImage? {
+        guard let url = api?.coverURL(for: audiobookId) else { return nil }
+        return ImageCache.shared.image(for: url.absoluteString)
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                if let image = loader.image {
+                if let image = loader.image ?? cachedImage {
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: contentMode)
@@ -123,10 +166,10 @@ struct CoverImage: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onAppear {
-            loader.load(url: api?.coverURL(for: audiobookId))
+            loader.load(url: api?.coverURL(for: audiobookId), headers: api?.authHeaders ?? [:])
         }
         .onChange(of: audiobookId) { _, newId in
-            loader.load(url: api?.coverURL(for: newId))
+            loader.load(url: api?.coverURL(for: newId), headers: api?.authHeaders ?? [:])
         }
     }
 

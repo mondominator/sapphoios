@@ -188,6 +188,44 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.lastPlayed = lastPlayed
     }
 
+    /// Returns a copy of this audiobook with the chapters replaced.
+    func withChapters(_ chapters: [Chapter]?) -> Audiobook {
+        Audiobook(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            author: author,
+            narrator: narrator,
+            series: series,
+            seriesPosition: seriesPosition,
+            seriesIndex: seriesIndex,
+            duration: duration,
+            genre: genre,
+            normalizedGenre: normalizedGenre,
+            tags: tags,
+            publishYear: publishYear,
+            copyrightYear: copyrightYear,
+            publisher: publisher,
+            isbn: isbn,
+            asin: asin,
+            language: language,
+            rating: rating,
+            userRating: userRating,
+            averageRating: averageRating,
+            abridged: abridged,
+            description: description,
+            coverImage: coverImage,
+            fileCount: fileCount,
+            isMultiFile: isMultiFile,
+            createdAt: createdAt,
+            progress: progress,
+            chapters: chapters,
+            isFavorite: isFavorite,
+            isQueued: isQueued,
+            lastPlayed: lastPlayed
+        )
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

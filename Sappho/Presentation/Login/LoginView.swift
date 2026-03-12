@@ -46,6 +46,8 @@ struct LoginView: View {
                             .autocapitalization(.none)
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
+                            .accessibilityLabel("Server URL")
+                            .accessibilityHint("Enter the URL of your Sappho server")
                     }
 
                     // Username
@@ -59,6 +61,8 @@ struct LoginView: View {
                             .textContentType(.username)
                             .autocapitalization(.none)
                             .autocorrectionDisabled()
+                            .accessibilityLabel("Username")
+                            .accessibilityHint("Enter your username")
                     }
 
                     // Password
@@ -71,9 +75,11 @@ struct LoginView: View {
                             if showPassword {
                                 TextField("Password", text: $password)
                                     .textContentType(.password)
+                                    .accessibilityLabel("Password, visible")
                             } else {
                                 SecureField("Password", text: $password)
                                     .textContentType(.password)
+                                    .accessibilityLabel("Password")
                             }
 
                             Button {
@@ -82,6 +88,8 @@ struct LoginView: View {
                                 Image(systemName: showPassword ? "eye.slash" : "eye")
                                     .foregroundColor(.sapphoTextMuted)
                             }
+                            .accessibilityLabel(showPassword ? "Hide password" : "Show password")
+                            .accessibilityHint("Double tap to \(showPassword ? "hide" : "show") password")
                         }
                         .padding()
                         .background(Color.sapphoSurface)
@@ -94,6 +102,8 @@ struct LoginView: View {
                             .font(.sapphoCaption)
                             .foregroundColor(.sapphoError)
                             .multilineTextAlignment(.center)
+                            .accessibilityLabel("Error: \(error)")
+                            .accessibilityAddTraits(.isStaticText)
                     }
 
                     // Login Button
@@ -115,6 +125,8 @@ struct LoginView: View {
                     .buttonStyle(SapphoPrimaryButtonStyle())
                     .disabled(isLoading || !isFormValid)
                     .opacity(isFormValid ? 1.0 : 0.6)
+                    .accessibilityLabel(isLoading ? "Connecting to server" : "Login")
+                    .accessibilityHint(isFormValid ? "Double tap to login" : "Fill in all fields to enable login")
                 }
                 .padding(.horizontal, 24)
 
@@ -151,6 +163,13 @@ struct LoginView: View {
             }
 
             let response = try await api.login(serverURL: url, username: username, password: password)
+
+            if response.mfaRequired == true {
+                errorMessage = "This account requires multi-factor authentication (MFA), which is not yet supported in the iOS app. Please log in via the web app."
+                isLoading = false
+                return
+            }
+
             authRepository.store(serverURL: url, token: response.token, user: response.user)
         } catch let error as APIError {
             errorMessage = error.errorDescription
