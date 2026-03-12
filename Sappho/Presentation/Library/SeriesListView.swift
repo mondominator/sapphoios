@@ -62,7 +62,7 @@ struct SeriesListView: View {
 
         do {
             async let seriesData = api?.getSeries()
-            async let booksData = api?.getAudiobooks()
+            async let booksData = api?.getAudiobooks(limit: 10000)
 
             series = try await seriesData ?? []
             allBooks = try await booksData ?? []
@@ -107,21 +107,19 @@ struct SeriesCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Stacked covers
-            ZStack {
-                ForEach(Array(books.prefix(3).reversed().enumerated()), id: \.offset) { index, book in
-                    let offset = CGFloat(2 - index) * 8
-                    CoverImage(audiobookId: book.id)
-                        .frame(width: 60, height: 80)
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.sapphoSurface, lineWidth: 1)
-                        )
-                        .offset(x: offset, y: offset)
-                }
+            // Cover (first book in series)
+            if let firstBook = books.first {
+                CoverImage(audiobookId: firstBook.id, cornerRadius: 8, contentMode: .fit)
+                    .frame(width: 80, height: 80)
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.sapphoSurface)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Image(systemName: "books.vertical.fill")
+                            .foregroundColor(.sapphoTextMuted)
+                    )
             }
-            .frame(width: 80, height: 100)
 
             // Series info
             VStack(alignment: .leading, spacing: 4) {

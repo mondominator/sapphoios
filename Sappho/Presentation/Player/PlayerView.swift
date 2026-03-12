@@ -16,40 +16,50 @@ struct PlayerView: View {
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
             VStack(spacing: 0) {
-                // Drag indicator
-                Capsule()
-                    .fill(Color.sapphoTextMuted.opacity(0.5))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 8)
+                // Drag handle + Header
+                VStack(spacing: 0) {
+                    Capsule()
+                        .fill(Color.sapphoTextMuted.opacity(0.5))
+                        .frame(width: 36, height: 5)
+                        .padding(.top, 8)
 
-                // Header
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.sapphoTextHigh)
-                    }
-
-                    Spacer()
-
-                    // Chapter button
-                    if let chapters = audiobook.chapters, !chapters.isEmpty {
+                    HStack {
                         Button {
-                            showChapters = true
+                            dismiss()
                         } label: {
-                            Image(systemName: "list.bullet")
-                                .font(.system(size: 18))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(.sapphoTextHigh)
                         }
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
 
-                ScrollView {
-                    VStack(spacing: 28) {
+                        Spacer()
+
+                        // AirPlay (matches Cast button position on Android)
+                        AirPlayButton()
+                            .frame(width: 28, height: 28)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            if value.translation.height > 0 {
+                                dragOffset = value.translation.height
+                            }
+                        }
+                        .onEnded { value in
+                            if value.translation.height > 100 {
+                                dismiss()
+                            }
+                            dragOffset = 0
+                        }
+                )
+
+                Spacer()
+
+                VStack(spacing: 28) {
                         // Cover
                         CoverImage(audiobookId: audiobook.id, cornerRadius: 12)
                             .frame(width: 280, height: 280)
@@ -66,6 +76,18 @@ struct PlayerView: View {
                             Text(audiobook.author ?? "Unknown Author")
                                 .font(.sapphoBody)
                                 .foregroundColor(.sapphoTextMuted)
+
+                            // Series info
+                            if let series = audiobook.series {
+                                HStack(spacing: 4) {
+                                    Text(series)
+                                    if let pos = audiobook.seriesPosition {
+                                        Text("#\(formatSeriesPosition(pos))")
+                                    }
+                                }
+                                .font(.sapphoCaption)
+                                .foregroundColor(.sapphoTextMuted.opacity(0.8))
+                            }
 
                             // Current chapter
                             if let chapter = audioPlayer.currentChapter {
@@ -90,7 +112,7 @@ struct PlayerView: View {
                                 ),
                                 in: 0...max(audioPlayer.duration, 1)
                             )
-                            .tint(.sapphoPrimary)
+                            .tint(Color(red: 0.376, green: 0.647, blue: 0.980))
 
                             HStack {
                                 Text(formatTime(audioPlayer.position))
@@ -112,42 +134,47 @@ struct PlayerView: View {
                             } label: {
                                 Image(systemName: "backward.end.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(hasChapters ? .sapphoTextHigh : .sapphoTextDisabled)
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
                             }
                             .disabled(!hasChapters)
-                            .frame(width: 44)
+                            .frame(width: 48, height: 48)
 
                             Spacer()
 
-                            // Skip backward
+                            // Skip backward (Replay 10)
                             Button {
-                                audioPlayer.skipBackward(seconds: TimeInterval(skipBackwardSeconds))
+                                audioPlayer.skipBackward(seconds: 10)
                             } label: {
-                                Image(systemName: skipBackwardIcon)
-                                    .font(.system(size: 30))
+                                Image(systemName: "gobackward.10")
+                                    .font(.system(size: 32))
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
 
                             Spacer()
 
-                            // Play/Pause
+                            // Play/Pause (always blue on full player)
                             Button {
                                 audioPlayer.togglePlayPause()
                             } label: {
-                                Image(systemName: audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                    .font(.system(size: 68))
-                                    .foregroundColor(.sapphoPrimary)
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(red: 0.376, green: 0.647, blue: 0.980)) // #60A5FA
+                                        .frame(width: 72, height: 72)
+                                    Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.white)
+                                }
                             }
 
                             Spacer()
 
-                            // Skip forward
+                            // Skip forward (Forward 10)
                             Button {
-                                audioPlayer.skipForward(seconds: TimeInterval(skipForwardSeconds))
+                                audioPlayer.skipForward(seconds: 10)
                             } label: {
-                                Image(systemName: skipForwardIcon)
-                                    .font(.system(size: 30))
+                                Image(systemName: "goforward.10")
+                                    .font(.system(size: 32))
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
@@ -160,83 +187,90 @@ struct PlayerView: View {
                             } label: {
                                 Image(systemName: "forward.end.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(hasChapters ? .sapphoTextHigh : .sapphoTextDisabled)
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
                             }
                             .disabled(!hasChapters)
-                            .frame(width: 44)
+                            .frame(width: 48, height: 48)
 
                             Spacer()
                         }
 
-                        // Secondary Controls
-                        HStack(spacing: 48) {
+                        // Secondary Controls (matches Android: Chapters | Speed | Sleep)
+                        HStack(spacing: 0) {
+                            // Chapters
+                            if let chapters = audiobook.chapters, !chapters.isEmpty {
+                                Button {
+                                    showChapters = true
+                                } label: {
+                                    VStack(spacing: 6) {
+                                        Image(systemName: "list.bullet")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.sapphoPrimary)
+                                        Text(audioPlayer.currentChapter?.title ?? "Chapters")
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoTextHigh)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                }
+                            }
+
                             // Speed
                             Button {
                                 showSpeedPicker = true
                             } label: {
-                                VStack(spacing: 4) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "speedometer")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.purple)
                                     Text(String(format: "%.2gx", audioPlayer.playbackSpeed))
-                                        .font(.sapphoSubheadline)
-                                        .foregroundColor(.sapphoTextHigh)
-                                    Text("Speed")
                                         .font(.sapphoSmall)
-                                        .foregroundColor(.sapphoTextMuted)
+                                        .foregroundColor(.sapphoTextHigh)
                                 }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                             }
 
                             // Sleep Timer
                             Button {
                                 showSleepTimer = true
                             } label: {
-                                VStack(spacing: 4) {
+                                VStack(spacing: 6) {
                                     if let remaining = audioPlayer.sleepTimerRemaining {
+                                        Image(systemName: "moon.zzz.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.sapphoWarning)
                                         Text(formatTime(remaining))
-                                            .font(.sapphoSubheadline)
-                                            .foregroundColor(.sapphoPrimary)
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoWarning)
                                     } else {
                                         Image(systemName: "moon.zzz")
-                                            .font(.system(size: 18))
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.sapphoWarning)
+                                        Text("Off")
+                                            .font(.sapphoSmall)
                                             .foregroundColor(.sapphoTextHigh)
                                     }
-                                    Text("Sleep")
-                                        .font(.sapphoSmall)
-                                        .foregroundColor(.sapphoTextMuted)
                                 }
-                            }
-
-                            // AirPlay
-                            VStack(spacing: 4) {
-                                AirPlayButton()
-                                    .frame(width: 28, height: 28)
-                                Text("AirPlay")
-                                    .font(.sapphoSmall)
-                                    .foregroundColor(.sapphoTextMuted)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                             }
                         }
                         .padding(.top, 8)
+
+                        // Playing animation bars
+                        PlayingAnimationBars()
+                            .padding(.top, 8)
+                            .opacity(audioPlayer.isPlaying ? 1 : 0)
                     }
                     .padding(.vertical, 16)
-                }
+
+                Spacer()
             }
-            .background(Color.sapphoBackground)
             .offset(y: dragOffset)
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        if value.translation.height > 0 {
-                            dragOffset = value.translation.height
-                        }
-                    }
-                    .onEnded { value in
-                        if value.translation.height > 150 {
-                            dismiss()
-                        } else {
-                            withAnimation(.spring(response: 0.3)) {
-                                dragOffset = 0
-                            }
-                        }
-                    }
-            )
+            .animation(.interactiveSpring(), value: dragOffset)
+            .background(Color.sapphoBackground)
             .sheet(isPresented: $showSpeedPicker) {
                 SpeedPickerSheet(currentSpeed: audioPlayer.playbackSpeed) { speed in
                     audioPlayer.setPlaybackSpeed(speed)
@@ -308,6 +342,13 @@ struct PlayerView: View {
             return String(format: "%d:%02d:%02d", hours, minutes, secs)
         }
         return String(format: "%d:%02d", minutes, secs)
+    }
+
+    private func formatSeriesPosition(_ position: Float) -> String {
+        if position == floor(position) {
+            return String(format: "%.0f", position)
+        }
+        return String(format: "%.1f", position)
     }
 
     private var skipBackwardIcon: String {
@@ -382,7 +423,7 @@ struct SleepTimerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private let options = [5, 10, 15, 30, 45, 60]
+    private let options = [5, 10, 15, 30, 45, 60, 90, 120]
 
     var body: some View {
         VStack(spacing: 16) {
@@ -478,6 +519,31 @@ struct ChaptersSheet: View {
             return "\(hours)h \(minutes)m"
         }
         return "\(minutes) min"
+    }
+}
+
+// MARK: - Playing Animation Bars
+struct PlayingAnimationBars: View {
+    @State private var animating = false
+
+    private let targetHeights: [CGFloat] = [12, 7, 10]
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color(red: 0.376, green: 0.647, blue: 0.980)) // #60A5FA
+                    .frame(width: 3, height: animating ? targetHeights[index] : 3)
+                    .animation(
+                        .easeInOut(duration: 0.4)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.1),
+                        value: animating
+                    )
+            }
+        }
+        .frame(height: 12)
+        .onAppear { animating = true }
     }
 }
 

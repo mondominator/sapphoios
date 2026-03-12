@@ -96,6 +96,7 @@ struct CoverImage: View {
     @Environment(\.sapphoAPI) private var api
     let audiobookId: Int
     var cornerRadius: CGFloat = 8
+    var contentMode: ContentMode = .fill
 
     @State private var loader = ImageLoader()
 
@@ -105,7 +106,7 @@ struct CoverImage: View {
                 if let image = loader.image {
                     Image(uiImage: image)
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .aspectRatio(contentMode: contentMode)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                 } else if loader.failed {

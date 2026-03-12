@@ -59,7 +59,7 @@ struct FilteredBooksView: View {
         }
         .background(Color.sapphoBackground)
         .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
@@ -230,8 +230,8 @@ struct BookListItem: View {
     var body: some View {
         HStack(spacing: 12) {
             // Cover
-            CoverImage(audiobookId: audiobook.id)
-                .frame(width: 70, height: 100)
+            CoverImage(audiobookId: audiobook.id, contentMode: .fit)
+                .frame(width: 70, height: 70)
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)

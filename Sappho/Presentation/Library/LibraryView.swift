@@ -1,11 +1,15 @@
 import SwiftUI
 
-enum LibraryTab: String, CaseIterable {
-    case all = "All"
-    case series = "Series"
-    case authors = "Authors"
-    case genres = "Genres"
-    case collections = "Collections"
+// MARK: - Navigation State
+
+enum LibraryNavigationView {
+    case categories
+    case series
+    case authors
+    case genres
+    case collections
+    case readingList
+    case allBooks
 }
 
 enum LibrarySortOption: String, CaseIterable {
@@ -36,76 +40,390 @@ enum LibraryFilterOption: String, CaseIterable {
     case inProgress = "In Progress"
     case notStarted = "Not Started"
     case finished = "Finished"
-
-    var icon: String {
-        switch self {
-        case .all: return "books.vertical"
-        case .hideFinished: return "eye.slash"
-        case .inProgress: return "play.circle"
-        case .notStarted: return "circle"
-        case .finished: return "checkmark.circle"
-        }
-    }
 }
+
+// MARK: - Library View
 
 struct LibraryView: View {
     @Environment(\.sapphoAPI) private var api
-    @State private var selectedTab: LibraryTab = .all
+    @Environment(AuthRepository.self) private var authRepository
+
+    @State private var currentView: LibraryNavigationView = .categories
+    @State private var seriesCount = 0
+    @State private var authorsCount = 0
+    @State private var genresCount = 0
+    @State private var collectionsCount = 0
+    @State private var readingListCount = 0
+    @State private var totalBooks = 0
+    @State private var isLoading = true
+    @State private var showUpload = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch currentView {
+                case .categories:
+                    categoriesView
+                case .series:
+                    SeriesListView()
+                        .navigationTitle("Series")
+                        .navigationBarTitleDisplayMode(.inline)
+                case .authors:
+                    AuthorsListView()
+                        .navigationTitle("Authors")
+                        .navigationBarTitleDisplayMode(.inline)
+                case .genres:
+                    GenresListView()
+                        .navigationTitle("Genres")
+                        .navigationBarTitleDisplayMode(.inline)
+                case .collections:
+                    CollectionsListView()
+                        .navigationTitle("Collections")
+                        .navigationBarTitleDisplayMode(.inline)
+                case .readingList:
+                    ReadingListView()
+                case .allBooks:
+                    AllBooksView()
+                }
+            }
+            .background(Color.sapphoBackground)
+            .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                if currentView != .categories {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                currentView = .categories
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Library")
+                                    .font(.sapphoBody)
+                            }
+                            .foregroundColor(.sapphoPrimary)
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showUpload) {
+                UploadView()
+            }
+        }
+    }
+
+    // MARK: - Categories Hub
+
+    private var categoriesView: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                // Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Library")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.sapphoTextHigh)
+
+                    if totalBooks > 0 {
+                        Text("\(totalBooks) audiobooks in your collection")
+                            .font(.sapphoBody)
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                // Series - Full width hero card
+                CategoryCardLarge(
+                    title: "Series",
+                    count: seriesCount,
+                    icon: "books.vertical.fill",
+                    gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        currentView = .series
+                    }
+                }
+
+                // Authors & Genres - Two column
+                HStack(spacing: 12) {
+                    CategoryCardMedium(
+                        title: "Authors",
+                        count: authorsCount,
+                        icon: "person.2.fill",
+                        gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            currentView = .authors
+                        }
+                    }
+
+                    CategoryCardMedium(
+                        title: "Genres",
+                        count: genresCount,
+                        icon: "tag.fill",
+                        gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            currentView = .genres
+                        }
+                    }
+                }
+
+                // Collections & Reading List - Two column (teal)
+                HStack(spacing: 12) {
+                    CategoryCardMedium(
+                        title: "Collections",
+                        count: collectionsCount,
+                        icon: "folder.fill",
+                        gradientColors: [Color(red: 0.149, green: 0.651, blue: 0.604), Color(red: 0, green: 0.537, blue: 0.482)]
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            currentView = .collections
+                        }
+                    }
+
+                    CategoryCardMedium(
+                        title: "Reading List",
+                        count: readingListCount,
+                        icon: "bookmark.fill",
+                        gradientColors: [Color(red: 0.149, green: 0.651, blue: 0.604), Color(red: 0, green: 0.537, blue: 0.482)]
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            currentView = .readingList
+                        }
+                    }
+                }
+
+                // All Books - Wide card (gray)
+                CategoryCardWide(
+                    title: "All Books",
+                    icon: "square.grid.2x2.fill",
+                    gradientColors: [Color(red: 0.216, green: 0.255, blue: 0.318), Color(red: 0.122, green: 0.161, blue: 0.216)]
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        currentView = .allBooks
+                    }
+                }
+
+                // Upload - Wide card (green, admin only)
+                if authRepository.isAdmin {
+                    CategoryCardWide(
+                        title: "Upload",
+                        icon: "square.and.arrow.up.fill",
+                        gradientColors: [Color.sapphoSuccess, Color.sapphoSuccess.opacity(0.7)]
+                    ) {
+                        showUpload = true
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 100)
+        }
+        .background(Color.sapphoBackground)
+        .refreshable {
+            await loadCounts()
+        }
+        .task {
+            await loadCounts()
+        }
+    }
+
+    // MARK: - Load Counts
+
+    private func loadCounts() async {
+        // Load each count independently so one failure doesn't block others
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                if let s = try? await api?.getSeries() {
+                    await MainActor.run { seriesCount = s.count }
+                }
+            }
+            group.addTask {
+                if let a = try? await api?.getAuthors() {
+                    await MainActor.run { authorsCount = a.count }
+                }
+            }
+            group.addTask {
+                if let g = try? await api?.getGenres() {
+                    await MainActor.run { genresCount = g.count }
+                }
+            }
+            group.addTask {
+                if let c = try? await api?.getCollections() {
+                    await MainActor.run { collectionsCount = c.count }
+                }
+            }
+            group.addTask {
+                if let f = try? await api?.getFavorites() {
+                    await MainActor.run { readingListCount = f.count }
+                }
+            }
+            group.addTask {
+                if let b = try? await api?.getAudiobooks() {
+                    await MainActor.run { totalBooks = b.count }
+                }
+            }
+        }
+
+        isLoading = false
+    }
+}
+
+// MARK: - Category Card Large (Full Width Hero)
+
+struct CategoryCardLarge: View {
+    let title: String
+    let count: Int
+    let icon: String
+    let gradientColors: [Color]
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("\(count)")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 56, height: 56)
+                    Image(systemName: icon)
+                        .font(.system(size: 28))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .background(
+                LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Category Card Medium (Half Width)
+
+struct CategoryCardMedium: View {
+    let title: String
+    let count: Int
+    let icon: String
+    let gradientColors: [Color]
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(count)")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 160)
+            .background(
+                LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Category Card Wide (Full Width, Short)
+
+struct CategoryCardWide: View {
+    let title: String
+    var subtitle: String? = nil
+    let icon: String
+    let gradientColors: [Color]
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity)
+            .frame(height: 80)
+            .background(
+                LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - All Books View
+
+struct AllBooksView: View {
+    @Environment(\.sapphoAPI) private var api
     @State private var audiobooks: [Audiobook] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var sortOption: LibrarySortOption = .title
     @State private var sortAscending = true
     @State private var filterOption: LibraryFilterOption = .all
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Tab Picker
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(LibraryTab.allCases, id: \.self) { tab in
-                            Button {
-                                selectedTab = tab
-                            } label: {
-                                Text(tab.rawValue)
-                                    .font(.sapphoSubheadline)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(selectedTab == tab ? Color.sapphoPrimary : Color.sapphoSurface)
-                                    .foregroundColor(selectedTab == tab ? .white : .sapphoTextMuted)
-                                    .cornerRadius(20)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-                .background(Color.sapphoBackground)
-
-                // Content based on selected tab
-                Group {
-                    switch selectedTab {
-                    case .all:
-                        allBooksView
-                    case .series:
-                        SeriesListView()
-                    case .authors:
-                        AuthorsListView()
-                    case .genres:
-                        GenresListView()
-                    case .collections:
-                        CollectionsListView()
-                    }
-                }
-            }
-            .background(Color.sapphoBackground)
-            .navigationTitle("Library")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-        }
-    }
 
     private var filteredAudiobooks: [Audiobook] {
         switch filterOption {
@@ -128,34 +446,28 @@ struct LibraryView: View {
             case .title:
                 return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
             case .author:
-                let authorA = a.author ?? ""
-                let authorB = b.author ?? ""
-                return authorA.localizedCaseInsensitiveCompare(authorB) == .orderedAscending
+                return (a.author ?? "").localizedCaseInsensitiveCompare(b.author ?? "") == .orderedAscending
             case .series:
-                let seriesA = a.series ?? ""
-                let seriesB = b.series ?? ""
-                if seriesA.isEmpty && !seriesB.isEmpty { return false }
-                if !seriesA.isEmpty && seriesB.isEmpty { return true }
-                return seriesA.localizedCaseInsensitiveCompare(seriesB) == .orderedAscending
+                let sa = a.series ?? "", sb = b.series ?? ""
+                if sa.isEmpty && !sb.isEmpty { return false }
+                if !sa.isEmpty && sb.isEmpty { return true }
+                return sa.localizedCaseInsensitiveCompare(sb) == .orderedAscending
             case .dateAdded:
                 return a.id < b.id
             case .progress:
-                let progressA = Double(a.progress?.position ?? 0) / Double(max(a.duration ?? 1, 1))
-                let progressB = Double(b.progress?.position ?? 0) / Double(max(b.duration ?? 1, 1))
-                return progressA < progressB
+                let pa = Double(a.progress?.position ?? 0) / Double(max(a.duration ?? 1, 1))
+                let pb = Double(b.progress?.position ?? 0) / Double(max(b.duration ?? 1, 1))
+                return pa < pb
             case .duration:
                 return (a.duration ?? 0) < (b.duration ?? 0)
             case .rating:
-                let ratingA = a.userRating ?? a.averageRating ?? 0
-                let ratingB = b.userRating ?? b.averageRating ?? 0
-                return ratingA < ratingB
+                return (a.userRating ?? a.averageRating ?? 0) < (b.userRating ?? b.averageRating ?? 0)
             }
         }
         return sortAscending ? sorted : sorted.reversed()
     }
 
-    @ViewBuilder
-    private var allBooksView: some View {
+    var body: some View {
         Group {
             if isLoading {
                 LoadingView()
@@ -174,6 +486,7 @@ struct LibraryView: View {
                     VStack(spacing: 0) {
                         // Sort and filter controls
                         HStack(spacing: 8) {
+                            // Sort dropdown
                             Menu {
                                 ForEach(LibrarySortOption.allCases, id: \.self) { option in
                                     Button {
@@ -195,20 +508,23 @@ struct LibraryView: View {
                                 }
                             } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: sortOption.icon)
-                                        .font(.system(size: 14))
+                                    Text("Sort")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.sapphoTextMuted)
                                     Text(sortOption.rawValue)
-                                        .font(.sapphoCaption)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white)
                                     Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
                                         .font(.system(size: 10))
+                                        .foregroundColor(.sapphoTextMuted)
                                 }
-                                .foregroundColor(.sapphoTextMuted)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(Color.sapphoSurface)
                                 .cornerRadius(8)
                             }
 
+                            // Filter dropdown
                             Menu {
                                 ForEach(LibraryFilterOption.allCases, id: \.self) { option in
                                     Button {
@@ -225,12 +541,16 @@ struct LibraryView: View {
                                 }
                             } label: {
                                 HStack(spacing: 6) {
-                                    Image(systemName: filterOption == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                                        .font(.system(size: 14))
+                                    Text("Show")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.sapphoTextMuted)
                                     Text(filterOption.rawValue)
-                                        .font(.sapphoCaption)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white)
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.sapphoTextMuted)
                                 }
-                                .foregroundColor(filterOption == .all ? .sapphoTextMuted : .sapphoPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(Color.sapphoSurface)
@@ -240,25 +560,27 @@ struct LibraryView: View {
                             Spacer()
 
                             Text("\(sortedAudiobooks.count) books")
-                                .font(.sapphoCaption)
+                                .font(.system(size: 13))
                                 .foregroundColor(.sapphoTextMuted)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
 
-                        // Grid of audiobooks
+                        // Grid
                         LazyVGrid(columns: [
-                            GridItem(.adaptive(minimum: 140), spacing: 16)
-                        ], spacing: 16) {
+                            GridItem(.flexible(), spacing: 8),
+                            GridItem(.flexible(), spacing: 8),
+                            GridItem(.flexible(), spacing: 8)
+                        ], spacing: 8) {
                             ForEach(sortedAudiobooks) { audiobook in
                                 NavigationLink(value: audiobook) {
-                                    AudiobookCard(audiobook: audiobook)
+                                    AllBooksGridItem(audiobook: audiobook)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
-                        .padding(16)
-                        .padding(.bottom, 100) // Space for mini player
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100)
                     }
                 }
                 .refreshable {
@@ -269,6 +591,8 @@ struct LibraryView: View {
                 }
             }
         }
+        .navigationTitle("\(sortedAudiobooks.count) Books")
+        .navigationBarTitleDisplayMode(.large)
         .task {
             await loadData()
         }
@@ -279,12 +603,110 @@ struct LibraryView: View {
         errorMessage = nil
 
         do {
-            audiobooks = try await api?.getAudiobooks() ?? []
+            audiobooks = try await api?.getAudiobooks(limit: 10000) ?? []
         } catch {
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
+    }
+}
+
+// MARK: - All Books Grid Item
+
+struct AllBooksGridItem: View {
+    let audiobook: Audiobook
+
+    private var progressPercent: Double {
+        guard let progress = audiobook.progress,
+              let duration = audiobook.duration,
+              duration > 0 else { return 0 }
+        return Double(progress.position) / Double(duration)
+    }
+
+    private var isCompleted: Bool {
+        audiobook.progress?.completed == 1
+    }
+
+    var body: some View {
+        ZStack {
+            // Cover
+            CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
+                .aspectRatio(1, contentMode: .fill)
+
+            // Overlays
+            VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 0) {
+                    Spacer()
+
+                    // Reading list ribbon
+                    if audiobook.isQueued == true && !isCompleted {
+                        BookmarkRibbon()
+                            .fill(Color.sapphoPrimary)
+                            .frame(width: 28, height: 28)
+                    }
+
+                    // Completed badge
+                    if isCompleted {
+                        ZStack {
+                            Circle()
+                                .fill(Color.sapphoSuccess)
+                                .frame(width: 20, height: 20)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(4)
+                    }
+                }
+
+                Spacer()
+
+                // Rating badge (bottom-right)
+                if let rating = audiobook.userRating ?? audiobook.averageRating, rating > 0 {
+                    HStack {
+                        Spacer()
+                        HStack(spacing: 2) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(Color(red: 0.984, green: 0.749, blue: 0.149))
+                            Text(String(format: "%.0f", rating))
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(0.75))
+                        .cornerRadius(4)
+                        .padding(4)
+                    }
+                }
+
+                // Progress bar
+                if progressPercent > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.7))
+                            Rectangle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: isCompleted
+                                            ? [Color.sapphoSuccess, Color(red: 0.298, green: 0.851, blue: 0.506)]
+                                            : [Color(red: 0.376, green: 0.647, blue: 0.980), Color(red: 0.529, green: 0.749, blue: 1.0)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geo.size.width * progressPercent)
+                        }
+                    }
+                    .frame(height: 5)
+                }
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

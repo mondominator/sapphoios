@@ -13,6 +13,8 @@ struct SapphoApp: App {
         _api = State(initialValue: SapphoAPI(authRepository: repo))
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -27,6 +29,11 @@ struct SapphoApp: App {
                         await audioPlayer.restoreLastPlayed()
                     }
                 }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                audioPlayer.handleAppDidBecomeActive()
+            }
         }
     }
 }

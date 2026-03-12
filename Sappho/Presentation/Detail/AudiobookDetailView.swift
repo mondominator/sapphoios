@@ -6,6 +6,8 @@ struct AudiobookDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     let audiobook: Audiobook
+    var onAuthorTap: ((String) -> Void)? = nil
+    var onSeriesTap: ((String) -> Void)? = nil
 
     @State private var fullAudiobook: Audiobook?
     @State private var isFavorite: Bool = false
@@ -20,6 +22,10 @@ struct AudiobookDetailView: View {
     @State private var showChaptersSheet = false
     @State private var showMoreMenu = false
     @State private var descriptionExpanded = false
+    @State private var authorToNavigate: String = ""
+    @State private var seriesToNavigate: String = ""
+    @State private var showAuthorView = false
+    @State private var showSeriesView = false
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -40,18 +46,15 @@ struct AudiobookDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Cover with overlays (tap to play)
+                // Cover with overlays
                 coverSection
                     .padding(.top, 16)
 
                 // Rating Section (directly under cover)
                 ratingSection
 
-                // Chapters and More menu row
-                chaptersMenuRow
-
-                // Play Button
-                playButton
+                // Action row: Play + Download + Overflow (matches Android layout)
+                actionRow
 
                 // Progress Section (if has progress)
                 progressSection
@@ -62,12 +65,18 @@ struct AudiobookDetailView: View {
                 // Description
                 descriptionSection
             }
-            .padding(.bottom, 32)
+            .padding(.bottom, 120) // Space for mini player
         }
         .background(Color.sapphoBackground)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .navigationDestination(isPresented: $showAuthorView) {
+            FilteredBooksView(title: authorToNavigate, filterType: .author(authorToNavigate))
+        }
+        .navigationDestination(isPresented: $showSeriesView) {
+            FilteredBooksView(title: seriesToNavigate, filterType: .series(seriesToNavigate))
+        }
         .fullScreenCover(isPresented: $showPlayer) {
             PlayerView()
         }
@@ -94,6 +103,11 @@ struct AudiobookDetailView: View {
             )
         }
         .confirmationDialog("More Options", isPresented: $showMoreMenu, titleVisibility: .hidden) {
+            if let chapters = displayBook.chapters, !chapters.isEmpty {
+                Button("\(chapters.count) Chapters") {
+                    showChaptersSheet = true
+                }
+            }
             Button("Add to Collection") {
                 showCollectionsSheet = true
             }
@@ -108,20 +122,6 @@ struct AudiobookDetailView: View {
             Button("Share") {
                 showShareSheet = true
             }
-            switch downloadState {
-            case .notDownloaded, .failed:
-                Button("Download") {
-                    handleDownloadTap()
-                }
-            case .downloading:
-                Button("Cancel Download", role: .destructive) {
-                    handleDownloadTap()
-                }
-            case .downloaded:
-                Button("Remove Download", role: .destructive) {
-                    handleDownloadTap()
-                }
-            }
             Button("Cancel", role: .cancel) {}
         }
         .task {
@@ -132,70 +132,71 @@ struct AudiobookDetailView: View {
     }
 
     // MARK: - Cover Section
+    private var isCompleted: Bool {
+        displayBook.progress?.completed == 1
+    }
+
     private var coverSection: some View {
-        Button {
-            Task {
-                await audioPlayer.play(audiobook: displayBook)
-            }
-            showPlayer = true
-        } label: {
-            ZStack {
-                // Cover Image
-                CoverImage(audiobookId: displayBook.id, cornerRadius: 0)
-                    .frame(width: 280, height: 280)
+        ZStack {
+            // Cover Image
+            CoverImage(audiobookId: displayBook.id, cornerRadius: 0)
+                .frame(width: 320, height: 320)
 
-                // Play overlay
-                Circle()
-                    .fill(Color.black.opacity(0.5))
-                    .frame(width: 72, height: 72)
-                    .overlay(
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white)
-                            .offset(x: 2) // Visual centering for play icon
-                    )
-
-                // Favorite button (top right)
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button {
-                            Task { await toggleFavorite() }
-                        } label: {
-                            Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(isFavorite ? .sapphoPrimary : .white)
-                                .padding(10)
-                                .background(Color.black.opacity(0.5))
-                                .clipShape(Circle())
-                        }
-                        .padding(12)
-                    }
+            // Bookmark button (top right)
+            VStack {
+                HStack {
                     Spacer()
-                }
-
-                // Progress bar (bottom)
-                if progressPercent > 0 {
-                    VStack {
-                        Spacer()
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.5))
-                                Rectangle()
-                                    .fill(Color.sapphoPrimary)
-                                    .frame(width: geo.size.width * progressPercent)
-                            }
-                        }
-                        .frame(height: 4)
+                    Button {
+                        Task { await toggleFavorite() }
+                    } label: {
+                        Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(isFavorite ? .sapphoPrimary : .white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.black.opacity(0.5))
+                            .clipShape(Circle())
                     }
+                    .padding(12)
+                }
+                Spacer()
+            }
+
+            // Progress bar (bottom of cover)
+            if progressPercent > 0 {
+                VStack {
+                    Spacer()
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.5))
+                            Rectangle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: isCompleted
+                                            ? [Color.sapphoSuccess.opacity(0.8), Color.sapphoSuccess]
+                                            : [Color.sapphoPrimary.opacity(0.8), Color.sapphoPrimary],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geo.size.width * min(progressPercent, 1.0))
+                        }
+                    }
+                    .frame(height: 6)
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: 0,
+                            bottomLeadingRadius: 12,
+                            bottomTrailingRadius: 12,
+                            topTrailingRadius: 0
+                        )
+                    )
                 }
             }
-            .frame(width: 280, height: 280)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         }
-        .buttonStyle(.plain)
+        .frame(width: 320, height: 320)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
     }
 
     // MARK: - Rating Section
@@ -245,85 +246,72 @@ struct AudiobookDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Chapters and Menu Row
-    private var chaptersMenuRow: some View {
+    // MARK: - Action Row (Play + Download + Overflow)
+    private var actionRow: some View {
         HStack(spacing: 12) {
-            // Chapters button
-            if let chapters = displayBook.chapters, !chapters.isEmpty {
-                Button {
-                    showChaptersSheet = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "list.bullet")
-                            .font(.system(size: 16))
-                        Text("\(chapters.count) Chapter\(chapters.count == 1 ? "" : "s")")
-                            .font(.sapphoSubheadline)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
+            // Play/Continue button (expands to fill)
+            Button {
+                if isCurrentlyPlaying {
+                    audioPlayer.togglePlayPause()
+                } else {
+                    Task {
+                        await audioPlayer.play(audiobook: displayBook)
                     }
-                    .foregroundColor(.sapphoTextHigh)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(10)
+                    showPlayer = true
                 }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 20))
+                    Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
+                        .font(.sapphoSubheadline)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(
+                    isCurrentlyPlaying
+                        ? Color.sapphoPrimary.opacity(0.2)
+                        : Color.sapphoSuccess.opacity(0.2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .cornerRadius(12)
             }
 
-            // More menu button
+            // Download button (icon only, 48x48)
+            Button {
+                handleDownloadTap()
+            } label: {
+                downloadIcon
+                    .frame(width: 48, height: 52)
+                    .background(Color.sapphoSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+            }
+
+            // Overflow menu button (icon only, 48x48)
             Button {
                 showMoreMenu = true
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.sapphoTextHigh)
-                    .frame(width: 48, height: 48)
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(10)
+                    .frame(width: 48, height: 52)
+                    .background(Color.sapphoSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .cornerRadius(12)
             }
         }
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Play Button
-    private var playButton: some View {
-        HStack(spacing: 12) {
-            // Play/Continue button
-            Button {
-                Task {
-                    await audioPlayer.play(audiobook: displayBook)
-                }
-                showPlayer = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 18))
-                    Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
-                        .font(.sapphoSubheadline)
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Color.sapphoPrimary)
-                .cornerRadius(12)
-            }
-
-            // Download button
-            Button {
-                handleDownloadTap()
-            } label: {
-                VStack(spacing: 4) {
-                    downloadIcon
-                    Text(downloadLabel)
-                        .font(.system(size: 10))
-                        .foregroundColor(.sapphoTextMuted)
-                }
-                .frame(width: 64, height: 56)
-                .background(Color.sapphoSurface)
-                .cornerRadius(12)
-            }
-        }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Progress Section
@@ -395,7 +383,7 @@ struct AudiobookDetailView: View {
                 .background(Color.sapphoSurface)
                 .cornerRadius(12)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
         }
     }
 
@@ -408,35 +396,56 @@ struct AudiobookDetailView: View {
                 .foregroundColor(.sapphoTextHigh)
 
             // Metadata grid
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 if let author = displayBook.author {
-                    MetadataRow(label: "Author", value: author)
+                    MetadataItem(label: "AUTHOR", value: author, isLink: true, onTap: {
+                        if let callback = onAuthorTap {
+                            callback(author)
+                        } else {
+                            authorToNavigate = author
+                            showAuthorView = true
+                        }
+                    })
                 }
 
                 if let narrator = displayBook.narrator {
-                    MetadataRow(label: "Narrator", value: narrator)
+                    MetadataItem(label: "NARRATOR", value: narrator)
                 }
 
                 if let series = displayBook.series {
-                    let seriesText = series + (displayBook.seriesPosition.map { " #\(Int($0))" } ?? "")
-                    MetadataRow(label: "Series", value: seriesText)
+                    let posText = displayBook.seriesPosition.map { " (Book \(formatSeriesPosition($0)))" } ?? ""
+                    MetadataItem(label: "SERIES", value: series + posText, isLink: true, onTap: {
+                        if let callback = onSeriesTap {
+                            callback(series)
+                        } else {
+                            seriesToNavigate = series
+                            showSeriesView = true
+                        }
+                    })
                 }
 
                 if let genre = displayBook.genre {
-                    MetadataRow(label: "Genre", value: genre)
+                    MetadataItem(label: "GENRE", value: genre)
                 }
 
                 if let year = displayBook.publishYear {
-                    MetadataRow(label: "Published", value: String(year))
+                    MetadataItem(label: "PUBLISHED", value: String(year))
                 }
 
                 if let duration = displayBook.duration {
-                    MetadataRow(label: "Duration", value: formatDuration(duration))
+                    MetadataItem(label: "DURATION", value: formatDuration(duration))
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
+    }
+
+    private func formatSeriesPosition(_ position: Float) -> String {
+        if position == floor(position) {
+            return String(format: "%.0f", position)
+        }
+        return String(format: "%.1f", position)
     }
 
     // MARK: - Description Section
@@ -465,7 +474,7 @@ struct AudiobookDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
         }
     }
 
@@ -671,23 +680,32 @@ struct AudiobookDetailView: View {
     }
 }
 
-// MARK: - Metadata Row
-struct MetadataRow: View {
+// MARK: - Metadata Item (matches Android style)
+struct MetadataItem: View {
     let label: String
     let value: String
+    var isLink: Bool = false
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.sapphoCaption)
+                .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.sapphoTextMuted)
-                .frame(width: 80, alignment: .leading)
+                .tracking(0.5)
 
-            Text(value)
-                .font(.sapphoBody)
-                .foregroundColor(.sapphoTextHigh)
-
-            Spacer()
+            if let onTap = onTap {
+                Button(action: onTap) {
+                    Text(value)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.sapphoPrimary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(value)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isLink ? .sapphoPrimary : .sapphoTextHigh)
+            }
         }
     }
 }

@@ -350,6 +350,12 @@ struct UserStats: Codable {
     let currentStreak: Int
     let avgSessionLength: Float
 
+    enum CodingKeys: String, CodingKey {
+        case totalListenTime, booksStarted, booksCompleted, currentlyListening
+        case topAuthors, topGenres, recentActivity
+        case activeDaysLast30, currentStreak, avgSessionLength
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         totalListenTime = try container.decodeIfPresent(Int.self, forKey: .totalListenTime) ?? 0
@@ -455,7 +461,9 @@ struct SeriesInfo: Codable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         series = try container.decode(String.self, forKey: .series)
         bookCount = try container.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
-        coverIds = try container.decodeIfPresent([Int].self, forKey: .coverIds) ?? []
+        // Server sends cover_ids as strings (from split), convert to Int
+        let stringIds = try container.decodeIfPresent([String].self, forKey: .coverIds) ?? []
+        coverIds = stringIds.compactMap { Int($0) }
         completedCount = try container.decodeIfPresent(Int.self, forKey: .completedCount)
         averageRating = try container.decodeIfPresent(Float.self, forKey: .averageRating)
         ratingCount = try container.decodeIfPresent(Int.self, forKey: .ratingCount)
@@ -481,7 +489,9 @@ struct AuthorInfo: Codable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         author = try container.decode(String.self, forKey: .author)
         bookCount = try container.decodeIfPresent(Int.self, forKey: .bookCount) ?? 0
-        coverIds = try container.decodeIfPresent([Int].self, forKey: .coverIds) ?? []
+        // Server sends cover_ids as strings (from split), convert to Int
+        let stringIds = try container.decodeIfPresent([String].self, forKey: .coverIds) ?? []
+        coverIds = stringIds.compactMap { Int($0) }
         completedCount = try container.decodeIfPresent(Int.self, forKey: .completedCount)
     }
 }
@@ -532,6 +542,12 @@ struct SeriesRecapResponse: Codable {
     let cached: Bool
     let cachedAt: String?
     let booksIncluded: [RecapBookInfo]
+
+    enum CodingKeys: String, CodingKey {
+        case recap, cached
+        case cachedAt = "cached_at"
+        case booksIncluded = "books_included"
+    }
 }
 
 struct RecapBookInfo: Codable, Identifiable {
@@ -569,6 +585,12 @@ struct HealthResponse: Codable {
     let status: String
     let message: String
     let version: String?
+}
+
+// MARK: - Upload Response
+struct UploadResponse: Codable {
+    let message: String?
+    let audiobook: Audiobook?
 }
 
 // MARK: - Collection Detail (single collection with books)

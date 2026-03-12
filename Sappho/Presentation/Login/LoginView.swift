@@ -16,9 +16,11 @@ struct LoginView: View {
             VStack(spacing: 32) {
                 // Logo and Title
                 VStack(spacing: 16) {
-                    Image(systemName: "books.vertical.fill")
-                        .font(.system(size: 64))
-                        .foregroundColor(.sapphoPrimary)
+                    Image("SapphoLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
 
                     Text("Sappho")
                         .font(.sapphoTitle)

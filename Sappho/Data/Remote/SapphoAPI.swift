@@ -281,7 +281,9 @@ class SapphoAPI {
     // MARK: - Favorites
 
     func getFavorites(sort: String = "custom") async throws -> [Audiobook] {
-        try await request("api/audiobooks/favorites?sort=\(sort)")
+        try await request("api/audiobooks/favorites", queryItems: [
+            URLQueryItem(name: "sort", value: sort)
+        ])
     }
 
     func toggleFavorite(audiobookId: Int) async throws -> FavoriteResponse {
@@ -387,6 +389,10 @@ class SapphoAPI {
         }
     }
 
+    func deleteAvatar() async throws {
+        try await requestVoid("api/profile/avatar", method: "DELETE")
+    }
+
     // MARK: - Ratings
 
     func getUserRating(audiobookId: Int) async throws -> UserRating? {
@@ -443,6 +449,69 @@ class SapphoAPI {
 
     func forceRescan() async throws -> ScanResponse {
         try await request("api/maintenance/force-rescan", method: "POST")
+    }
+
+    // MARK: - Upload
+
+    func uploadAudiobook(fileData: Data, fileName: String, mimeType: String, title: String?, author: String?, narrator: String?, onProgress: @escaping (Double) -> Void) async throws -> UploadResponse {
+        guard let baseURL = authRepository.serverURL else {
+            throw APIError.notAuthenticated
+        }
+
+        guard let url = URL(string: "api/upload", relativeTo: baseURL) else {
+            throw APIError.invalidURL
+        }
+
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        if let token = authRepository.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+
+        // File part
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n".data(using: .utf8)!)
+
+        // Optional metadata
+        if let title, !title.isEmpty {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"title\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(title)\r\n".data(using: .utf8)!)
+        }
+        if let author, !author.isEmpty {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"author\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(author)\r\n".data(using: .utf8)!)
+        }
+        if let narrator, !narrator.isEmpty {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"narrator\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(narrator)\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        }
+
+        return try decoder.decode(UploadResponse.self, from: data)
     }
 
     // MARK: - URL Builders

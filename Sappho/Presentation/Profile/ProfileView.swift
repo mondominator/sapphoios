@@ -6,295 +6,82 @@ struct ProfileView: View {
 
     @State private var stats: UserStats?
     @State private var isLoading = true
-    @State private var showLogoutConfirmation = false
     @State private var serverVersion: String?
+    @State private var showLogoutConfirmation = false
+
+    // Inline editing
+    @State private var displayName = ""
+    @State private var email = ""
+    @State private var isSaving = false
+    @State private var saveMessage: String?
+
+    // Avatar
+    @State private var showImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var avatarKey = UUID()
+
+    // Password
+    @State private var showPasswordSection = false
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var passwordError: String?
+    @State private var isChangingPassword = false
+
+    private var avatarInitial: String {
+        let name = authRepository.currentUser?.displayName
+            ?? authRepository.currentUser?.username
+            ?? authRepository.currentLoginUser?.username
+            ?? "?"
+        return String(name.prefix(1)).uppercased()
+    }
+
+    private var displayUser: User? {
+        authRepository.currentUser
+    }
+
+    private var currentName: String {
+        authRepository.currentUser?.displayName
+            ?? authRepository.currentUser?.username
+            ?? authRepository.currentLoginUser?.username
+            ?? "User"
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // User Info Card
-                    if let user = authRepository.currentUser {
-                        VStack(spacing: 16) {
-                            // Avatar
-                            AsyncImage(url: api?.avatarURL()) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Circle()
-                                    .fill(Color.sapphoSurface)
-                                    .overlay(
-                                        Text(String(user.username?.prefix(1).uppercased() ?? "?"))
-                                            .font(.sapphoTitle)
-                                            .foregroundColor(.sapphoTextMuted)
-                                    )
-                            }
-                            .frame(width: 100, height: 100)
-                            .clipShape(Circle())
+                VStack(spacing: 0) {
+                    // SECTION 1: AVATAR
+                    Spacer().frame(height: 24)
+                    avatarSection(user: displayUser)
 
-                            // Name
-                            Text(user.displayName ?? user.username ?? "User")
-                                .font(.sapphoHeadline)
-                                .foregroundColor(.sapphoTextHigh)
-
-                            // Email
-                            if let email = user.email {
-                                Text(email)
-                                    .font(.sapphoCaption)
-                                    .foregroundColor(.sapphoTextMuted)
-                            }
-
-                            // Admin badge
-                            if user.isAdminUser {
-                                Text("Admin")
-                                    .font(.sapphoSmall)
-                                    .foregroundColor(.sapphoPrimary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 4)
-                                    .background(Color.sapphoPrimary.opacity(0.2))
-                                    .cornerRadius(12)
-                            }
-
-                            // Edit Profile button
-                            NavigationLink {
-                                ProfileEditView()
-                            } label: {
-                                Text("Edit Profile")
-                                    .font(.sapphoCaption)
-                                    .foregroundColor(.sapphoPrimary)
-                            }
-                            .padding(.top, 8)
-                        }
-                        .padding(.vertical, 24)
-                    }
-
-                    // Stats
+                    // SECTION 2: STATS
                     if let stats = stats {
-                        VStack(spacing: 16) {
-                            Text("Listening Stats")
-                                .font(.sapphoHeadline)
-                                .foregroundColor(.sapphoTextHigh)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 12) {
-                                StatCard(title: "Listened", value: formatDuration(stats.totalListenTime))
-                                StatCard(title: "Finished", value: "\(stats.booksCompleted)")
-                                StatCard(title: "In Progress", value: "\(stats.currentlyListening)")
-                            }
-
-                            LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 12) {
-                                StatCard(title: "Started", value: "\(stats.booksStarted)")
-                                StatCard(title: "Streak", value: "\(stats.currentStreak)d")
-                                StatCard(title: "Active Days", value: "\(stats.activeDaysLast30)")
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                        statsSection(stats: stats)
                     }
 
-                    // Top Authors
-                    if let stats = stats, !stats.topAuthors.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Top Authors")
-                                .font(.sapphoHeadline)
-                                .foregroundColor(.sapphoTextHigh)
-
-                            ForEach(stats.topAuthors.prefix(3), id: \.author) { stat in
-                                HStack {
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.sapphoPrimary)
-                                        .frame(width: 24)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(stat.author)
-                                            .font(.sapphoSubheadline)
-                                            .foregroundColor(.sapphoTextHigh)
-                                        Text("\(stat.bookCount) books · \(formatDuration(stat.listenTime)) listened")
-                                            .font(.sapphoSmall)
-                                            .foregroundColor(.sapphoTextMuted)
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(12)
-                                .background(Color.sapphoSurface)
-                                .cornerRadius(10)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Top Genres
-                    if let stats = stats, !stats.topGenres.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Top Genres")
-                                .font(.sapphoHeadline)
-                                .foregroundColor(.sapphoTextHigh)
-
-                            ForEach(stats.topGenres.prefix(3), id: \.genre) { stat in
-                                HStack {
-                                    Image(systemName: "tag.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.sapphoWarning)
-                                        .frame(width: 24)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(stat.genre)
-                                            .font(.sapphoSubheadline)
-                                            .foregroundColor(.sapphoTextHigh)
-                                        Text("\(stat.bookCount) books · \(formatDuration(stat.listenTime)) listened")
-                                            .font(.sapphoSmall)
-                                            .foregroundColor(.sapphoTextMuted)
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(12)
-                                .background(Color.sapphoSurface)
-                                .cornerRadius(10)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Recent Activity
+                    // SECTION 3: RECENT
                     if let stats = stats, !stats.recentActivity.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recent Activity")
-                                .font(.sapphoHeadline)
-                                .foregroundColor(.sapphoTextHigh)
-
-                            ForEach(stats.recentActivity.prefix(5)) { activity in
-                                HStack(spacing: 12) {
-                                    CoverImage(audiobookId: activity.id, cornerRadius: 6)
-                                        .frame(width: 44, height: 44)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(activity.title)
-                                            .font(.sapphoSubheadline)
-                                            .foregroundColor(.sapphoTextHigh)
-                                            .lineLimit(1)
-
-                                        HStack(spacing: 4) {
-                                            if activity.completed == 1 {
-                                                Text("Completed")
-                                                    .foregroundColor(.sapphoSuccess)
-                                            } else if let duration = activity.duration, duration > 0 {
-                                                Text("\(Int(Double(activity.position) / Double(duration) * 100))%")
-                                                    .foregroundColor(.sapphoPrimary)
-                                            }
-
-                                            if let author = activity.author {
-                                                Text("· \(author)")
-                                                    .foregroundColor(.sapphoTextMuted)
-                                            }
-                                        }
-                                        .font(.sapphoSmall)
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(12)
-                                .background(Color.sapphoSurface)
-                                .cornerRadius(10)
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                        recentSection(activity: stats.recentActivity)
                     }
 
-                    // Quick Links
-                    VStack(spacing: 0) {
-                        NavigationLink {
-                            FavoritesView()
-                        } label: {
-                            SettingsRow(icon: "heart.fill", title: "Favorites")
-                        }
+                    // SECTION 4: ACCOUNT
+                    accountSection()
 
-                        Divider()
-                            .background(Color.sapphoSurface)
+                    // SECTION 5: SECURITY
+                    securitySection()
 
-                        NavigationLink {
-                            ReadingListView()
-                        } label: {
-                            SettingsRow(icon: "list.bullet", title: "Up Next")
-                        }
-                    }
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
+                    // SECTION 6: PLAYER
+                    playerSection()
 
-                    // Settings Links
-                    VStack(spacing: 0) {
-                        NavigationLink {
-                            SettingsView()
-                        } label: {
-                            SettingsRow(icon: "gear", title: "Settings")
-                        }
+                    // SECTION 7: ABOUT
+                    aboutSection()
 
-                        Divider()
-                            .background(Color.sapphoSurface)
-
-                        NavigationLink {
-                            DownloadsView()
-                        } label: {
-                            SettingsRow(icon: "arrow.down.circle", title: "Downloads")
-                        }
-
-                        if authRepository.currentUser?.isAdminUser == true {
-                            Divider()
-                                .background(Color.sapphoSurface)
-
-                            NavigationLink {
-                                AdminView()
-                            } label: {
-                                SettingsRow(icon: "wrench.and.screwdriver", title: "Admin")
-                            }
-                        }
-                    }
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(12)
-                    .padding(.horizontal, 16)
-
-                    // Logout Button
-                    Button {
-                        showLogoutConfirmation = true
-                    } label: {
-                        Text("Logout")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(SapphoSecondaryButtonStyle())
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-
-                    // Server Info
-                    if let serverURL = authRepository.serverURL {
-                        VStack(spacing: 4) {
-                            Text("Connected to: \(serverURL.host ?? serverURL.absoluteString)")
-                                .font(.sapphoSmall)
-                                .foregroundColor(.sapphoTextMuted)
-                            if let version = serverVersion {
-                                Text("Server v\(version)")
-                                    .font(.sapphoSmall)
-                                    .foregroundColor(.sapphoTextMuted)
-                            }
-                        }
-                        .padding(.top, 8)
-                    }
+                    Spacer().frame(height: 100)
                 }
-                .padding(.vertical, 16)
             }
             .background(Color.sapphoBackground)
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .alert("Logout", isPresented: $showLogoutConfirmation) {
@@ -305,20 +92,577 @@ struct ProfileView: View {
             } message: {
                 Text("Are you sure you want to logout?")
             }
-        }
-        .task {
-            await loadStats()
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(image: $selectedImage)
+            }
+            .onChange(of: selectedImage) { _, newImage in
+                if newImage != nil {
+                    Task { await uploadAvatar() }
+                }
+            }
+            .task {
+                syncUserFields()
+                await loadData()
+            }
         }
     }
 
-    private func loadStats() async {
+    // MARK: - Avatar Section
+
+    @ViewBuilder
+    private func avatarSection(user: User?) -> some View {
+        // Avatar circle (tappable)
+        Button {
+            showImagePicker = true
+        } label: {
+            ZStack(alignment: .bottom) {
+                Circle()
+                    .fill(avatarGradient(for: currentName))
+                    .frame(width: 100, height: 100)
+                    .overlay {
+                        Group {
+                            if let image = selectedImage {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } else if user?.avatar != nil {
+                                AsyncImage(url: api?.avatarURL()) { image in
+                                    image.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Text(avatarInitial)
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.sapphoTextHigh)
+                                }
+                                .id(avatarKey)
+                            } else {
+                                Text(avatarInitial)
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.sapphoTextHigh)
+                            }
+                        }
+                    }
+                    .clipShape(Circle())
+
+                // "Edit" overlay at bottom
+                VStack {
+                    Spacer()
+                    Text("Edit")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.sapphoTextHigh)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 20)
+                        .background(Color.sapphoBackground.opacity(0.7))
+                }
+                .frame(width: 100, height: 100)
+                .clipShape(Circle())
+            }
+        }
+        .buttonStyle(.plain)
+
+        // Remove photo link
+        if user?.avatar != nil {
+            Button("Remove photo") {
+                Task { await deleteAvatar() }
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(.sapphoTextMuted)
+            .padding(.top, 4)
+        } else {
+            Spacer().frame(height: 8)
+        }
+
+        // Display name
+        Text(currentName)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundColor(.sapphoTextHigh)
+            .padding(.top, 8)
+
+        // Member since
+        Text(memberSinceText(user: user))
+            .font(.system(size: 13))
+            .foregroundColor(.sapphoTextMuted)
+            .padding(.top, 2)
+
+        Spacer().frame(height: 24)
+    }
+
+    // MARK: - Stats Section
+
+    @ViewBuilder
+    private func statsSection(stats: UserStats) -> some View {
+        let (hours, minutes) = formatListenTime(stats.totalListenTime)
+
+        HStack(spacing: 0) {
+            // Listen Time
+            VStack(spacing: 2) {
+                HStack(alignment: .bottom, spacing: 0) {
+                    Text("\(hours)")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.sapphoTextHigh)
+                    Text("h")
+                        .font(.system(size: 13))
+                        .foregroundColor(.sapphoTextMuted)
+                        .padding(.leading, 1)
+                    Spacer().frame(width: 4)
+                    Text("\(minutes)")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.sapphoTextHigh)
+                    Text("m")
+                        .font(.system(size: 13))
+                        .foregroundColor(.sapphoTextMuted)
+                        .padding(.leading, 1)
+                }
+                Text("listened")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.sapphoTextMuted)
+            }
+            .frame(maxWidth: .infinity)
+
+            // Divider
+            Rectangle()
+                .fill(Color(hex: "374151"))
+                .frame(width: 1, height: 40)
+
+            // Finished
+            VStack(spacing: 2) {
+                Text("\(stats.booksCompleted)")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.sapphoTextHigh)
+                Text("finished")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.sapphoTextMuted)
+            }
+            .frame(maxWidth: .infinity)
+
+            // Divider
+            Rectangle()
+                .fill(Color(hex: "374151"))
+                .frame(width: 1, height: 40)
+
+            // In Progress
+            VStack(spacing: 2) {
+                Text("\(stats.currentlyListening)")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.sapphoTextHigh)
+                Text("in progress")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.sapphoTextMuted)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.vertical, 16)
+
+        // Full-width divider
+        Rectangle()
+            .fill(Color(hex: "374151"))
+            .frame(height: 1)
+            .padding(.horizontal, 16)
+    }
+
+    // MARK: - Recent Section
+
+    @ViewBuilder
+    private func recentSection(activity: [RecentActivityItem]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 24)
+
+            sectionTitle("Recent")
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            HStack(spacing: 12) {
+                ForEach(Array(activity.prefix(4))) { book in
+                    recentBookCover(book: book)
+                }
+                // Fill remaining empty slots
+                if activity.count < 4 {
+                    ForEach(0..<(4 - min(activity.count, 4)), id: \.self) { _ in
+                        Color.clear
+                            .aspectRatio(1, contentMode: .fit)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func recentBookCover(book: RecentActivityItem) -> some View {
+        ZStack(alignment: .bottom) {
+            CoverImage(audiobookId: book.id, cornerRadius: 8, contentMode: .fill)
+                .aspectRatio(1, contentMode: .fit)
+
+            // Progress bar
+            if let duration = book.duration, duration > 0, book.completed != 1 {
+                let progress = min(1.0, Double(book.position) / Double(duration))
+                if progress > 0 {
+                    GeometryReader { geo in
+                        VStack {
+                            Spacer()
+                            Rectangle()
+                                .fill(Color.sapphoPrimary)
+                                .frame(width: geo.size.width * progress, height: 3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(hex: "1E293B"))
+        )
+    }
+
+    // MARK: - Account Section
+
+    @ViewBuilder
+    private func accountSection() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 32)
+
+            sectionTitle("Account")
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            // Display Name field
+            outlinedTextField("Display Name", text: $displayName)
+                .textContentType(.name)
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            // Email field
+            outlinedTextField("Email", text: $email)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 16)
+
+            // Save button
+            Button {
+                Task { await saveProfile() }
+            } label: {
+                Text(isSaving ? "Saving..." : "Save Changes")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.sapphoPrimary)
+                    .cornerRadius(8)
+            }
+            .disabled(isSaving)
+            .padding(.horizontal, 16)
+
+            // Save message
+            if let message = saveMessage {
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundColor(message.hasPrefix("Error") ? .sapphoError : .sapphoSuccess)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+        }
+    }
+
+    // MARK: - Security Section
+
+    @ViewBuilder
+    private func securitySection() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 32)
+
+            sectionTitle("Security")
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            if !showPasswordSection {
+                Button {
+                    withAnimation { showPasswordSection = true }
+                } label: {
+                    Text("Change Password")
+                        .font(.system(size: 14))
+                        .foregroundColor(.sapphoTextHigh)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(hex: "374151"), lineWidth: 1)
+                        )
+                }
+                .padding(.horizontal, 16)
+            }
+
+            if showPasswordSection {
+                VStack(spacing: 12) {
+                    outlinedSecureField("Current Password", text: $currentPassword)
+
+                    outlinedSecureField("New Password", text: $newPassword)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        outlinedSecureField("Confirm Password", text: $confirmPassword)
+
+                        if let error = passwordError {
+                            Text(error)
+                                .font(.system(size: 12))
+                                .foregroundColor(.sapphoError)
+                        }
+                    }
+
+                    // Button row
+                    HStack(spacing: 12) {
+                        // Cancel
+                        Button {
+                            withAnimation {
+                                showPasswordSection = false
+                                currentPassword = ""
+                                newPassword = ""
+                                confirmPassword = ""
+                                passwordError = nil
+                            }
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 14))
+                                .foregroundColor(.sapphoTextMuted)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: "374151"), lineWidth: 1)
+                                )
+                        }
+
+                        // Change Password
+                        Button {
+                            Task { await changePassword() }
+                        } label: {
+                            Text(isChangingPassword ? "Changing..." : "Change Password")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.sapphoPrimary)
+                                .cornerRadius(8)
+                        }
+                        .disabled(isChangingPassword)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    // MARK: - Player Section
+
+    @ViewBuilder
+    private func playerSection() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 32)
+
+            sectionTitle("Player")
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            NavigationLink {
+                SettingsView()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 16))
+                    Text("Playback Settings")
+                        .font(.system(size: 14))
+                }
+                .foregroundColor(.sapphoTextHigh)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: "374151"), lineWidth: 1)
+                )
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - About Section
+
+    @ViewBuilder
+    private func aboutSection() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 32)
+
+            sectionTitle("About")
+                .padding(.horizontal, 16)
+
+            Spacer().frame(height: 12)
+
+            // Version info card
+            VStack(spacing: 0) {
+                HStack {
+                    Text("App Version")
+                        .font(.system(size: 14))
+                        .foregroundColor(.sapphoTextMuted)
+                    Spacer()
+                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
+                        .font(.system(size: 14))
+                        .foregroundColor(.sapphoTextHigh)
+                }
+
+                if let version = serverVersion {
+                    Spacer().frame(height: 8)
+                    HStack {
+                        Text("Server Version")
+                            .font(.system(size: 14))
+                            .foregroundColor(.sapphoTextMuted)
+                        Spacer()
+                        Text(version)
+                            .font(.system(size: 14))
+                            .foregroundColor(.sapphoTextHigh)
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(hex: "1E293B"))
+            .cornerRadius(8)
+            .padding(.horizontal, 16)
+
+            Spacer().frame(height: 16)
+
+            // Logout button
+            Button {
+                showLogoutConfirmation = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 16))
+                    Text("Logout")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundColor(.sapphoError)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.sapphoError.opacity(0.15))
+                .cornerRadius(8)
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Helper Views
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.sapphoTextMuted)
+            .tracking(0.5)
+    }
+
+    private func outlinedTextField(_ label: String, text: Binding<String>) -> some View {
+        TextField(label, text: text)
+            .font(.system(size: 14))
+            .foregroundStyle(Color.sapphoTextHigh)
+            .padding(12)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(hex: "374151"), lineWidth: 1)
+            )
+    }
+
+    private func outlinedSecureField(_ label: String, text: Binding<String>) -> some View {
+        SecureField(label, text: text)
+            .font(.system(size: 14))
+            .foregroundStyle(Color.sapphoTextHigh)
+            .padding(12)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(hex: "374151"), lineWidth: 1)
+            )
+    }
+
+    // MARK: - Computed Properties
+
+    private func avatarGradient(for name: String) -> LinearGradient {
+        let hash = abs(name.hashValue)
+        let hue = Double(hash % 360) / 360.0
+        return LinearGradient(
+            colors: [
+                Color(hue: hue, saturation: 0.6, brightness: 0.4),
+                Color(hue: hue, saturation: 0.5, brightness: 0.3)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private func memberSinceText(user: User?) -> String {
+        let prefix = (user?.isAdminUser ?? false) ? "Admin" : "Member"
+        guard let createdAt = user?.createdAt else { return prefix }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: createdAt) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMM yyyy"
+            return "\(prefix) since \(displayFormatter.string(from: date))"
+        }
+
+        // Try without fractional seconds
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: createdAt) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMM yyyy"
+            return "\(prefix) since \(displayFormatter.string(from: date))"
+        }
+
+        return prefix
+    }
+
+    private func formatListenTime(_ totalSeconds: Int) -> (hours: Int, minutes: Int) {
+        let totalMinutes = totalSeconds / 60
+        return (totalMinutes / 60, totalMinutes % 60)
+    }
+
+    // MARK: - Data Operations
+
+    private func syncUserFields() {
+        if let user = authRepository.currentUser {
+            displayName = user.displayName ?? user.username ?? ""
+            email = user.email ?? ""
+        } else if let loginUser = authRepository.currentLoginUser {
+            displayName = loginUser.username
+            email = ""
+        }
+    }
+
+    private func loadData() async {
+        // Load user profile if not already set
+        if authRepository.currentUser == nil {
+            do {
+                let user = try await api?.getProfile()
+                if let user = user {
+                    authRepository.updateUser(user)
+                }
+            } catch {
+                print("Failed to load profile: \(error)")
+            }
+        }
+
         do {
             stats = try await api?.getProfileStats()
         } catch {
             print("Failed to load stats: \(error)")
         }
 
-        // Load server version
         do {
             let health = try await api?.getHealth()
             serverVersion = health?.version
@@ -328,72 +672,95 @@ struct ProfileView: View {
         isLoading = false
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours >= 24 {
-            let days = hours / 24
-            let remainingHours = hours % 24
-            if remainingHours > 0 {
-                return "\(days)d \(remainingHours)h"
+    private func saveProfile() async {
+        isSaving = true
+        saveMessage = nil
+
+        do {
+            let updatedUser = try await api?.updateProfile(
+                displayName: displayName.isEmpty ? nil : displayName,
+                email: email.isEmpty ? nil : email
+            )
+            if let user = updatedUser {
+                authRepository.updateUser(user)
             }
-            return "\(days)d"
+            saveMessage = "Profile updated"
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                saveMessage = nil
+            }
+        } catch {
+            saveMessage = "Error: \(error.localizedDescription)"
         }
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
+
+        isSaving = false
     }
-}
 
-// MARK: - Stat Card
-struct StatCard: View {
-    let title: String
-    let value: String
+    private func uploadAvatar() async {
+        guard let image = selectedImage,
+              let imageData = image.jpegData(compressionQuality: 0.8) else { return }
 
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.sapphoHeadline)
-                .foregroundColor(.sapphoPrimary)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
+        isSaving = true
 
-            Text(title)
-                .font(.sapphoSmall)
-                .foregroundColor(.sapphoTextMuted)
+        do {
+            try await api?.uploadAvatar(imageData: imageData)
+            avatarKey = UUID()
+            if let updatedUser = try? await api?.getProfile() {
+                authRepository.updateUser(updatedUser)
+            }
+        } catch {
+            saveMessage = "Error: Failed to upload avatar"
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color.sapphoSurface)
-        .cornerRadius(12)
+
+        isSaving = false
     }
-}
 
-// MARK: - Settings Row
-struct SettingsRow: View {
-    let icon: String
-    let title: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(.sapphoPrimary)
-                .frame(width: 24)
-
-            Text(title)
-                .font(.sapphoBody)
-                .foregroundColor(.sapphoTextHigh)
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14))
-                .foregroundColor(.sapphoTextMuted)
+    private func deleteAvatar() async {
+        do {
+            try await api?.deleteAvatar()
+            selectedImage = nil
+            avatarKey = UUID()
+            if let updatedUser = try? await api?.getProfile() {
+                authRepository.updateUser(updatedUser)
+            }
+        } catch {
+            saveMessage = "Error: Failed to remove avatar"
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+    }
+
+    private func changePassword() async {
+        passwordError = nil
+
+        guard newPassword.count >= 6 else {
+            passwordError = "Password must be at least 6 characters"
+            return
+        }
+
+        guard newPassword == confirmPassword else {
+            passwordError = "Passwords don't match"
+            return
+        }
+
+        isChangingPassword = true
+
+        do {
+            try await api?.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
+            withAnimation {
+                showPasswordSection = false
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
+            }
+            saveMessage = "Password changed"
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                saveMessage = nil
+            }
+        } catch {
+            passwordError = error.localizedDescription
+        }
+
+        isChangingPassword = false
     }
 }
 
@@ -406,7 +773,6 @@ struct SettingsView: View {
     @AppStorage("showChapterProgress") private var showChapterProgress = false
     @AppStorage("autoSleepTimer") private var autoSleepTimer = false
     @AppStorage("sleepTimerMinutes") private var sleepTimerMinutes = 30
-    @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
     @AppStorage("autoDownloadSeries") private var autoDownloadSeries = false
 
     var body: some View {
@@ -466,7 +832,6 @@ struct SettingsView: View {
 
             // Download Settings
             Section("Downloads") {
-                Toggle("Wi-Fi Only Downloads", isOn: $wifiOnlyDownloads)
                 Toggle("Auto-download Series", isOn: $autoDownloadSeries)
             }
 
@@ -498,8 +863,9 @@ struct SettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color.sapphoBackground)
+        .contentMargins(.bottom, 100)
         .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
@@ -571,7 +937,7 @@ struct DownloadsView: View {
         }
         .background(Color.sapphoBackground)
         .navigationTitle("Downloads")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
@@ -778,7 +1144,7 @@ struct AdminView: View {
         .scrollContentBackground(.hidden)
         .background(Color.sapphoBackground)
         .navigationTitle("Admin")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(isPresented: $showCreateUserSheet) {
@@ -943,284 +1309,6 @@ struct CreateUserSheet: View {
             }
         }
         .presentationDetents([.medium])
-    }
-}
-
-// MARK: - Profile Edit View
-struct ProfileEditView: View {
-    @Environment(\.sapphoAPI) private var api
-    @Environment(AuthRepository.self) private var authRepository
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var displayName = ""
-    @State private var email = ""
-    @State private var isSaving = false
-    @State private var errorMessage: String?
-    @State private var showPasswordChange = false
-    @State private var showImagePicker = false
-    @State private var selectedImage: UIImage?
-    @State private var avatarKey = UUID() // For refreshing avatar image
-
-    var body: some View {
-        Form {
-            // Avatar Section
-            Section {
-                HStack {
-                    Spacer()
-                    Button {
-                        showImagePicker = true
-                    } label: {
-                        ZStack(alignment: .bottomTrailing) {
-                            if let image = selectedImage {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 100, height: 100)
-                                    .clipShape(Circle())
-                            } else {
-                                AsyncImage(url: api?.avatarURL()) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Circle()
-                                        .fill(Color.sapphoSurface)
-                                        .overlay(
-                                            Text(String(displayName.prefix(1).uppercased()))
-                                                .font(.sapphoTitle)
-                                                .foregroundColor(.sapphoTextMuted)
-                                        )
-                                }
-                                .frame(width: 100, height: 100)
-                                .clipShape(Circle())
-                                .id(avatarKey)
-                            }
-
-                            Circle()
-                                .fill(Color.sapphoPrimary)
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Image(systemName: "camera.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.white)
-                                )
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    Spacer()
-                }
-            }
-            .listRowBackground(Color.clear)
-
-            // Profile Info Section
-            Section("Profile Information") {
-                TextField("Display Name", text: $displayName)
-                    .textContentType(.name)
-
-                TextField("Email", text: $email)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-            }
-
-            // Password Section
-            Section("Security") {
-                Button {
-                    showPasswordChange = true
-                } label: {
-                    HStack {
-                        Text("Change Password")
-                            .foregroundColor(.sapphoTextHigh)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                }
-            }
-
-            // Error Message
-            if let error = errorMessage {
-                Section {
-                    Text(error)
-                        .foregroundColor(.sapphoError)
-                        .font(.sapphoSmall)
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(Color.sapphoBackground)
-        .navigationTitle("Edit Profile")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    Task { await saveProfile() }
-                } label: {
-                    if isSaving {
-                        ProgressView()
-                    } else {
-                        Text("Save")
-                    }
-                }
-                .disabled(isSaving)
-            }
-        }
-        .sheet(isPresented: $showPasswordChange) {
-            PasswordChangeSheet()
-        }
-        .sheet(isPresented: $showImagePicker) {
-            ImagePicker(image: $selectedImage)
-        }
-        .onChange(of: selectedImage) { _, newImage in
-            if newImage != nil {
-                Task { await uploadAvatar() }
-            }
-        }
-        .onAppear {
-            if let user = authRepository.currentUser {
-                displayName = user.displayName ?? user.username ?? ""
-                email = user.email ?? ""
-            }
-        }
-    }
-
-    private func saveProfile() async {
-        isSaving = true
-        errorMessage = nil
-
-        do {
-            let updatedUser = try await api?.updateProfile(
-                displayName: displayName.isEmpty ? nil : displayName,
-                email: email.isEmpty ? nil : email
-            )
-            if let user = updatedUser {
-                authRepository.updateUser(user)
-            }
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-
-        isSaving = false
-    }
-
-    private func uploadAvatar() async {
-        guard let image = selectedImage,
-              let imageData = image.jpegData(compressionQuality: 0.8) else { return }
-
-        isSaving = true
-        errorMessage = nil
-
-        do {
-            try await api?.uploadAvatar(imageData: imageData)
-            avatarKey = UUID() // Refresh avatar
-        } catch {
-            errorMessage = "Failed to upload avatar: \(error.localizedDescription)"
-        }
-
-        isSaving = false
-    }
-}
-
-// MARK: - Password Change Sheet
-struct PasswordChangeSheet: View {
-    @Environment(\.sapphoAPI) private var api
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var currentPassword = ""
-    @State private var newPassword = ""
-    @State private var confirmPassword = ""
-    @State private var isSaving = false
-    @State private var errorMessage: String?
-
-    private var passwordsMatch: Bool {
-        !newPassword.isEmpty && newPassword == confirmPassword
-    }
-
-    private var isValid: Bool {
-        !currentPassword.isEmpty && passwordsMatch && newPassword.count >= 6
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    SecureField("Current Password", text: $currentPassword)
-                        .textContentType(.password)
-                }
-
-                Section {
-                    SecureField("New Password", text: $newPassword)
-                        .textContentType(.newPassword)
-
-                    SecureField("Confirm New Password", text: $confirmPassword)
-                        .textContentType(.newPassword)
-
-                    if !newPassword.isEmpty && !confirmPassword.isEmpty && !passwordsMatch {
-                        Text("Passwords don't match")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoError)
-                    }
-
-                    if !newPassword.isEmpty && newPassword.count < 6 {
-                        Text("Password must be at least 6 characters")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoError)
-                    }
-                }
-
-                if let error = errorMessage {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.sapphoError)
-                            .font(.sapphoSmall)
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Color.sapphoBackground)
-            .navigationTitle("Change Password")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.sapphoSurface, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        Task { await changePassword() }
-                    } label: {
-                        if isSaving {
-                            ProgressView()
-                        } else {
-                            Text("Save")
-                        }
-                    }
-                    .disabled(!isValid || isSaving)
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-
-    private func changePassword() async {
-        isSaving = true
-        errorMessage = nil
-
-        do {
-            try await api?.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-
-        isSaving = false
     }
 }
 

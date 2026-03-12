@@ -61,7 +61,7 @@ struct AuthorsListView: View {
 
         do {
             async let authorsData = api?.getAuthors()
-            async let booksData = api?.getAudiobooks()
+            async let booksData = api?.getAudiobooks(limit: 10000)
 
             authors = try await authorsData ?? []
             allBooks = try await booksData ?? []
@@ -105,22 +105,6 @@ struct AuthorCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Stacked covers
-            ZStack {
-                ForEach(Array(books.prefix(3).reversed().enumerated()), id: \.offset) { index, book in
-                    let offset = CGFloat(2 - index) * 8
-                    CoverImage(audiobookId: book.id)
-                        .frame(width: 60, height: 80)
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.sapphoSurface, lineWidth: 1)
-                        )
-                        .offset(x: offset, y: offset)
-                }
-            }
-            .frame(width: 80, height: 100)
-
             // Author info
             VStack(alignment: .leading, spacing: 4) {
                 Text(authorInfo.author)

@@ -105,8 +105,8 @@ class AudioPlayerService: NSObject {
         // Update now playing info
         updateNowPlayingInfo()
 
-        // Load chapters if available
-        if audiobook.chapters == nil {
+        // Load chapters if not already loaded
+        if audiobook.chapters == nil || audiobook.chapters?.isEmpty == true {
             Task {
                 do {
                     let chapters = try await api?.getChapters(audiobookId: audiobook.id)
@@ -158,6 +158,21 @@ class AudioPlayerService: NSObject {
     }
 
     func resume() {
+        // Re-activate audio session in case it was deactivated
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Failed to reactivate audio session: \(error)")
+        }
+
+        // If player was destroyed (e.g. app was killed and restored), recreate it
+        if player == nil, let audiobook = currentAudiobook {
+            Task {
+                await play(audiobook: audiobook, startPosition: position)
+            }
+            return
+        }
+
         // Apply rewind-on-resume setting
         let rewindSeconds = UserDefaults.standard.integer(forKey: "rewindOnResume")
         if rewindSeconds > 0 && position > TimeInterval(rewindSeconds) {
@@ -477,11 +492,19 @@ class AudioPlayerService: NSObject {
 
     // MARK: - Interruption Handling
 
+    private var wasPlayingBeforeInterruption = false
+
     private func setupInterruptionHandling() {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruption),
             name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange),
+            name: AVAudioSession.routeChangeNotification,
             object: nil
         )
     }
@@ -495,15 +518,39 @@ class AudioPlayerService: NSObject {
 
         switch type {
         case .began:
+            wasPlayingBeforeInterruption = isPlaying
             pause()
         case .ended:
-            guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
+            let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-            if options.contains(.shouldResume) {
+            if options.contains(.shouldResume) || wasPlayingBeforeInterruption {
                 resume()
             }
         @unknown default:
             break
+        }
+    }
+
+    @objc private func handleRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+
+        // Pause when output device is disconnected (e.g. headphones unplugged)
+        if reason == .oldDeviceUnavailable {
+            pause()
+        }
+    }
+
+    /// Call when the app returns to foreground to ensure audio session is still valid
+    func handleAppDidBecomeActive() {
+        guard currentAudiobook != nil else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Failed to reactivate audio session on foreground: \(error)")
         }
     }
 

@@ -79,6 +79,7 @@ struct ReadingListView: View {
                         .onMove(perform: sortOption == "custom" ? moveBooks : nil)
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                     .environment(\.editMode, $editMode)
                 }
             }

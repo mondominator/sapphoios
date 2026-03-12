@@ -35,6 +35,7 @@
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
+		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 		FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */; };
 /* End PBXBuildFile section */
 
@@ -71,6 +72,7 @@
 		6F48F2CFDFCC70987046A9B8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7495FDDA796DFDA34333C7C8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		769547B62C0F087079C253F5 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudiobookDetailView.swift; sourceTree = "<group>"; };
 		8B193F831F3EF80C680572FD /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		8C7B4AA93A45527EBA9022C6 /* CastManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastManager.swift; sourceTree = "<group>"; };
@@ -254,6 +256,7 @@
 				5F45DCB33D32E30D66D44B8C /* GenresListView.swift */,
 				769547B62C0F087079C253F5 /* LibraryView.swift */,
 				1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */,
+				UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -455,6 +458,7 @@
 				BE70E78ECA5538D104C503E1 /* GenresListView.swift in Sources */,
 				9D4B268891CF6DD0EF34DFD2 /* HomeView.swift in Sources */,
 				E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */,
+				UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */,
 				731015E6B088ED705983ACE5 /* LoginView.swift in Sources */,
 				8058DFFACF970A9CDC969555 /* MainView.swift in Sources */,
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,

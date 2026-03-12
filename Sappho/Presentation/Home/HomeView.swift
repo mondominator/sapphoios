@@ -4,6 +4,7 @@ import Network
 struct HomeView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AudioPlayerService.self) private var audioPlayer
+    @Binding var navigationPath: NavigationPath
 
     @State private var continueListening: [Audiobook] = []
     @State private var recentlyAdded: [Audiobook] = []
@@ -25,7 +26,7 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 0) {
                     // Offline banner
@@ -56,12 +57,14 @@ struct HomeView: View {
                         Task { await loadData() }
                     }
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 32) {
+                    LazyVStack(alignment: .leading, spacing: 24) {
                         // Continue Listening
                         if !continueListening.isEmpty {
                             AudiobookSection(
                                 title: "Continue Listening",
-                                audiobooks: continueListening
+                                audiobooks: continueListening,
+                                cardSize: 160,
+                                titleSize: 20
                             )
                         }
 
@@ -69,7 +72,9 @@ struct HomeView: View {
                         if !upNext.isEmpty {
                             AudiobookSection(
                                 title: "Up Next",
-                                audiobooks: upNext
+                                audiobooks: upNext,
+                                cardSize: 140,
+                                titleSize: 16
                             )
                         }
 
@@ -77,7 +82,9 @@ struct HomeView: View {
                         if !recentlyAdded.isEmpty {
                             AudiobookSection(
                                 title: "Recently Added",
-                                audiobooks: recentlyAdded
+                                audiobooks: recentlyAdded,
+                                cardSize: 140,
+                                titleSize: 16
                             )
                         }
 
@@ -85,7 +92,10 @@ struct HomeView: View {
                         if !listenAgain.isEmpty {
                             AudiobookSection(
                                 title: "Listen Again",
-                                audiobooks: listenAgain
+                                audiobooks: listenAgain,
+                                cardSize: 110,
+                                titleSize: 14,
+                                showCheckmark: false
                             )
                         }
 
@@ -93,7 +103,9 @@ struct HomeView: View {
                         if !downloadedBooks.isEmpty {
                             AudiobookSection(
                                 title: "Downloaded",
-                                audiobooks: downloadedBooks
+                                audiobooks: downloadedBooks,
+                                cardSize: 140,
+                                titleSize: 16
                             )
                         }
 
@@ -107,11 +119,10 @@ struct HomeView: View {
                         }
                     }
                     .padding(.vertical, 16)
+                    .padding(.bottom, 80)
                 }
             }
             .background(Color.sapphoBackground)
-            .navigationTitle("Home")
-            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .refreshable {
@@ -157,19 +168,26 @@ struct HomeView: View {
 struct AudiobookSection: View {
     let title: String
     let audiobooks: [Audiobook]
+    var cardSize: CGFloat = 140
+    var titleSize: CGFloat = 16
+    var showCheckmark: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.sapphoHeadline)
+                .font(.system(size: titleSize, weight: .bold))
                 .foregroundColor(.sapphoTextHigh)
                 .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(spacing: 12) {
                     ForEach(audiobooks) { audiobook in
                         NavigationLink(value: audiobook) {
-                            AudiobookCard(audiobook: audiobook)
+                            AudiobookCard(
+                                audiobook: audiobook,
+                                cardSize: cardSize,
+                                showCheckmark: showCheckmark
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -183,12 +201,8 @@ struct AudiobookSection: View {
 // MARK: - Audiobook Card
 struct AudiobookCard: View {
     let audiobook: Audiobook
-
-    private let cardWidth: CGFloat = 140
-    private let coverHeight: CGFloat = 140  // Square covers like audiobook art
-
-    private var downloadManager: DownloadManager { DownloadManager.shared }
-    private var isDownloaded: Bool { downloadManager.isDownloaded(audiobook.id) }
+    var cardSize: CGFloat = 140
+    var showCheckmark: Bool = true
 
     private var progressPercent: Double {
         guard let progress = audiobook.progress,
@@ -198,124 +212,75 @@ struct AudiobookCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Cover Image with overlays
-            ZStack {
-                // Cover image
-                CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
-                    .frame(width: cardWidth, height: coverHeight)
+        ZStack {
+            // Cover image
+            CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
+                .frame(width: cardSize, height: cardSize)
 
-                // Overlay container
-                VStack(spacing: 0) {
-                    // Top row: badges
-                    HStack(alignment: .top) {
-                        // Reading list ribbon (top-left)
-                        if audiobook.isQueued == true {
-                            Image(systemName: "bookmark.fill")
+            // Overlay container
+            VStack(spacing: 0) {
+                // Top row: checkmark (top-start) and ribbon (top-end)
+                HStack(alignment: .top, spacing: 0) {
+                    // Completed checkmark (top-left)
+                    if showCheckmark && audiobook.progress?.completed == 1 {
+                        ZStack {
+                            Circle()
+                                .fill(Color.sapphoSuccess)
+                                .frame(width: 24, height: 24)
+                            Image(systemName: "checkmark")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.white)
-                                .padding(6)
-                                .background(Color.sapphoPrimary)
-                        }
-
-                        Spacer()
-
-                        // Status badges (top-right)
-                        VStack(alignment: .trailing, spacing: 4) {
-                            if audiobook.isFavorite == true {
-                                statusBadge(icon: "heart.fill", color: .sapphoError)
-                            }
-                            if isDownloaded {
-                                statusBadge(icon: "arrow.down.circle.fill", color: .sapphoSuccess)
-                            }
                         }
                         .padding(6)
                     }
 
                     Spacer()
 
-                    // Bottom row: rating badge + progress bar
-                    VStack(spacing: 0) {
-                        HStack {
-                            // Completed checkmark (bottom-left)
-                            if audiobook.progress?.completed == 1 {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.sapphoSuccess)
-                                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                                    .padding(6)
-                            }
-
-                            Spacer()
-
-                            // Rating badge (bottom-right)
-                            if let rating = audiobook.userRating ?? audiobook.averageRating, rating > 0 {
-                                HStack(spacing: 2) {
-                                    Image(systemName: "star.fill")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(.sapphoWarning)
-                                    Text(String(format: "%.1f", rating))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(.white)
-                                }
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(Color.black.opacity(0.7))
-                                .cornerRadius(4)
-                                .padding(6)
-                            }
-                        }
-
-                        // Progress bar
-                        if progressPercent > 0 {
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Rectangle()
-                                        .fill(Color.black.opacity(0.5))
-                                    Rectangle()
-                                        .fill(audiobook.progress?.completed == 1 ? Color.sapphoSuccess : Color.sapphoPrimary)
-                                        .frame(width: geo.size.width * progressPercent)
-                                }
-                            }
-                            .frame(height: 4)
-                        }
+                    // Reading list ribbon (top-right) - triangle shape
+                    if audiobook.isQueued == true {
+                        BookmarkRibbon()
+                            .fill(Color.sapphoPrimary)
+                            .frame(width: 28, height: 28)
                     }
                 }
-            }
-            .frame(width: cardWidth, height: coverHeight)
-            .cornerRadius(8)
 
-            // Title
-            Text(audiobook.title)
-                .font(.sapphoCaption)
-                .foregroundColor(.sapphoTextHigh)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+                Spacer()
 
-            // Author
-            if let author = audiobook.author {
-                Text(author)
-                    .font(.sapphoSmall)
-                    .foregroundColor(.sapphoTextMuted)
-                    .lineLimit(1)
+                // Progress bar at bottom
+                if progressPercent > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.5))
+                            Rectangle()
+                                .fill(audiobook.progress?.completed == 1 ? Color.sapphoSuccess : Color.sapphoPrimary)
+                                .frame(width: geo.size.width * progressPercent)
+                        }
+                    }
+                    .frame(height: 6)
+                }
             }
         }
-        .frame(width: cardWidth)
+        .frame(width: cardSize, height: cardSize)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
+}
 
-    private func statusBadge(icon: String, color: Color) -> some View {
-        Image(systemName: icon)
-            .font(.system(size: 12, weight: .bold))
-            .foregroundColor(.white)
-            .padding(4)
-            .background(color)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+// MARK: - Bookmark Ribbon Shape
+struct BookmarkRibbon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        // Triangle in top-right corner
+        path.move(to: CGPoint(x: 0, y: 0))
+        path.addLine(to: CGPoint(x: rect.maxX, y: 0))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 
 #Preview {
-    HomeView()
+    HomeView(navigationPath: .constant(NavigationPath()))
         .environment(AuthRepository())
         .environment(AudioPlayerService())
 }
