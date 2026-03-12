@@ -16,13 +16,7 @@ struct HomeView: View {
     @State private var isOffline = false
 
     private var downloadedBooks: [Audiobook] {
-        let dm = DownloadManager.shared
-        let allBooks = continueListening + upNext + recentlyAdded + listenAgain
-        let uniqueIds = Set(allBooks.map { $0.id })
-        return uniqueIds.compactMap { id in
-            guard dm.isDownloaded(id) else { return nil }
-            return allBooks.first { $0.id == id }
-        }
+        DownloadManager.shared.downloadedAudiobooks()
     }
 
     var body: some View {
@@ -52,12 +46,22 @@ struct HomeView: View {
 
                 if isLoading {
                     LoadingView(message: "Loading your library...")
-                } else if let error = errorMessage {
+                } else if let error = errorMessage, downloadedBooks.isEmpty {
                     ErrorView(message: error) {
                         Task { await loadData() }
                     }
                 } else {
                     LazyVStack(alignment: .leading, spacing: 24) {
+                        // Downloaded (show first when offline)
+                        if isOffline && !downloadedBooks.isEmpty {
+                            AudiobookSection(
+                                title: "Downloaded",
+                                audiobooks: downloadedBooks,
+                                cardSize: 160,
+                                titleSize: 20
+                            )
+                        }
+
                         // Continue Listening
                         if !continueListening.isEmpty {
                             AudiobookSection(
@@ -99,8 +103,8 @@ struct HomeView: View {
                             )
                         }
 
-                        // Downloaded
-                        if !downloadedBooks.isEmpty {
+                        // Downloaded (normal position when online)
+                        if !isOffline && !downloadedBooks.isEmpty {
                             AudiobookSection(
                                 title: "Downloaded",
                                 audiobooks: downloadedBooks,

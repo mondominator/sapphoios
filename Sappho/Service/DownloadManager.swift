@@ -22,6 +22,83 @@ enum DownloadState: Equatable {
     }
 }
 
+/// Lightweight metadata cached locally so downloaded books can be displayed offline.
+struct DownloadedBookMeta: Codable {
+    let id: Int
+    let title: String
+    let author: String?
+    let narrator: String?
+    let series: String?
+    let seriesPosition: Float?
+    let duration: Int?
+    let genre: String?
+    let coverImage: String?
+    var lastPosition: Int?
+    var completed: Int?
+    var chapters: [CachedChapter]?
+
+    init(from audiobook: Audiobook) {
+        self.id = audiobook.id
+        self.title = audiobook.title
+        self.author = audiobook.author
+        self.narrator = audiobook.narrator
+        self.series = audiobook.series
+        self.seriesPosition = audiobook.seriesPosition
+        self.duration = audiobook.duration
+        self.genre = audiobook.genre
+        self.coverImage = audiobook.coverImage
+        self.lastPosition = audiobook.progress?.position
+        self.completed = audiobook.progress?.completed
+        self.chapters = audiobook.chapters?.map { CachedChapter(from: $0) }
+    }
+
+    func toAudiobook() -> Audiobook {
+        let progress: Progress? = if let pos = lastPosition, pos > 0 {
+            Progress(position: pos, completed: completed ?? 0)
+        } else {
+            nil
+        }
+        return Audiobook(
+            id: id,
+            title: title,
+            author: author,
+            narrator: narrator,
+            series: series,
+            seriesPosition: seriesPosition,
+            duration: duration,
+            genre: genre,
+            coverImage: coverImage,
+            fileCount: 1,
+            createdAt: "",
+            progress: progress,
+            chapters: chapters?.map { $0.toChapter() }
+        )
+    }
+}
+
+/// Minimal chapter data for offline cache.
+struct CachedChapter: Codable {
+    let id: Int
+    let audiobookId: Int
+    let chapterNumber: Int
+    let startTime: Double
+    let duration: Double?
+    let title: String?
+
+    init(from chapter: Chapter) {
+        self.id = chapter.id
+        self.audiobookId = chapter.audiobookId
+        self.chapterNumber = chapter.chapterNumber
+        self.startTime = chapter.startTime
+        self.duration = chapter.duration
+        self.title = chapter.title
+    }
+
+    func toChapter() -> Chapter {
+        Chapter(id: id, audiobookId: audiobookId, chapterNumber: chapterNumber, startTime: startTime, duration: duration, title: title)
+    }
+}
+
 @Observable
 class DownloadManager: NSObject {
     static let shared = DownloadManager()
@@ -29,7 +106,11 @@ class DownloadManager: NSObject {
     var downloads: [Int: DownloadState] = [:]
     var backgroundCompletionHandler: (() -> Void)?
 
+    /// Cached metadata for downloaded books — available offline.
+    private(set) var cachedMeta: [Int: DownloadedBookMeta] = [:]
+
     private var downloadTasks: [Int: URLSessionDownloadTask] = [:]
+    private var pendingAudiobooks: [Int: Audiobook] = [:]
     private var api: SapphoAPI?
     private var _session: URLSession?
 
@@ -56,8 +137,13 @@ class DownloadManager: NSObject {
         return downloads
     }
 
+    private var metadataURL: URL {
+        downloadsDirectory.appendingPathComponent("metadata.json")
+    }
+
     override init() {
         super.init()
+        loadMetadata()
         loadDownloadedFiles()
     }
 
@@ -73,6 +159,9 @@ class DownloadManager: NSObject {
             return
         }
 
+        // Store audiobook so we can save metadata when download completes
+        pendingAudiobooks[audiobook.id] = audiobook
+
         let task = session.downloadTask(with: url)
         task.taskDescription = String(audiobook.id)
         downloadTasks[audiobook.id] = task
@@ -83,6 +172,7 @@ class DownloadManager: NSObject {
     func cancelDownload(audiobookId: Int) {
         downloadTasks[audiobookId]?.cancel()
         downloadTasks.removeValue(forKey: audiobookId)
+        pendingAudiobooks.removeValue(forKey: audiobookId)
         downloads[audiobookId] = .notDownloaded
     }
 
@@ -91,6 +181,8 @@ class DownloadManager: NSObject {
             try? FileManager.default.removeItem(at: url)
         }
         downloads[audiobookId] = .notDownloaded
+        cachedMeta.removeValue(forKey: audiobookId)
+        saveMetadata()
     }
 
     func localURL(for audiobookId: Int) -> URL? {
@@ -115,12 +207,37 @@ class DownloadManager: NSObject {
         return nil
     }
 
+    /// Update the cached position for a downloaded book.
+    func updatePosition(audiobookId: Int, position: Int) {
+        guard var meta = cachedMeta[audiobookId] else { return }
+        meta.lastPosition = position
+        cachedMeta[audiobookId] = meta
+        saveMetadata()
+    }
+
+    /// Cache chapters for a downloaded book (called when chapters are loaded from API).
+    func cacheChapters(audiobookId: Int, chapters: [Chapter]) {
+        guard var meta = cachedMeta[audiobookId] else { return }
+        guard meta.chapters == nil || meta.chapters?.isEmpty == true else { return }
+        meta.chapters = chapters.map { CachedChapter(from: $0) }
+        cachedMeta[audiobookId] = meta
+        saveMetadata()
+    }
+
+    /// Returns Audiobook objects for all downloaded books using cached metadata.
+    func downloadedAudiobooks() -> [Audiobook] {
+        downloads.compactMap { (id, state) -> Audiobook? in
+            guard case .downloaded = state else { return nil }
+            return cachedMeta[id]?.toAudiobook()
+        }
+    }
+
     func totalDownloadSize() -> Int64 {
         var total: Int64 = 0
         let fileManager = FileManager.default
 
         if let files = try? fileManager.contentsOfDirectory(at: downloadsDirectory, includingPropertiesForKeys: [.fileSizeKey]) {
-            for file in files {
+            for file in files where file.pathExtension != "json" {
                 if let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize {
                     total += Int64(size)
                 }
@@ -134,13 +251,37 @@ class DownloadManager: NSObject {
         let fileManager = FileManager.default
 
         if let files = try? fileManager.contentsOfDirectory(at: downloadsDirectory, includingPropertiesForKeys: nil) {
-            for file in files {
+            for file in files where file.pathExtension != "json" {
                 try? fileManager.removeItem(at: file)
             }
         }
 
         downloads.removeAll()
+        cachedMeta.removeAll()
+        saveMetadata()
         loadDownloadedFiles()
+    }
+
+    // MARK: - Metadata Persistence
+
+    private func saveMetadata() {
+        do {
+            let data = try JSONEncoder().encode(Array(cachedMeta.values))
+            try data.write(to: metadataURL)
+        } catch {
+            print("Failed to save download metadata: \(error)")
+        }
+    }
+
+    private func loadMetadata() {
+        guard FileManager.default.fileExists(atPath: metadataURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: metadataURL)
+            let metas = try JSONDecoder().decode([DownloadedBookMeta].self, from: data)
+            cachedMeta = Dictionary(uniqueKeysWithValues: metas.map { ($0.id, $0) })
+        } catch {
+            print("Failed to load download metadata: \(error)")
+        }
     }
 
     // MARK: - Private Methods
@@ -152,7 +293,7 @@ class DownloadManager: NSObject {
             return
         }
 
-        for file in files {
+        for file in files where file.pathExtension != "json" {
             let filename = file.deletingPathExtension().lastPathComponent
             if let audiobookId = Int(filename) {
                 downloads[audiobookId] = .downloaded(localURL: file)
@@ -182,6 +323,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
             DispatchQueue.main.async {
                 self.downloads[audiobookId] = .downloaded(localURL: destinationURL)
                 self.downloadTasks.removeValue(forKey: audiobookId)
+
+                // Save metadata for offline access
+                if let audiobook = self.pendingAudiobooks.removeValue(forKey: audiobookId) {
+                    self.cachedMeta[audiobookId] = DownloadedBookMeta(from: audiobook)
+                    self.saveMetadata()
+                }
             }
         } catch {
             DispatchQueue.main.async {

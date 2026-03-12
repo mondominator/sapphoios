@@ -872,17 +872,13 @@ struct SettingsView: View {
 }
 
 struct DownloadsView: View {
-    @Environment(\.sapphoAPI) private var api
     @State private var downloadedBooks: [Audiobook] = []
-    @State private var isLoading = true
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
 
     var body: some View {
         Group {
-            if isLoading {
-                LoadingView()
-            } else if downloadedBooks.isEmpty {
+            if downloadedBooks.isEmpty {
                 VStack(spacing: 16) {
                     EmptyStateView(
                         icon: "arrow.down.circle",
@@ -940,43 +936,13 @@ struct DownloadsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .task {
-            await fetchDownloadedBooks()
+        .onAppear {
+            loadDownloads()
         }
     }
 
     private func loadDownloads() {
-        Task {
-            await fetchDownloadedBooks()
-        }
-    }
-
-    private func fetchDownloadedBooks() async {
-        isLoading = downloadedBooks.isEmpty
-
-        // Get list of downloaded audiobook IDs
-        let downloadedIds = downloadManager.downloads.compactMap { (id, state) -> Int? in
-            if case .downloaded = state {
-                return id
-            }
-            return nil
-        }
-
-        guard !downloadedIds.isEmpty else {
-            downloadedBooks = []
-            isLoading = false
-            return
-        }
-
-        // Fetch audiobook details for each downloaded ID
-        do {
-            let allBooks = try await api?.getAudiobooks() ?? []
-            downloadedBooks = allBooks.filter { downloadedIds.contains($0.id) }
-        } catch {
-            print("Failed to fetch audiobooks: \(error)")
-        }
-
-        isLoading = false
+        downloadedBooks = downloadManager.downloadedAudiobooks()
     }
 
     private func formatSize(_ bytes: Int64) -> String {

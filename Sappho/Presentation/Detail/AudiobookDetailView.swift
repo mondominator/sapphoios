@@ -346,18 +346,11 @@ struct AudiobookDetailView: View {
                 .cornerRadius(12)
             }
 
-            // Download button (icon only, 48x48)
+            // Download button
             Button {
                 handleDownloadTap()
             } label: {
-                downloadIcon
-                    .frame(width: 48, height: 52)
-                    .background(Color.sapphoSurface.opacity(0.5))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-                    .cornerRadius(12)
+                downloadButtonLabel
             }
 
             // Overflow menu button (icon only, 48x48)
@@ -610,20 +603,62 @@ struct AudiobookDetailView: View {
     }
 
     @ViewBuilder
-    private var downloadIcon: some View {
+    private var downloadButtonLabel: some View {
+        switch downloadState {
+        case .downloading(let progress):
+            // Expanded button with progress bar
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.sapphoTextMuted)
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.sapphoTextHigh)
+                        .contentTransition(.numericText())
+                }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.1))
+                        Capsule()
+                            .fill(Color.sapphoPrimary)
+                            .frame(width: geo.size.width * progress)
+                    }
+                }
+                .frame(height: 4)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(width: 100, height: 52)
+            .background(Color.sapphoPrimary.opacity(0.15))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.sapphoPrimary.opacity(0.3), lineWidth: 1)
+            )
+            .cornerRadius(12)
+        default:
+            downloadIconOnly
+                .frame(width: 48, height: 52)
+                .background(Color.sapphoSurface.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .cornerRadius(12)
+        }
+    }
+
+    @ViewBuilder
+    private var downloadIconOnly: some View {
         switch downloadState {
         case .notDownloaded:
             Image(systemName: "arrow.down.circle")
                 .font(.system(size: 20))
                 .foregroundColor(.sapphoTextMuted)
-        case .downloading(let progress):
-            ZStack {
-                Circle()
-                    .stroke(Color.sapphoSurface, lineWidth: 3)
-                ProgressView(value: progress)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .sapphoPrimary))
-            }
-            .frame(width: 24, height: 24)
+        case .downloading:
+            EmptyView()
         case .downloaded:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 20))
@@ -686,8 +721,17 @@ struct AudiobookDetailView: View {
             fullAudiobook = try await bookRequest
             chapters = (try? await chaptersRequest) ?? []
             isFavorite = fullAudiobook?.isFavorite ?? false
+            // Cache chapters for offline use
+            if !chapters.isEmpty {
+                DownloadManager.shared.cacheChapters(audiobookId: audiobook.id, chapters: chapters)
+            }
         } catch {
             print("Failed to load audiobook: \(error)")
+            // Fall back to cached metadata for offline
+            let cached = DownloadManager.shared.cachedMeta[audiobook.id]
+            if chapters.isEmpty, let cachedChapters = cached?.chapters {
+                chapters = cachedChapters.map { $0.toChapter() }
+            }
         }
         isLoading = false
     }

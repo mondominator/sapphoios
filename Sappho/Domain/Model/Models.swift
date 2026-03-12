@@ -217,6 +217,17 @@ struct Progress: Codable {
         case currentChapter = "current_chapter"
     }
 
+    init(position: Int, completed: Int) {
+        self.id = nil
+        self.userId = nil
+        self.audiobookId = nil
+        self.position = position
+        self.completed = completed
+        self.lastListened = nil
+        self.updatedAt = nil
+        self.currentChapter = nil
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(Int.self, forKey: .id)
@@ -260,6 +271,18 @@ struct Chapter: Codable, Identifiable {
         case startTime = "start_time"
         case fileSize = "file_size"
         case createdAt = "created_at"
+    }
+
+    init(id: Int, audiobookId: Int, chapterNumber: Int, startTime: Double, duration: Double?, title: String?) {
+        self.id = id
+        self.audiobookId = audiobookId
+        self.chapterNumber = chapterNumber
+        self.filePath = nil
+        self.startTime = startTime
+        self.duration = duration
+        self.fileSize = nil
+        self.title = title
+        self.createdAt = nil
     }
 
     init(from decoder: Decoder) throws {

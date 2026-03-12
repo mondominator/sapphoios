@@ -28,6 +28,7 @@ class AudioPlayerService: NSObject {
     // Persistence keys
     private static let lastAudiobookIdKey = "lastPlayedAudiobookId"
     private static let lastPositionKey = "lastPlayedPosition"
+    private static let pendingSyncKey = "pendingProgressSync"
 
     // MARK: - Initialization
 
@@ -141,6 +142,10 @@ class AudioPlayerService: NSObject {
                             chapters: chapters,
                             isFavorite: audiobook.isFavorite
                         )
+                        // Cache chapters for offline playback
+                        if let chapters = chapters {
+                            DownloadManager.shared.cacheChapters(audiobookId: audiobook.id, chapters: chapters)
+                        }
                     }
                 } catch {
                     print("Failed to load chapters: \(error)")
@@ -293,8 +298,12 @@ class AudioPlayerService: NSObject {
             UserDefaults.standard.removeObject(forKey: Self.lastPositionKey)
             return
         }
+        let pos = Int(position)
         UserDefaults.standard.set(audiobook.id, forKey: Self.lastAudiobookIdKey)
-        UserDefaults.standard.set(Int(position), forKey: Self.lastPositionKey)
+        UserDefaults.standard.set(pos, forKey: Self.lastPositionKey)
+
+        // Keep downloaded book metadata in sync
+        DownloadManager.shared.updatePosition(audiobookId: audiobook.id, position: pos)
     }
 
     /// Restore last played audiobook on app launch. Call after configure(api:).
@@ -406,8 +415,46 @@ class AudioPlayerService: NSObject {
         Task {
             do {
                 try await api.updateProgress(audiobookId: audiobook.id, position: pos, state: state)
+                // Clear any pending sync for this book on success
+                removePendingSync(for: audiobook.id)
             } catch {
-                print("Failed to sync progress: \(error)")
+                // Queue for later retry
+                savePendingSync(audiobookId: audiobook.id, position: pos)
+                print("Failed to sync progress (queued for retry): \(error)")
+            }
+        }
+    }
+
+    // MARK: - Pending Sync Queue
+
+    private func savePendingSync(audiobookId: Int, position: Int) {
+        var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
+        pending[String(audiobookId)] = position
+        UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
+    }
+
+    private func removePendingSync(for audiobookId: Int) {
+        var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
+        pending.removeValue(forKey: String(audiobookId))
+        UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
+    }
+
+    /// Flush any progress updates that failed to sync while offline.
+    func syncPendingProgress() {
+        guard let api = api else { return }
+        let pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
+        guard !pending.isEmpty else { return }
+
+        for (idString, position) in pending {
+            guard let audiobookId = Int(idString) else { continue }
+            Task {
+                do {
+                    try await api.updateProgress(audiobookId: audiobookId, position: position, state: "paused")
+                    removePendingSync(for: audiobookId)
+                    print("Synced pending progress for audiobook \(audiobookId) at \(position)s")
+                } catch {
+                    // Still offline — will retry next time
+                }
             }
         }
     }
@@ -546,6 +593,9 @@ class AudioPlayerService: NSObject {
 
     /// Call when the app returns to foreground to ensure audio session is still valid
     func handleAppDidBecomeActive() {
+        // Flush any progress that failed to sync while offline
+        syncPendingProgress()
+
         guard currentAudiobook != nil else { return }
         do {
             try AVAudioSession.sharedInstance().setActive(true)
