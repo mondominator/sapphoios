@@ -13,7 +13,7 @@ struct MainView: View {
     @Environment(\.sapphoAPI) private var api
 
     @State private var selectedTab: Tab = .home
-    @State private var showFullPlayer = false
+    // showFullPlayer is on audioPlayer (shared so detail screen can trigger it)
     @State private var showLogoutConfirmation = false
     @State private var showProfile = false
     @State private var showDownloads = false
@@ -65,19 +65,25 @@ struct MainView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color.sapphoBackground)
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if audioPlayer.currentAudiobook != nil {
-                MiniPlayerView(showFullPlayer: $showFullPlayer)
+                MiniPlayerView(showFullPlayer: Binding(
+                    get: { audioPlayer.showFullPlayer },
+                    set: { audioPlayer.showFullPlayer = $0 }
+                ))
             }
         }
         .overlay {
-            if showFullPlayer {
-                PlayerView(showFullPlayer: $showFullPlayer)
+            if audioPlayer.showFullPlayer {
+                PlayerView(showFullPlayer: Binding(
+                    get: { audioPlayer.showFullPlayer },
+                    set: { audioPlayer.showFullPlayer = $0 }
+                ))
                     .transition(.move(edge: .bottom))
                     .zIndex(1)
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showFullPlayer)
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: audioPlayer.showFullPlayer)
         .sheet(isPresented: $showDownloads) {
             NavigationStack {
                 DownloadsView()
@@ -255,6 +261,7 @@ struct MiniPlayerView: View {
 
     @State private var isSeeking = false
     @State private var seekPosition: Double = 0
+    @State private var isPulsing = false
 
     private var progressPercent: Double {
         guard audioPlayer.duration > 0 else { return 0 }
@@ -314,31 +321,23 @@ struct MiniPlayerView: View {
                 .padding(.horizontal, 8)
 
                 // Main content
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     // Cover Image
                     CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 64, height: 64)
 
-                    // Title, Author, Time
+                    // Title + Author + Time
                     VStack(alignment: .leading, spacing: 2) {
                         Text(audiobook.title)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white)
                             .lineLimit(1)
 
-                        HStack(spacing: 4) {
-                            Text(audiobook.author ?? "Unknown Author")
-                                .lineLimit(1)
+                        Text(audiobook.author ?? "Unknown Author")
+                            .font(.system(size: 11))
+                            .foregroundColor(.sapphoTextMuted)
+                            .lineLimit(1)
 
-                            if audioPlayer.isBuffering {
-                                ProgressView()
-                                    .scaleEffect(0.6)
-                            }
-                        }
-                        .font(.system(size: 11))
-                        .foregroundColor(.sapphoTextMuted)
-
-                        // Time display
                         MiniPlayerTimeDisplay(
                             position: audioPlayer.position,
                             duration: audioPlayer.duration,
@@ -346,49 +345,52 @@ struct MiniPlayerView: View {
                         )
                     }
 
-                    Spacer()
+                    Spacer(minLength: 8)
 
-                    // Skip backward (Replay 10)
-                    Button {
-                        audioPlayer.skipBackward(seconds: 10)
-                    } label: {
-                        Image(systemName: "gobackward.10")
-                            .font(.system(size: 20))
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                    .frame(width: 40, height: 40)
-
-                    // Play/Pause Button
+                    // Play/Pause
                     Button {
                         audioPlayer.togglePlayPause()
                     } label: {
                         ZStack {
                             Circle()
                                 .fill(playButtonColor)
-                                .frame(width: 44, height: 44)
+                                .frame(width: 64, height: 64)
                             Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: 26))
                                 .foregroundColor(.white)
+                        }
+                        .scaleEffect(audioPlayer.isPlaying && isPulsing ? 1.08 : 1.0)
+                        .opacity(audioPlayer.isPlaying && isPulsing ? 0.85 : 1.0)
+                    }
+                    .frame(width: 64, height: 64)
+                    .onChange(of: audioPlayer.isPlaying) { _, playing in
+                        if playing {
+                            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                                isPulsing = true
+                            }
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isPulsing = false
+                            }
+                        }
+                    }
+                    .onAppear {
+                        if audioPlayer.isPlaying {
+                            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                                isPulsing = true
+                            }
                         }
                     }
 
-                    // Skip forward (Forward 10)
-                    Button {
-                        audioPlayer.skipForward(seconds: 10)
-                    } label: {
-                        Image(systemName: "goforward.10")
-                            .font(.system(size: 20))
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                    .frame(width: 40, height: 40)
+                    Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
             }
-            .background(Color(red: 0.118, green: 0.161, blue: 0.231)) // #1E293B
+            .background(Color.sapphoSurface)
             .contentShape(Rectangle())
             .onTapGesture {
-                showFullPlayer = true
+                audioPlayer.showFullPlayer = true
             }
         }
     }
