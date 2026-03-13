@@ -47,7 +47,7 @@ struct LibraryView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AuthRepository.self) private var authRepository
 
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     @State private var seriesCount = 0
     @State private var authorsCount = 0
     @State private var genresCount = 0
@@ -698,7 +698,7 @@ struct AllBooksGridItem: View {
 }
 
 #Preview {
-    LibraryView()
+    LibraryView(navigationPath: .constant(NavigationPath()))
         .environment(AuthRepository())
         .environment(AudioPlayerService())
 }

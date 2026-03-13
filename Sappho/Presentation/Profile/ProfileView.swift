@@ -20,6 +20,7 @@ struct ProfileView: View {
     @State private var showImagePicker = false
     @State private var selectedImage: UIImage?
     @State private var avatarKey = UUID()
+    @State private var avatarLoader = ImageLoader()
 
     // Password
     @State private var showPasswordSection = false
@@ -88,6 +89,7 @@ struct ProfileView: View {
             .alert("Logout", isPresented: $showLogoutConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Logout", role: .destructive) {
+                    audioPlayer.showFullPlayer = false
                     audioPlayer.stop()
                     authRepository.clear()
                 }
@@ -104,6 +106,7 @@ struct ProfileView: View {
             }
             .task {
                 syncUserFields()
+                avatarLoader.load(url: api?.avatarURL(), headers: api?.authHeaders ?? [:])
                 await loadData()
             }
         }
@@ -127,15 +130,10 @@ struct ProfileView: View {
                                 Image(uiImage: image)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                            } else if user?.avatar != nil {
-                                AsyncImage(url: api?.avatarURL()) { image in
-                                    image.resizable().aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Text(avatarInitial)
-                                        .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(.sapphoTextHigh)
-                                }
-                                .id(avatarKey)
+                            } else if user?.avatar != nil, let img = avatarLoader.image {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
                             } else {
                                 Text(avatarInitial)
                                     .font(.system(size: 24, weight: .bold))
@@ -706,7 +704,8 @@ struct ProfileView: View {
 
         do {
             try await api?.uploadAvatar(imageData: imageData)
-            avatarKey = UUID()
+            avatarLoader = ImageLoader()
+            avatarLoader.load(url: api?.avatarURL(), headers: api?.authHeaders ?? [:])
             if let updatedUser = try? await api?.getProfile() {
                 authRepository.updateUser(updatedUser)
             }
@@ -721,7 +720,7 @@ struct ProfileView: View {
         do {
             try await api?.deleteAvatar()
             selectedImage = nil
-            avatarKey = UUID()
+            avatarLoader = ImageLoader()
             if let updatedUser = try? await api?.getProfile() {
                 authRepository.updateUser(updatedUser)
             }
