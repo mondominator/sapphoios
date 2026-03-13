@@ -5,12 +5,18 @@ struct SapphoApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var authRepository: AuthRepository
     @State private var api: SapphoAPI
-    @State private var audioPlayer = AudioPlayerService()
+    @State private var audioPlayer: AudioPlayerService
 
     init() {
         let repo = AuthRepository()
+        let apiInstance = SapphoAPI(authRepository: repo)
+        let playerInstance = AudioPlayerService()
         _authRepository = State(initialValue: repo)
-        _api = State(initialValue: SapphoAPI(authRepository: repo))
+        _api = State(initialValue: apiInstance)
+        _audioPlayer = State(initialValue: playerInstance)
+
+        // Populate ServiceLocator so non-SwiftUI classes (e.g. CarPlaySceneDelegate) can access services
+        ServiceLocator.shared.configure(api: apiInstance, audioPlayer: playerInstance, authRepository: repo)
     }
 
     @Environment(\.scenePhase) private var scenePhase

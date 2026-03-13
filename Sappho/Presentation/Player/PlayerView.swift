@@ -12,11 +12,15 @@ struct PlayerView: View {
     @State private var showSleepTimer = false
     @State private var showChapters = false
     @State private var dragOffset: CGFloat = 0
+    @State private var isPulsing = false
     @State private var isSeeking = false
     @State private var seekPosition: TimeInterval = 0
 
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
+            ZStack {
+                Color.sapphoBackground.ignoresSafeArea()
+
             VStack(spacing: 0) {
                 // Drag handle + Header
                 VStack(spacing: 0) {
@@ -157,17 +161,39 @@ struct PlayerView: View {
 
                             Spacer()
 
-                            // Play/Pause (always blue on full player)
+                            // Play/Pause
                             Button {
                                 audioPlayer.togglePlayPause()
                             } label: {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.sapphoPrimaryLight) // #60A5FA
+                                        .fill(audioPlayer.isPlaying
+                                            ? Color.sapphoPlayingGreen
+                                            : Color.sapphoPrimaryLight)
                                         .frame(width: 72, height: 72)
                                     Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
                                         .font(.system(size: 28))
                                         .foregroundColor(.white)
+                                }
+                                .scaleEffect(audioPlayer.isPlaying && isPulsing ? 1.08 : 1.0)
+                                .opacity(audioPlayer.isPlaying && isPulsing ? 0.85 : 1.0)
+                            }
+                            .onChange(of: audioPlayer.isPlaying) { _, playing in
+                                if playing {
+                                    withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                                        isPulsing = true
+                                    }
+                                } else {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        isPulsing = false
+                                    }
+                                }
+                            }
+                            .onAppear {
+                                if audioPlayer.isPlaying {
+                                    withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                                        isPulsing = true
+                                    }
                                 }
                             }
                             .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
@@ -306,8 +332,7 @@ struct PlayerView: View {
                         }
                     }
             )
-            .background(Color.sapphoBackground)
-            .ignoresSafeArea()
+            } // end ZStack
             .sheet(isPresented: $showSpeedPicker) {
                 SpeedPickerSheet(currentSpeed: audioPlayer.playbackSpeed) { speed in
                     audioPlayer.setPlaybackSpeed(speed)
@@ -416,39 +441,50 @@ struct SpeedPickerSheet: View {
         self._speed = State(initialValue: currentSpeed)
     }
 
-    private let presets: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    private let presets: [Float] = [0.75, 1.0, 1.25, 1.3, 1.5, 2.0]
 
     private var displaySpeed: String {
         if speed == Float(Int(speed)) {
             return String(format: "%.0fx", speed)
-        } else if speed * 100 == Float(Int(speed * 100)) {
-            return String(format: "%.2gx", speed)
         } else {
-            return String(format: "%.2fx", speed)
+            return String(format: "%.2gx", speed)
+        }
+    }
+
+    private func formatPreset(_ value: Float) -> String {
+        if value == Float(Int(value)) {
+            return String(format: "%.0fx", value)
+        } else {
+            return String(format: "%.2gx", value)
         }
     }
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
+            // Handle
+            Capsule()
+                .fill(Color.sapphoTextMuted.opacity(0.4))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
             Text("Playback Speed")
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoTextHigh)
-                .padding(.top, 20)
 
             // Current speed display with fine-tune controls
-            HStack(spacing: 20) {
+            HStack(spacing: 24) {
                 Button {
                     adjustSpeed(by: -0.05)
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.system(size: 28))
                         .foregroundColor(.sapphoPrimary)
                 }
                 .accessibilityLabel("Decrease speed")
                 .accessibilityHint("Double tap to decrease by 0.05")
 
                 Text(displaySpeed)
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundColor(.sapphoTextHigh)
                     .frame(minWidth: 100)
                     .contentTransition(.numericText())
@@ -458,7 +494,7 @@ struct SpeedPickerSheet: View {
                     adjustSpeed(by: 0.05)
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.system(size: 28))
                         .foregroundColor(.sapphoPrimary)
                 }
                 .accessibilityLabel("Increase speed")
@@ -466,16 +502,18 @@ struct SpeedPickerSheet: View {
             }
 
             // Preset buttons
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 10) {
+            HStack(spacing: 10) {
                 ForEach(presets, id: \.self) { preset in
                     Button {
                         speed = preset
                         onSelect(preset)
                     } label: {
-                        Text(String(format: "%.2gx", preset))
-                            .font(.sapphoSubheadline)
+                        Text(formatPreset(preset))
+                            .font(.sapphoCaption)
+                            .fontWeight(speed == preset ? .semibold : .regular)
                             .foregroundColor(speed == preset ? .white : .sapphoTextHigh)
-                            .frame(width: 56, height: 40)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
                             .background(speed == preset ? Color.sapphoPrimary : Color.sapphoSurface)
                             .cornerRadius(8)
                     }
@@ -483,7 +521,7 @@ struct SpeedPickerSheet: View {
                     .accessibilityAddTraits(speed == preset ? .isSelected : [])
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
 
             Spacer()
         }
@@ -491,8 +529,8 @@ struct SpeedPickerSheet: View {
     }
 
     private func adjustSpeed(by delta: Float) {
-        let newSpeed = max(0.25, min(3.0, speed + delta))
-        speed = (newSpeed * 20).rounded() / 20 // Snap to 0.05 increments
+        let newSpeed = max(0.5, min(3.0, speed + delta))
+        speed = (newSpeed * 20).rounded() / 20
         onSelect(speed)
     }
 }
@@ -508,34 +546,57 @@ struct SleepTimerSheet: View {
     private let options = [5, 10, 15, 30, 45, 60, 90, 120]
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
+            // Handle
+            Capsule()
+                .fill(Color.sapphoTextMuted.opacity(0.4))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
             Text("Sleep Timer")
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoTextHigh)
-                .padding(.top, 20)
 
-            if currentRemaining != nil {
+            if let remaining = currentRemaining {
+                // Active timer display
+                VStack(spacing: 8) {
+                    Text(formatTime(remaining))
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .foregroundColor(.sapphoWarning)
+                    Text("remaining")
+                        .font(.sapphoCaption)
+                        .foregroundColor(.sapphoTextMuted)
+                }
+
                 Button {
                     onCancel()
                     dismiss()
                 } label: {
                     Text("Cancel Timer")
+                        .font(.sapphoSubheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color.sapphoSurface)
+                        .cornerRadius(8)
                 }
-                .buttonStyle(SapphoSecondaryButtonStyle())
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
+            // Timer options
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 10) {
                 ForEach(options, id: \.self) { minutes in
                     Button {
                         onSet(minutes)
                         dismiss()
                     } label: {
                         Text("\(minutes) min")
-                            .font(.sapphoSubheadline)
+                            .font(.sapphoCaption)
+                            .fontWeight(.medium)
                             .foregroundColor(.sapphoTextHigh)
-                            .frame(width: 80, height: 44)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
                             .background(Color.sapphoSurface)
                             .cornerRadius(8)
                     }
@@ -543,11 +604,18 @@ struct SleepTimerSheet: View {
                     .accessibilityHint("Double tap to set sleep timer for \(minutes) minutes")
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
 
             Spacer()
         }
         .background(Color.sapphoBackground)
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let m = totalSeconds / 60
+        let s = totalSeconds % 60
+        return String(format: "%d:%02d", m, s)
     }
 }
 
@@ -603,26 +671,30 @@ struct ChaptersSheet: View {
 
 // MARK: - Playing Animation Bars
 struct PlayingAnimationBars: View {
-    @State private var animating = false
-
-    private let targetHeights: [CGFloat] = [12, 7, 10]
-
     var body: some View {
         HStack(alignment: .bottom, spacing: 3) {
-            ForEach(0..<3, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.sapphoPrimaryLight) // #60A5FA
-                    .frame(width: 3, height: animating ? targetHeights[index] : 3)
-                    .animation(
-                        .easeInOut(duration: 0.4)
-                            .repeatForever(autoreverses: true)
-                            .delay(Double(index) * 0.1),
-                        value: animating
-                    )
-            }
+            AnimatingBar(targetHeight: 12, delay: 0)
+            AnimatingBar(targetHeight: 7, delay: 0.1)
+            AnimatingBar(targetHeight: 10, delay: 0.2)
         }
         .frame(height: 12)
-        .onAppear { animating = true }
+    }
+}
+
+private struct AnimatingBar: View {
+    let targetHeight: CGFloat
+    let delay: Double
+    @State private var animating = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(Color.sapphoPrimaryLight)
+            .frame(width: 3, height: animating ? targetHeight : 3)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true).delay(delay)) {
+                    animating = true
+                }
+            }
     }
 }
 

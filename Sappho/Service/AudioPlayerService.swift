@@ -5,6 +5,7 @@ import MediaPlayer
 @Observable
 class AudioPlayerService: NSObject {
     // MARK: - Public State
+    var showFullPlayer: Bool = false
     var currentAudiobook: Audiobook?
     var currentChapter: Chapter?
     var isPlaying: Bool = false
@@ -13,7 +14,6 @@ class AudioPlayerService: NSObject {
     var playbackSpeed: Float = 1.0
     var isBuffering: Bool = false
     var sleepTimerRemaining: TimeInterval?
-    var showFullPlayer: Bool = false
 
     // MARK: - Private Properties
     private var player: AVPlayer?

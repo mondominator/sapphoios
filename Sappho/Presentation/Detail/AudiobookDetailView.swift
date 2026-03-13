@@ -17,6 +17,7 @@ struct AudiobookDetailView: View {
     @State private var chapters: [Chapter] = []
     @State private var isFavorite: Bool = false
     @State private var isLoading = true
+    // Full player is shown via audioPlayer.showFullPlayer (handled by MainView overlay)
     @State private var userRating: Int?
     @State private var averageRating: AverageRating?
     @State private var showCollectionsSheet = false
@@ -82,6 +83,7 @@ struct AudiobookDetailView: View {
         .navigationDestination(isPresented: $showSeriesView) {
             FilteredBooksView(title: seriesToNavigate, filterType: .series(seriesToNavigate))
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: audioPlayer.showFullPlayer)
         .sheet(isPresented: $showCollectionsSheet) {
             AddToCollectionSheet(
                 audiobookId: displayBook.id,
@@ -96,11 +98,11 @@ struct AudiobookDetailView: View {
                 chapters: chapters,
                 currentChapter: nil,
                 onSelect: { chapter in
+                    showChaptersSheet = false
                     Task {
                         await audioPlayer.play(audiobook: displayBook, startPosition: chapter.startTime)
                         audioPlayer.showFullPlayer = true
                     }
-                    showChaptersSheet = false
                 }
             )
         }
