@@ -19,7 +19,7 @@ struct MainView: View {
     @State private var showDownloads = false
     @State private var showAdmin = false
     @State private var serverVersion: String?
-    @State private var avatarURL: URL?
+    @State private var avatarLoader = ImageLoader()
     @State private var homeNavigationPath = NavigationPath()
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
@@ -66,20 +66,14 @@ struct MainView: View {
         }
         .background(Color.sapphoBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if audioPlayer.currentAudiobook != nil {
-                MiniPlayerView(showFullPlayer: Binding(
-                    get: { audioPlayer.showFullPlayer },
-                    set: { audioPlayer.showFullPlayer = $0 }
-                ))
+            if audioPlayer.currentAudiobook != nil && !audioPlayer.showFullPlayer {
+                MiniPlayerView(showFullPlayer: Binding(get: { audioPlayer.showFullPlayer }, set: { audioPlayer.showFullPlayer = $0 }))
             }
         }
         .overlay {
-            if audioPlayer.showFullPlayer {
-                PlayerView(showFullPlayer: Binding(
-                    get: { audioPlayer.showFullPlayer },
-                    set: { audioPlayer.showFullPlayer = $0 }
-                ))
-                    .transition(.move(edge: .bottom))
+            if audioPlayer.currentAudiobook != nil {
+                PlayerView(showFullPlayer: Binding(get: { audioPlayer.showFullPlayer }, set: { audioPlayer.showFullPlayer = $0 }))
+                    .offset(y: audioPlayer.showFullPlayer ? 0 : UIScreen.main.bounds.height)
                     .zIndex(1)
             }
         }
@@ -97,6 +91,7 @@ struct MainView: View {
         .alert("Logout", isPresented: $showLogoutConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Logout", role: .destructive) {
+                audioPlayer.stop()
                 authRepository.clear()
             }
         } message: {
@@ -104,7 +99,7 @@ struct MainView: View {
         }
         .task {
             await loadServerVersion()
-            avatarURL = api?.avatarURL()
+            avatarLoader.load(url: api?.avatarURL(), headers: api?.authHeaders ?? [:])
         }
     }
 
@@ -127,6 +122,8 @@ struct MainView: View {
                     .frame(width: 40, height: 40)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
+            .accessibilityLabel("Sappho home")
+            .accessibilityHint("Double tap to go to home screen")
 
             Spacer()
 
@@ -148,7 +145,12 @@ struct MainView: View {
     }
 
     private func tabButton(tab: Tab, icon: String) -> some View {
-        Button {
+        let tabLabel: String = switch tab {
+        case .home: "Home"
+        case .library: "Library"
+        case .search: "Search"
+        }
+        return Button {
             showProfile = false
             if selectedTab == tab && tab == .home {
                 homeNavigationPath = NavigationPath()
@@ -162,6 +164,9 @@ struct MainView: View {
                 .frame(width: 48, height: 48)
                 .contentShape(Rectangle())
         }
+        .accessibilityLabel(tabLabel)
+        .accessibilityHint(selectedTab == tab ? "Currently selected" : "Double tap to switch to \(tabLabel)")
+        .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
     }
 
     // MARK: - Avatar Menu
@@ -211,24 +216,18 @@ struct MainView: View {
                 Text("Server v\(serverVersion)")
             }
         } label: {
-            if let avatarURL {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 40, height: 40)
-                            .clipShape(Circle())
-                    default:
-                        avatarInitialView
-                    }
-                }
-                .frame(width: 40, height: 40)
+            if let image = avatarLoader.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
             } else {
                 avatarInitialView
             }
         }
+        .accessibilityLabel("User menu")
+        .accessibilityHint("Double tap to open profile and settings menu")
     }
 
     private var avatarInitialView: some View {
@@ -271,8 +270,8 @@ struct MiniPlayerView: View {
 
     private var playButtonColor: Color {
         audioPlayer.isPlaying
-            ? Color(red: 0.204, green: 0.827, blue: 0.600)  // #34D399 green
-            : Color(red: 0.376, green: 0.647, blue: 0.980)  // #60A5FA blue
+            ? Color.sapphoPlayingGreen
+            : Color.sapphoPrimaryLight
     }
 
     var body: some View {
@@ -283,18 +282,18 @@ struct MiniPlayerView: View {
                     ZStack(alignment: .leading) {
                         // Track (thin, centered vertically)
                         Rectangle()
-                            .fill(Color(red: 0.216, green: 0.255, blue: 0.318)) // #374151
+                            .fill(Color.sapphoBorder)
                             .frame(height: 3)
                             .frame(maxHeight: .infinity, alignment: .center)
                         // Progress fill
                         Rectangle()
-                            .fill(Color(red: 0.376, green: 0.647, blue: 0.980)) // #60A5FA
+                            .fill(Color.sapphoPrimaryLight)
                             .frame(width: geometry.size.width * max(0, min(1, progressPercent)), height: 3)
                             .frame(maxHeight: .infinity, alignment: .center)
                         // Thumb circle
                         if progressPercent > 0 {
                             Circle()
-                                .fill(Color(red: 0.376, green: 0.647, blue: 0.980))
+                                .fill(Color.sapphoPrimaryLight)
                                 .frame(width: 12, height: 12)
                                 .offset(x: geometry.size.width * max(0, min(1, progressPercent)) - 6)
                         }
@@ -319,6 +318,8 @@ struct MiniPlayerView: View {
                 }
                 .frame(height: 20)
                 .padding(.horizontal, 8)
+                .accessibilityLabel("Playback position")
+                .accessibilityValue("\(Int(progressPercent * 100)) percent")
 
                 // Main content
                 HStack(spacing: 8) {
@@ -381,6 +382,8 @@ struct MiniPlayerView: View {
                             }
                         }
                     }
+                    .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
+                    .accessibilityHint(audioPlayer.isPlaying ? "Double tap to pause playback" : "Double tap to resume playback")
 
                     Spacer(minLength: 8)
                 }
@@ -392,6 +395,9 @@ struct MiniPlayerView: View {
             .onTapGesture {
                 audioPlayer.showFullPlayer = true
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Now playing: \(audiobook.title) by \(audiobook.author ?? "Unknown Author")")
+            .accessibilityHint("Double tap to open full player")
         }
     }
 }
@@ -406,22 +412,12 @@ struct MiniPlayerTimeDisplay: View {
         Text("\(formatTime(position)) / \(formatTime(duration))")
             .font(.system(size: 10))
             .foregroundColor(isPlaying
-                ? Color(red: 0.376, green: 0.647, blue: 0.980)  // #60A5FA
+                ? Color.sapphoPrimaryLight
                 : .sapphoTextMuted
             )
             .contentTransition(.numericText())
     }
 
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        let total = Int(seconds)
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
-        }
-        return String(format: "%d:%02d", m, s)
-    }
 }
 
 #Preview {

@@ -1,5 +1,9 @@
 import SwiftUI
 
+private enum PendingSheet {
+    case chapters, collections, share
+}
+
 struct AudiobookDetailView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AudioPlayerService.self) private var audioPlayer
@@ -16,13 +20,14 @@ struct AudiobookDetailView: View {
     // Full player is shown via audioPlayer.showFullPlayer (handled by MainView overlay)
     @State private var userRating: Int?
     @State private var averageRating: AverageRating?
-    @State private var showRatingSheet = false
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
     @State private var showChaptersSheet = false
     @State private var showMoreMenu = false
+    @State private var pendingSheet: PendingSheet?
     @State private var descriptionExpanded = false
+    @State private var toastMessage: String?
     @State private var authorToNavigate: String = ""
     @State private var seriesToNavigate: String = ""
     @State private var showAuthorView = false
@@ -101,7 +106,19 @@ struct AudiobookDetailView: View {
                 }
             )
         }
-        .sheet(isPresented: $showMoreMenu) {
+        .sheet(isPresented: $showMoreMenu, onDismiss: {
+            if let pending = pendingSheet {
+                pendingSheet = nil
+                switch pending {
+                case .chapters:
+                    showChaptersSheet = true
+                case .collections:
+                    showCollectionsSheet = true
+                case .share:
+                    showShareSheet = true
+                }
+            }
+        }) {
             VStack(spacing: 0) {
                 // Drag indicator
                 Capsule()
@@ -119,10 +136,8 @@ struct AudiobookDetailView: View {
                             subtitle: "Browse & jump to chapters",
                             color: .sapphoPrimary
                         ) {
+                            pendingSheet = .chapters
                             showMoreMenu = false
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                showChaptersSheet = true
-                            }
                         }
                     }
 
@@ -132,10 +147,8 @@ struct AudiobookDetailView: View {
                         subtitle: "Organize your library",
                         color: .sapphoWarning
                     ) {
+                        pendingSheet = .collections
                         showMoreMenu = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showCollectionsSheet = true
-                        }
                     }
 
                     moreMenuItem(
@@ -166,10 +179,8 @@ struct AudiobookDetailView: View {
                         subtitle: "Share this audiobook",
                         color: .sapphoTextMuted
                     ) {
+                        pendingSheet = .share
                         showMoreMenu = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showShareSheet = true
-                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -187,6 +198,26 @@ struct AudiobookDetailView: View {
             await loadRating()
             await loadCollections()
         }
+        .overlay(alignment: .bottom) {
+            if let message = toastMessage {
+                Text(message)
+                    .font(.sapphoCaption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.sapphoSurface)
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.3), radius: 10)
+                    .padding(.bottom, 100)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { toastMessage = nil }
+                        }
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: toastMessage)
     }
 
     // MARK: - Cover Section
@@ -214,6 +245,8 @@ struct AudiobookDetailView: View {
                             .background(Color.black.opacity(0.5))
                             .clipShape(Circle())
                     }
+                    .accessibilityLabel(isFavorite ? "In reading list" : "Add to reading list")
+                    .accessibilityHint(isFavorite ? "Double tap to remove from reading list" : "Double tap to add to reading list")
                     .padding(12)
                 }
                 Spacer()
@@ -249,12 +282,15 @@ struct AudiobookDetailView: View {
                             topTrailingRadius: 0
                         )
                     )
+                    .accessibilityHidden(true)
                 }
             }
         }
         .frame(width: 320, height: 320)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Cover art for \(displayBook.title)\(progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")")
     }
 
     // MARK: - Rating Section
@@ -274,6 +310,9 @@ struct AudiobookDetailView: View {
                             .font(.system(size: 28))
                             .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted)
                     }
+                    .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
+                    .accessibilityValue(userRating == star ? "Selected" : (star <= (userRating ?? 0) ? "Filled" : "Empty"))
+                    .accessibilityHint(userRating == star ? "Double tap to clear rating" : "Double tap to rate \(star) star\(star == 1 ? "" : "s")")
                 }
             }
 
@@ -338,6 +377,8 @@ struct AudiobookDetailView: View {
                 )
                 .cornerRadius(12)
             }
+            .accessibilityLabel(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue listening" : "Play"))
+            .accessibilityHint(isCurrentlyPlaying ? "Double tap to pause playback" : "Double tap to start playing \(displayBook.title)")
 
             // Download button
             Button {
@@ -345,6 +386,8 @@ struct AudiobookDetailView: View {
             } label: {
                 downloadButtonLabel
             }
+            .accessibilityLabel(downloadLabel)
+            .accessibilityHint(downloadAccessibilityHint)
 
             // Overflow menu button (icon only, 48x48)
             Button {
@@ -361,6 +404,8 @@ struct AudiobookDetailView: View {
                     )
                     .cornerRadius(12)
             }
+            .accessibilityLabel("More options")
+            .accessibilityHint("Double tap to open menu with chapters, collections, and more")
         }
         .padding(.horizontal, 24)
     }
@@ -433,9 +478,26 @@ struct AudiobookDetailView: View {
                 .padding(16)
                 .background(Color.sapphoSurface)
                 .cornerRadius(12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(progressAccessibilityLabel(progress: progress, duration: duration))
             }
             .padding(.horizontal, 24)
         }
+    }
+
+    private func progressAccessibilityLabel(progress: Progress, duration: Int) -> String {
+        if progress.completed == 1 {
+            return "Progress: Completed"
+        }
+        var label = "Progress: \(formatDuration(progress.position)) listened of \(formatDuration(duration)) total, \(Int(progressPercent * 100)) percent"
+        if !chapters.isEmpty {
+            let currentChapter = chapters.last { $0.startTime <= Double(progress.position) }
+            if let chapter = currentChapter {
+                let chapterIndex = chapters.firstIndex(where: { $0.startTime == chapter.startTime }) ?? 0
+                label += ", Chapter \(chapterIndex + 1) of \(chapters.count)"
+            }
+        }
+        return label
     }
 
     // MARK: - Title and Metadata Section
@@ -523,6 +585,8 @@ struct AudiobookDetailView: View {
                         .font(.sapphoCaption)
                         .foregroundColor(.sapphoPrimary)
                 }
+                .accessibilityLabel(descriptionExpanded ? "Show less of description" : "Show more of description")
+                .accessibilityHint("Double tap to \(descriptionExpanded ? "collapse" : "expand") the description")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
@@ -668,11 +732,24 @@ struct AudiobookDetailView: View {
         case .notDownloaded:
             return "Download"
         case .downloading(let progress):
-            return "\(Int(progress * 100))%"
+            return "Downloading, \(Int(progress * 100)) percent"
         case .downloaded:
             return "Downloaded"
         case .failed:
-            return "Retry"
+            return "Download failed"
+        }
+    }
+
+    private var downloadAccessibilityHint: String {
+        switch downloadState {
+        case .notDownloaded:
+            return "Double tap to download for offline listening"
+        case .downloading:
+            return "Double tap to cancel download"
+        case .downloaded:
+            return "Double tap to remove download"
+        case .failed:
+            return "Double tap to retry download"
         }
     }
 
@@ -733,8 +810,9 @@ struct AudiobookDetailView: View {
         do {
             let response = try await api?.toggleFavorite(audiobookId: displayBook.id)
             isFavorite = response?.isFavorite ?? isFavorite
+            showToast(isFavorite ? "Added to reading list" : "Removed from reading list")
         } catch {
-            print("Failed to toggle favorite: \(error)")
+            showToast("Failed to update reading list")
         }
     }
 
@@ -752,10 +830,10 @@ struct AudiobookDetailView: View {
         do {
             let response = try await api?.setRating(audiobookId: displayBook.id, rating: rating)
             userRating = response?.rating
-            // Reload average rating
             averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
+            showToast("Rated \(rating) star\(rating == 1 ? "" : "s")")
         } catch {
-            print("Failed to set rating: \(error)")
+            showToast("Failed to set rating")
         }
     }
 
@@ -763,10 +841,10 @@ struct AudiobookDetailView: View {
         do {
             let _ = try await api?.setRating(audiobookId: displayBook.id, rating: nil)
             userRating = nil
-            // Reload average rating
             averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
+            showToast("Rating cleared")
         } catch {
-            print("Failed to clear rating: \(error)")
+            showToast("Failed to clear rating")
         }
     }
 
@@ -782,8 +860,9 @@ struct AudiobookDetailView: View {
         do {
             try await api?.markFinished(audiobookId: displayBook.id)
             await loadFullAudiobook()
+            showToast("Marked as finished")
         } catch {
-            print("Failed to mark finished: \(error)")
+            showToast("Failed to mark finished")
         }
     }
 
@@ -791,31 +870,16 @@ struct AudiobookDetailView: View {
         do {
             try await api?.clearProgress(audiobookId: displayBook.id)
             await loadFullAudiobook()
+            showToast("Progress cleared")
         } catch {
-            print("Failed to clear progress: \(error)")
+            showToast("Failed to clear progress")
         }
     }
 
-    private func formatTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        let secs = seconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        }
-        return String(format: "%d:%02d", minutes, secs)
+    private func showToast(_ message: String) {
+        withAnimation { toastMessage = message }
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes) min"
-    }
 }
 
 // MARK: - Metadata Item (matches Android style)

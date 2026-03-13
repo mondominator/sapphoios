@@ -20,6 +20,9 @@ class AudioPlayerService: NSObject {
     private var playerItem: AVPlayerItem?
     private var timeObserver: Any?
     private var sleepTimer: Timer?
+    private var isObservingPlayerItem = false
+    private var interruptionObserver: Any?
+    private var routeChangeObserver: Any?
 
     private var api: SapphoAPI?
     private var lastSyncPosition: Int = 0
@@ -74,13 +77,20 @@ class AudioPlayerService: NSObject {
             return
         }
 
-        // Create player item
-        let asset = AVURLAsset(url: streamURL)
+        // Create player item — use auth headers for remote streams
+        let asset: AVURLAsset
+        if DownloadManager.shared.localURL(for: audiobook.id) != nil {
+            asset = AVURLAsset(url: streamURL)
+        } else {
+            let headers = api?.authHeaders ?? [:]
+            asset = AVURLAsset(url: streamURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        }
         playerItem = AVPlayerItem(asset: asset)
 
         // Observe buffering state
         playerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: .new, context: nil)
         playerItem?.addObserver(self, forKeyPath: "playbackLikelyToKeepUp", options: .new, context: nil)
+        isObservingPlayerItem = true
 
         // Create player
         player = AVPlayer(playerItem: playerItem)
@@ -113,36 +123,7 @@ class AudioPlayerService: NSObject {
                 do {
                     let chapters = try await api?.getChapters(audiobookId: audiobook.id)
                     await MainActor.run {
-                        self.currentAudiobook = Audiobook(
-                            id: audiobook.id,
-                            title: audiobook.title,
-                            subtitle: audiobook.subtitle,
-                            author: audiobook.author,
-                            narrator: audiobook.narrator,
-                            series: audiobook.series,
-                            seriesPosition: audiobook.seriesPosition,
-                            duration: audiobook.duration,
-                            genre: audiobook.genre,
-                            tags: audiobook.tags,
-                            publishYear: audiobook.publishYear,
-                            copyrightYear: audiobook.copyrightYear,
-                            publisher: audiobook.publisher,
-                            isbn: audiobook.isbn,
-                            asin: audiobook.asin,
-                            language: audiobook.language,
-                            rating: audiobook.rating,
-                            userRating: audiobook.userRating,
-                            averageRating: audiobook.averageRating,
-                            abridged: audiobook.abridged,
-                            description: audiobook.description,
-                            coverImage: audiobook.coverImage,
-                            fileCount: audiobook.fileCount,
-                            isMultiFile: audiobook.isMultiFile,
-                            createdAt: audiobook.createdAt,
-                            progress: audiobook.progress,
-                            chapters: chapters,
-                            isFavorite: audiobook.isFavorite
-                        )
+                        self.currentAudiobook = audiobook.withChapters(chapters)
                         // Cache chapters for offline playback
                         if let chapters = chapters {
                             DownloadManager.shared.cacheChapters(audiobookId: audiobook.id, chapters: chapters)
@@ -213,8 +194,11 @@ class AudioPlayerService: NSObject {
         player?.pause()
         stopTimeObserver()
 
-        playerItem?.removeObserver(self, forKeyPath: "playbackBufferEmpty")
-        playerItem?.removeObserver(self, forKeyPath: "playbackLikelyToKeepUp")
+        if isObservingPlayerItem {
+            playerItem?.removeObserver(self, forKeyPath: "playbackBufferEmpty")
+            playerItem?.removeObserver(self, forKeyPath: "playbackLikelyToKeepUp")
+            isObservingPlayerItem = false
+        }
 
         player = nil
         playerItem = nil
@@ -223,8 +207,10 @@ class AudioPlayerService: NSObject {
         isPlaying = false
         position = 0
         duration = 0
+        showFullPlayer = false
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 
         UserDefaults.standard.removeObject(forKey: Self.lastAudiobookIdKey)
         UserDefaults.standard.removeObject(forKey: Self.lastPositionKey)
@@ -330,36 +316,7 @@ class AudioPlayerService: NSObject {
             // Load chapters
             if let chapters = try? await api.getChapters(audiobookId: audiobookId) {
                 await MainActor.run {
-                    self.currentAudiobook = Audiobook(
-                        id: audiobook.id,
-                        title: audiobook.title,
-                        subtitle: audiobook.subtitle,
-                        author: audiobook.author,
-                        narrator: audiobook.narrator,
-                        series: audiobook.series,
-                        seriesPosition: audiobook.seriesPosition,
-                        duration: audiobook.duration,
-                        genre: audiobook.genre,
-                        tags: audiobook.tags,
-                        publishYear: audiobook.publishYear,
-                        copyrightYear: audiobook.copyrightYear,
-                        publisher: audiobook.publisher,
-                        isbn: audiobook.isbn,
-                        asin: audiobook.asin,
-                        language: audiobook.language,
-                        rating: audiobook.rating,
-                        userRating: audiobook.userRating,
-                        averageRating: audiobook.averageRating,
-                        abridged: audiobook.abridged,
-                        description: audiobook.description,
-                        coverImage: audiobook.coverImage,
-                        fileCount: audiobook.fileCount,
-                        isMultiFile: audiobook.isMultiFile,
-                        createdAt: audiobook.createdAt,
-                        progress: audiobook.progress,
-                        chapters: chapters,
-                        isFavorite: audiobook.isFavorite
-                    )
+                    self.currentAudiobook = audiobook.withChapters(chapters)
                     self.updateCurrentChapter()
                 }
             }
@@ -371,9 +328,11 @@ class AudioPlayerService: NSObject {
     // MARK: - Private Methods
 
     private func startTimeObserver() {
+        stopTimeObserver()
+        let currentItem = playerItem
         let interval = CMTime(seconds: 0.5, preferredTimescale: 1000)
         timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self else { return }
+            guard let self = self, self.playerItem === currentItem else { return }
             self.position = time.seconds
             self.updateCurrentChapter()
             self.checkProgressSync()
@@ -477,7 +436,11 @@ class AudioPlayerService: NSObject {
         if let coverURL = api?.coverURL(for: audiobook.id) {
             Task {
                 do {
-                    let (data, _) = try await URLSession.shared.data(from: coverURL)
+                    var coverRequest = URLRequest(url: coverURL)
+                    for (field, value) in (api?.authHeaders ?? [:]) {
+                        coverRequest.setValue(value, forHTTPHeaderField: field)
+                    }
+                    let (data, _) = try await URLSession.shared.data(for: coverRequest)
                     if let image = UIImage(data: data) {
                         let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                         var updatedInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
@@ -543,21 +506,23 @@ class AudioPlayerService: NSObject {
     private var wasPlayingBeforeInterruption = false
 
     private func setupInterruptionHandling() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleInterruption),
-            name: AVAudioSession.interruptionNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleRouteChange),
-            name: AVAudioSession.routeChangeNotification,
-            object: nil
-        )
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification: notification)
+        }
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleRouteChange(notification: notification)
+        }
     }
 
-    @objc private func handleInterruption(notification: Notification) {
+    private func handleInterruption(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
@@ -579,7 +544,7 @@ class AudioPlayerService: NSObject {
         }
     }
 
-    @objc private func handleRouteChange(notification: Notification) {
+    private func handleRouteChange(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
@@ -608,11 +573,19 @@ class AudioPlayerService: NSObject {
     // MARK: - KVO
 
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "playbackBufferEmpty" {
-            isBuffering = true
-        } else if keyPath == "playbackLikelyToKeepUp" {
-            isBuffering = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if keyPath == "playbackBufferEmpty" {
+                self.isBuffering = true
+            } else if keyPath == "playbackLikelyToKeepUp" {
+                self.isBuffering = false
+            }
         }
+    }
+
+    deinit {
+        if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = routeChangeObserver { NotificationCenter.default.removeObserver(obs) }
     }
 }
 

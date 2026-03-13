@@ -179,14 +179,6 @@ struct SeriesHeaderView: View {
         .padding(.top, 8)
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
-    }
 }
 
 struct StatItem: View {
@@ -320,15 +312,6 @@ struct BookListItem: View {
         .padding(12)
         .background(Color.sapphoSurface)
         .cornerRadius(12)
-    }
-
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
     }
 
     private func formatSeriesPosition(_ position: Float) -> String {

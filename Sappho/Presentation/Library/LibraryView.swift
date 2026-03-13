@@ -2,8 +2,7 @@ import SwiftUI
 
 // MARK: - Navigation State
 
-enum LibraryNavigationView {
-    case categories
+enum LibraryNavigationView: Hashable {
     case series
     case authors
     case genres
@@ -48,7 +47,7 @@ struct LibraryView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AuthRepository.self) private var authRepository
 
-    @State private var currentView: LibraryNavigationView = .categories
+    @State private var navigationPath = NavigationPath()
     @State private var seriesCount = 0
     @State private var authorsCount = 0
     @State private var genresCount = 0
@@ -59,58 +58,43 @@ struct LibraryView: View {
     @State private var showUpload = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch currentView {
-                case .categories:
-                    categoriesView
-                case .series:
-                    SeriesListView()
-                        .navigationTitle("Series")
-                        .navigationBarTitleDisplayMode(.inline)
-                case .authors:
-                    AuthorsListView()
-                        .navigationTitle("Authors")
-                        .navigationBarTitleDisplayMode(.inline)
-                case .genres:
-                    GenresListView()
-                        .navigationTitle("Genres")
-                        .navigationBarTitleDisplayMode(.inline)
-                case .collections:
-                    CollectionsListView()
-                        .navigationTitle("Collections")
-                        .navigationBarTitleDisplayMode(.inline)
-                case .readingList:
-                    ReadingListView()
-                case .allBooks:
-                    AllBooksView()
-                }
-            }
-            .background(Color.sapphoBackground)
-            .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                if currentView != .categories {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                currentView = .categories
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Library")
-                                    .font(.sapphoBody)
-                            }
-                            .foregroundColor(.sapphoPrimary)
+        NavigationStack(path: $navigationPath) {
+            categoriesView
+                .navigationDestination(for: LibraryNavigationView.self) { destination in
+                    Group {
+                        switch destination {
+                        case .series:
+                            SeriesListView()
+                                .navigationTitle("Series")
+                                .navigationBarTitleDisplayMode(.inline)
+                        case .authors:
+                            AuthorsListView()
+                                .navigationTitle("Authors")
+                                .navigationBarTitleDisplayMode(.inline)
+                        case .genres:
+                            GenresListView()
+                                .navigationTitle("Genres")
+                                .navigationBarTitleDisplayMode(.inline)
+                        case .collections:
+                            CollectionsListView()
+                                .navigationTitle("Collections")
+                                .navigationBarTitleDisplayMode(.inline)
+                        case .readingList:
+                            ReadingListView()
+                        case .allBooks:
+                            AllBooksView()
                         }
                     }
+                    .background(Color.sapphoBackground)
+                    .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
+                    .toolbarColorScheme(.dark, for: .navigationBar)
                 }
-            }
-            .sheet(isPresented: $showUpload) {
-                UploadView()
-            }
+                .background(Color.sapphoBackground)
+                .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
+                .sheet(isPresented: $showUpload) {
+                    UploadView()
+                }
         }
     }
 
@@ -140,11 +124,9 @@ struct LibraryView: View {
                     title: "Series",
                     count: seriesCount,
                     icon: "books.vertical.fill",
-                    gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                    gradientColors: [Color.sapphoCategoryBlueStart, Color.sapphoCategoryBlueEnd]
                 ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        currentView = .series
-                    }
+                    navigationPath.append(LibraryNavigationView.series)
                 }
 
                 // Authors & Genres - Two column
@@ -153,22 +135,18 @@ struct LibraryView: View {
                         title: "Authors",
                         count: authorsCount,
                         icon: "person.2.fill",
-                        gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                        gradientColors: [Color.sapphoCategoryBlueStart, Color.sapphoCategoryBlueEnd]
                     ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            currentView = .authors
-                        }
+                        navigationPath.append(LibraryNavigationView.authors)
                     }
 
                     CategoryCardMedium(
                         title: "Genres",
                         count: genresCount,
                         icon: "tag.fill",
-                        gradientColors: [Color(red: 0.231, green: 0.510, blue: 0.965), Color(red: 0.145, green: 0.388, blue: 0.922)]
+                        gradientColors: [Color.sapphoCategoryBlueStart, Color.sapphoCategoryBlueEnd]
                     ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            currentView = .genres
-                        }
+                        navigationPath.append(LibraryNavigationView.genres)
                     }
                 }
 
@@ -178,22 +156,18 @@ struct LibraryView: View {
                         title: "Collections",
                         count: collectionsCount,
                         icon: "folder.fill",
-                        gradientColors: [Color(red: 0.149, green: 0.651, blue: 0.604), Color(red: 0, green: 0.537, blue: 0.482)]
+                        gradientColors: [Color.sapphoCategoryTealStart, Color.sapphoCategoryTealEnd]
                     ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            currentView = .collections
-                        }
+                        navigationPath.append(LibraryNavigationView.collections)
                     }
 
                     CategoryCardMedium(
                         title: "Reading List",
                         count: readingListCount,
                         icon: "bookmark.fill",
-                        gradientColors: [Color(red: 0.149, green: 0.651, blue: 0.604), Color(red: 0, green: 0.537, blue: 0.482)]
+                        gradientColors: [Color.sapphoCategoryTealStart, Color.sapphoCategoryTealEnd]
                     ) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            currentView = .readingList
-                        }
+                        navigationPath.append(LibraryNavigationView.readingList)
                     }
                 }
 
@@ -201,11 +175,9 @@ struct LibraryView: View {
                 CategoryCardWide(
                     title: "All Books",
                     icon: "square.grid.2x2.fill",
-                    gradientColors: [Color(red: 0.216, green: 0.255, blue: 0.318), Color(red: 0.122, green: 0.161, blue: 0.216)]
+                    gradientColors: [Color.sapphoCategoryGrayStart, Color.sapphoCategoryGrayEnd]
                 ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        currentView = .allBooks
-                    }
+                    navigationPath.append(LibraryNavigationView.allBooks)
                 }
 
                 // Upload - Wide card (green, admin only)
@@ -313,6 +285,10 @@ struct CategoryCardLarge: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(count)")
+        .accessibilityHint("Double tap to browse \(title.lowercased())")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -357,6 +333,10 @@ struct CategoryCardMedium: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(count)")
+        .accessibilityHint("Double tap to browse \(title.lowercased())")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -411,6 +391,10 @@ struct CategoryCardWide: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityHint("Double tap to open \(title.lowercased())")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -669,7 +653,7 @@ struct AllBooksGridItem: View {
                         HStack(spacing: 2) {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 8))
-                                .foregroundColor(Color(red: 0.984, green: 0.749, blue: 0.149))
+                                .foregroundColor(.sapphoRating)
                             Text(String(format: "%.0f", rating))
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(.white)
@@ -692,8 +676,8 @@ struct AllBooksGridItem: View {
                                 .fill(
                                     LinearGradient(
                                         colors: isCompleted
-                                            ? [Color.sapphoSuccess, Color(red: 0.298, green: 0.851, blue: 0.506)]
-                                            : [Color(red: 0.376, green: 0.647, blue: 0.980), Color(red: 0.529, green: 0.749, blue: 1.0)],
+                                            ? [Color.sapphoSuccess, Color.sapphoSuccessLight]
+                                            : [Color.sapphoPrimaryLight, Color.sapphoPrimaryLighter],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -707,6 +691,9 @@ struct AllBooksGridItem: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(isCompleted ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")")
+        .accessibilityHint("Double tap to view details")
     }
 }
 

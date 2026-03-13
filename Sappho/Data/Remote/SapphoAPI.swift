@@ -94,12 +94,13 @@ class SapphoAPI {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            // Log raw response for debugging
+            #if DEBUG
             if let json = String(data: data, encoding: .utf8) {
                 print("Decoding error for \(T.self):")
                 print("Response: \(json.prefix(500))")
                 print("Error: \(error)")
             }
+            #endif
             throw APIError.decodingError(error)
         }
     }
@@ -168,7 +169,13 @@ class SapphoAPI {
         let credentials = LoginRequest(username: username, password: password)
         request.httpBody = try JSONEncoder().encode(credentials)
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
@@ -369,11 +376,11 @@ class SapphoAPI {
         }
 
         var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8) ?? Data())
         body.append(imageData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8) ?? Data())
 
         request.httpBody = body
 
@@ -474,30 +481,30 @@ class SapphoAPI {
         var body = Data()
 
         // File part
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8) ?? Data())
         body.append(fileData)
-        body.append("\r\n".data(using: .utf8)!)
+        body.append("\r\n".data(using: .utf8) ?? Data())
 
         // Optional metadata
         if let title, !title.isEmpty {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"title\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(title)\r\n".data(using: .utf8)!)
+            body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+            body.append("Content-Disposition: form-data; name=\"title\"\r\n\r\n".data(using: .utf8) ?? Data())
+            body.append("\(title)\r\n".data(using: .utf8) ?? Data())
         }
         if let author, !author.isEmpty {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"author\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(author)\r\n".data(using: .utf8)!)
+            body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+            body.append("Content-Disposition: form-data; name=\"author\"\r\n\r\n".data(using: .utf8) ?? Data())
+            body.append("\(author)\r\n".data(using: .utf8) ?? Data())
         }
         if let narrator, !narrator.isEmpty {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"narrator\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(narrator)\r\n".data(using: .utf8)!)
+            body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
+            body.append("Content-Disposition: form-data; name=\"narrator\"\r\n\r\n".data(using: .utf8) ?? Data())
+            body.append("\(narrator)\r\n".data(using: .utf8) ?? Data())
         }
 
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8) ?? Data())
         request.httpBody = body
 
         let (data, response) = try await session.data(for: request)
@@ -516,25 +523,24 @@ class SapphoAPI {
 
     // MARK: - URL Builders
 
+    var authHeaders: [String: String] {
+        guard let token = authRepository.token else { return [:] }
+        return ["Authorization": "Bearer \(token)"]
+    }
+
     func coverURL(for audiobookId: Int) -> URL? {
-        guard let baseURL = authRepository.serverURL, let token = authRepository.token else { return nil }
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/cover"), resolvingAgainstBaseURL: true)
-        components?.queryItems = [URLQueryItem(name: "token", value: token)]
-        return components?.url
+        guard let baseURL = authRepository.serverURL else { return nil }
+        return baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/cover")
     }
 
     func streamURL(for audiobookId: Int) -> URL? {
-        guard let baseURL = authRepository.serverURL, let token = authRepository.token else { return nil }
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/stream"), resolvingAgainstBaseURL: true)
-        components?.queryItems = [URLQueryItem(name: "token", value: token)]
-        return components?.url
+        guard let baseURL = authRepository.serverURL else { return nil }
+        return baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/stream")
     }
 
     func avatarURL() -> URL? {
-        guard let baseURL = authRepository.serverURL, let token = authRepository.token else { return nil }
-        var components = URLComponents(url: baseURL.appendingPathComponent("api/profile/avatar"), resolvingAgainstBaseURL: true)
-        components?.queryItems = [URLQueryItem(name: "token", value: token)]
-        return components?.url
+        guard let baseURL = authRepository.serverURL else { return nil }
+        return baseURL.appendingPathComponent("api/profile/avatar")
     }
 }
 

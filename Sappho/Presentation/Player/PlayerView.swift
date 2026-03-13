@@ -13,6 +13,8 @@ struct PlayerView: View {
     @State private var showChapters = false
     @State private var dragOffset: CGFloat = 0
     @State private var isPulsing = false
+    @State private var isSeeking = false
+    @State private var seekPosition: TimeInterval = 0
 
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
@@ -35,12 +37,16 @@ struct PlayerView: View {
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(.sapphoTextHigh)
                         }
+                        .accessibilityLabel("Minimize player")
+                        .accessibilityHint("Double tap to minimize to mini player")
 
                         Spacer()
 
                         // AirPlay (matches Cast button position on Android)
                         AirPlayButton()
                             .frame(width: 28, height: 28)
+                            .accessibilityLabel("AirPlay")
+                            .accessibilityHint("Double tap to choose audio output device")
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -92,21 +98,31 @@ struct PlayerView: View {
                         VStack(spacing: 8) {
                             Slider(
                                 value: Binding(
-                                    get: { audioPlayer.position },
+                                    get: { isSeeking ? seekPosition : audioPlayer.position },
                                     set: { newValue in
-                                        Task {
-                                            await audioPlayer.seek(to: newValue)
-                                        }
+                                        isSeeking = true
+                                        seekPosition = newValue
                                     }
                                 ),
                                 in: 0...max(audioPlayer.duration, 1)
-                            )
-                            .tint(Color(red: 0.376, green: 0.647, blue: 0.980))
+                            ) { editing in
+                                if !editing {
+                                    Task {
+                                        await audioPlayer.seek(to: seekPosition)
+                                    }
+                                    isSeeking = false
+                                }
+                            }
+                            .tint(Color.sapphoPrimaryLight)
+                            .accessibilityLabel("Playback position")
+                            .accessibilityValue("\(formatTime(audioPlayer.position)) of \(formatTime(audioPlayer.duration))")
 
                             HStack {
                                 Text(formatTime(audioPlayer.position))
+                                    .accessibilityHidden(true)
                                 Spacer()
                                 Text("-" + formatTime(audioPlayer.duration - audioPlayer.position))
+                                    .accessibilityHidden(true)
                             }
                             .font(.sapphoSmall)
                             .foregroundColor(.sapphoTextMuted)
@@ -123,10 +139,12 @@ struct PlayerView: View {
                             } label: {
                                 Image(systemName: "backward.end.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                             }
                             .disabled(!hasChapters)
                             .frame(width: 48, height: 48)
+                            .accessibilityLabel("Previous chapter")
+                            .accessibilityHint(hasChapters ? "Double tap to go to previous chapter" : "No chapters available")
 
                             Spacer()
 
@@ -139,6 +157,7 @@ struct PlayerView: View {
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
+                            .accessibilityLabel("Skip back 10 seconds")
 
                             Spacer()
 
@@ -149,8 +168,8 @@ struct PlayerView: View {
                                 ZStack {
                                     Circle()
                                         .fill(audioPlayer.isPlaying
-                                            ? Color(red: 0.204, green: 0.827, blue: 0.600)  // #34D399 green
-                                            : Color(red: 0.376, green: 0.647, blue: 0.980)) // #60A5FA blue
+                                            ? Color.sapphoPlayingGreen
+                                            : Color.sapphoPrimaryLight)
                                         .frame(width: 72, height: 72)
                                     Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
                                         .font(.system(size: 28))
@@ -177,6 +196,8 @@ struct PlayerView: View {
                                     }
                                 }
                             }
+                            .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
+                            .accessibilityHint(audioPlayer.isPlaying ? "Double tap to pause playback" : "Double tap to resume playback")
 
                             Spacer()
 
@@ -189,6 +210,7 @@ struct PlayerView: View {
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
+                            .accessibilityLabel("Skip forward 10 seconds")
 
                             Spacer()
 
@@ -198,10 +220,12 @@ struct PlayerView: View {
                             } label: {
                                 Image(systemName: "forward.end.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                    .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                             }
                             .disabled(!hasChapters)
                             .frame(width: 48, height: 48)
+                            .accessibilityLabel("Next chapter")
+                            .accessibilityHint(hasChapters ? "Double tap to go to next chapter" : "No chapters available")
 
                             Spacer()
                         }
@@ -215,16 +239,19 @@ struct PlayerView: View {
                                 VStack(spacing: 6) {
                                     Image(systemName: "list.bullet")
                                         .font(.system(size: 20))
-                                        .foregroundColor(hasChapters ? .sapphoPrimary : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                        .foregroundColor(hasChapters ? .sapphoPrimary : Color.sapphoDisabled)
                                     Text(audioPlayer.currentChapter?.title ?? "Chapters")
                                         .font(.sapphoSmall)
-                                        .foregroundColor(hasChapters ? .sapphoTextHigh : Color(red: 0.294, green: 0.333, blue: 0.388))
+                                        .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                                         .lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                             }
                             .disabled(!hasChapters)
+                            .accessibilityLabel("Chapters")
+                            .accessibilityValue(audioPlayer.currentChapter?.title ?? "No chapter selected")
+                            .accessibilityHint(hasChapters ? "Double tap to browse chapters" : "No chapters available")
 
                             // Speed
                             Button {
@@ -233,7 +260,7 @@ struct PlayerView: View {
                                 VStack(spacing: 6) {
                                     Image(systemName: "speedometer")
                                         .font(.system(size: 20))
-                                        .foregroundColor(.purple)
+                                        .foregroundColor(.sapphoSecondary)
                                     Text(String(format: "%.2gx", audioPlayer.playbackSpeed))
                                         .font(.sapphoSmall)
                                         .foregroundColor(.sapphoTextHigh)
@@ -241,6 +268,9 @@ struct PlayerView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                             }
+                            .accessibilityLabel("Playback speed")
+                            .accessibilityValue(String(format: "%.2g times", audioPlayer.playbackSpeed))
+                            .accessibilityHint("Double tap to change playback speed")
 
                             // Sleep Timer
                             Button {
@@ -266,6 +296,9 @@ struct PlayerView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                             }
+                            .accessibilityLabel("Sleep timer")
+                            .accessibilityValue(audioPlayer.sleepTimerRemaining != nil ? "\(formatTime(audioPlayer.sleepTimerRemaining!)) remaining" : "Off")
+                            .accessibilityHint("Double tap to set sleep timer")
                         }
                         .padding(.top, 8)
 
@@ -273,6 +306,7 @@ struct PlayerView: View {
                         PlayingAnimationBars()
                             .padding(.top, 8)
                             .opacity(audioPlayer.isPlaying ? 1 : 0)
+                            .accessibilityHidden(true)
                     }
                     .padding(.vertical, 16)
 
@@ -280,7 +314,6 @@ struct PlayerView: View {
             }
             .contentShape(Rectangle())
             .offset(y: dragOffset)
-            .animation(.interactiveSpring(), value: dragOffset)
             .gesture(
                 DragGesture()
                     .onChanged { value in
@@ -291,8 +324,12 @@ struct PlayerView: View {
                     .onEnded { value in
                         if value.translation.height > 120 {
                             showFullPlayer = false
+                            dragOffset = 0
+                        } else {
+                            withAnimation(.interactiveSpring()) {
+                                dragOffset = 0
+                            }
                         }
-                        dragOffset = 0
                     }
             )
             } // end ZStack
@@ -356,18 +393,6 @@ struct PlayerView: View {
     }
 
     // MARK: - Formatting
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        }
-        return String(format: "%d:%02d", minutes, secs)
-    }
 
     private func formatSeriesPosition(_ position: Float) -> String {
         if position == floor(position) {
@@ -455,12 +480,15 @@ struct SpeedPickerSheet: View {
                         .font(.system(size: 28))
                         .foregroundColor(.sapphoPrimary)
                 }
+                .accessibilityLabel("Decrease speed")
+                .accessibilityHint("Double tap to decrease by 0.05")
 
                 Text(displaySpeed)
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundColor(.sapphoTextHigh)
                     .frame(minWidth: 100)
                     .contentTransition(.numericText())
+                    .accessibilityLabel("Current speed: \(displaySpeed)")
 
                 Button {
                     adjustSpeed(by: 0.05)
@@ -469,6 +497,8 @@ struct SpeedPickerSheet: View {
                         .font(.system(size: 28))
                         .foregroundColor(.sapphoPrimary)
                 }
+                .accessibilityLabel("Increase speed")
+                .accessibilityHint("Double tap to increase by 0.05")
             }
 
             // Preset buttons
@@ -487,6 +517,8 @@ struct SpeedPickerSheet: View {
                             .background(speed == preset ? Color.sapphoPrimary : Color.sapphoSurface)
                             .cornerRadius(8)
                     }
+                    .accessibilityLabel(String(format: "%.2g times speed", preset))
+                    .accessibilityAddTraits(speed == preset ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 16)
@@ -568,6 +600,8 @@ struct SleepTimerSheet: View {
                             .background(Color.sapphoSurface)
                             .cornerRadius(8)
                     }
+                    .accessibilityLabel("\(minutes) minutes")
+                    .accessibilityHint("Double tap to set sleep timer for \(minutes) minutes")
                 }
             }
             .padding(.horizontal, 16)
@@ -615,10 +649,14 @@ struct ChaptersSheet: View {
                         if chapter.id == currentChapter?.id {
                             Image(systemName: "speaker.wave.2.fill")
                                 .foregroundColor(.sapphoPrimary)
+                                .accessibilityHidden(true)
                         }
                     }
                 }
                 .listRowBackground(Color.sapphoSurface)
+                .accessibilityLabel("\(chapter.title ?? "Chapter \(chapter.id)")\(chapter.duration != nil ? ", \(formatDuration(Int(chapter.duration!)))" : "")")
+                .accessibilityValue(chapter.id == currentChapter?.id ? "Currently playing" : "")
+                .accessibilityHint("Double tap to play this chapter")
             }
             .listStyle(.plain)
             .background(Color.sapphoBackground)
@@ -629,15 +667,6 @@ struct ChaptersSheet: View {
         }
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes) min"
-    }
 }
 
 // MARK: - Playing Animation Bars
@@ -659,7 +688,7 @@ private struct AnimatingBar: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
-            .fill(Color(red: 0.376, green: 0.647, blue: 0.980))
+            .fill(Color.sapphoPrimaryLight)
             .frame(width: 3, height: animating ? targetHeight : 3)
             .onAppear {
                 withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true).delay(delay)) {

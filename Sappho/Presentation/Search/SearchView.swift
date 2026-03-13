@@ -8,6 +8,8 @@ struct SearchView: View {
     @State private var authorResults: [AuthorInfo] = []
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var cachedSeries: [SeriesInfo]?
+    @State private var cachedAuthors: [AuthorInfo]?
 
     private var hasResults: Bool {
         !bookResults.isEmpty || !seriesResults.isEmpty || !authorResults.isEmpty
@@ -135,17 +137,19 @@ struct SearchView: View {
 
         do {
             async let books = api?.getAudiobooks(search: query)
-            async let series = api?.getSeries()
-            async let authors = api?.getAuthors()
+
+            if cachedSeries == nil {
+                cachedSeries = try? await api?.getSeries()
+            }
+            if cachedAuthors == nil {
+                cachedAuthors = try? await api?.getAuthors()
+            }
 
             bookResults = try await books ?? []
 
             let queryLower = query.lowercased()
-            let allSeries = try await series ?? []
-            seriesResults = allSeries.filter { $0.series.lowercased().contains(queryLower) }
-
-            let allAuthors = try await authors ?? []
-            authorResults = allAuthors.filter { $0.author.lowercased().contains(queryLower) }
+            seriesResults = (cachedSeries ?? []).filter { $0.series.lowercased().contains(queryLower) }
+            authorResults = (cachedAuthors ?? []).filter { $0.author.lowercased().contains(queryLower) }
         } catch {
             print("Search error: \(error)")
         }
@@ -186,7 +190,7 @@ struct SearchBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(red: 0.118, green: 0.161, blue: 0.231)) // #1E293B
+        .background(Color.sapphoSurfaceSlate)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -328,7 +332,7 @@ struct SeriesSearchResult: View {
                 .font(.system(size: 20))
                 .foregroundColor(.white)
                 .frame(width: 48, height: 48)
-                .background(Color(red: 0.216, green: 0.255, blue: 0.318)) // #374151
+                .background(Color.sapphoBorder)
                 .cornerRadius(6)
 
             Text(series.series)
@@ -358,7 +362,7 @@ struct AuthorSearchResult: View {
                 .font(.system(size: 20))
                 .foregroundColor(.white)
                 .frame(width: 48, height: 48)
-                .background(Color(red: 0.216, green: 0.255, blue: 0.318)) // #374151
+                .background(Color.sapphoBorder)
                 .cornerRadius(6)
 
             Text(author.author)

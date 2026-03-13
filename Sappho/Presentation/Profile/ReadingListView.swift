@@ -80,6 +80,7 @@ struct ReadingListView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .contentMargins(.bottom, 100, for: .scrollContent)
                     .environment(\.editMode, $editMode)
                 }
             }
@@ -205,14 +206,6 @@ struct ReadingListRow: View {
         .padding(.vertical, 4)
     }
 
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
-    }
 }
 
 #Preview {
