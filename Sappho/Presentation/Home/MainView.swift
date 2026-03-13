@@ -21,6 +21,7 @@ struct MainView: View {
     @State private var serverVersion: String?
     @State private var avatarLoader = ImageLoader()
     @State private var homeNavigationPath = NavigationPath()
+    @State private var libraryNavigationPath = NavigationPath()
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
 
@@ -56,7 +57,7 @@ struct MainView: View {
                     case .home:
                         HomeView(navigationPath: $homeNavigationPath)
                     case .library:
-                        LibraryView()
+                        LibraryView(navigationPath: $libraryNavigationPath)
                     case .search:
                         SearchView()
                     }
@@ -67,17 +68,30 @@ struct MainView: View {
         .background(Color.sapphoBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if audioPlayer.currentAudiobook != nil && !audioPlayer.showFullPlayer {
-                MiniPlayerView(showFullPlayer: Binding(get: { audioPlayer.showFullPlayer }, set: { audioPlayer.showFullPlayer = $0 }))
+                MiniPlayerView(showFullPlayer: Binding(
+                    get: { audioPlayer.showFullPlayer },
+                    set: { newValue in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                            audioPlayer.showFullPlayer = newValue
+                        }
+                    }
+                ))
             }
         }
         .overlay {
             if audioPlayer.currentAudiobook != nil {
-                PlayerView(showFullPlayer: Binding(get: { audioPlayer.showFullPlayer }, set: { audioPlayer.showFullPlayer = $0 }))
+                PlayerView(showFullPlayer: Binding(
+                    get: { audioPlayer.showFullPlayer },
+                    set: { newValue in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                            audioPlayer.showFullPlayer = newValue
+                        }
+                    }
+                ))
                     .offset(y: audioPlayer.showFullPlayer ? 0 : UIScreen.main.bounds.height)
                     .zIndex(1)
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: audioPlayer.showFullPlayer)
         .sheet(isPresented: $showDownloads) {
             NavigationStack {
                 DownloadsView()
@@ -91,6 +105,7 @@ struct MainView: View {
         .alert("Logout", isPresented: $showLogoutConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Logout", role: .destructive) {
+                audioPlayer.showFullPlayer = false
                 audioPlayer.stop()
                 authRepository.clear()
             }
@@ -152,8 +167,12 @@ struct MainView: View {
         }
         return Button {
             showProfile = false
-            if selectedTab == tab && tab == .home {
-                homeNavigationPath = NavigationPath()
+            if selectedTab == tab {
+                switch tab {
+                case .home: homeNavigationPath = NavigationPath()
+                case .library: libraryNavigationPath = NavigationPath()
+                case .search: break
+                }
             } else {
                 selectedTab = tab
             }
@@ -260,7 +279,6 @@ struct MiniPlayerView: View {
 
     @State private var isSeeking = false
     @State private var seekPosition: Double = 0
-    @State private var isPulsing = false
 
     private var progressPercent: Double {
         guard audioPlayer.duration > 0 else { return 0 }
@@ -323,27 +341,34 @@ struct MiniPlayerView: View {
 
                 // Main content
                 HStack(spacing: 8) {
-                    // Cover Image
-                    CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
-                        .frame(width: 64, height: 64)
+                    // Cover + Title (tappable to open full player)
+                    HStack(spacing: 8) {
+                        CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
+                            .frame(width: 64, height: 64)
 
-                    // Title + Author + Time
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(audiobook.title)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(audiobook.title)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
 
-                        Text(audiobook.author ?? "Unknown Author")
-                            .font(.system(size: 11))
-                            .foregroundColor(.sapphoTextMuted)
-                            .lineLimit(1)
+                            Text(audiobook.author ?? "Unknown Author")
+                                .font(.system(size: 11))
+                                .foregroundColor(.sapphoTextMuted)
+                                .lineLimit(1)
 
-                        MiniPlayerTimeDisplay(
-                            position: audioPlayer.position,
-                            duration: audioPlayer.duration,
-                            isPlaying: audioPlayer.isPlaying
-                        )
+                            MiniPlayerTimeDisplay(
+                                position: audioPlayer.position,
+                                duration: audioPlayer.duration,
+                                isPlaying: audioPlayer.isPlaying
+                            )
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                            audioPlayer.showFullPlayer = true
+                        }
                     }
 
                     Spacer(minLength: 8)
@@ -360,28 +385,8 @@ struct MiniPlayerView: View {
                                 .font(.system(size: 26))
                                 .foregroundColor(.white)
                         }
-                        .scaleEffect(audioPlayer.isPlaying && isPulsing ? 1.08 : 1.0)
-                        .opacity(audioPlayer.isPlaying && isPulsing ? 0.85 : 1.0)
                     }
                     .frame(width: 64, height: 64)
-                    .onChange(of: audioPlayer.isPlaying) { _, playing in
-                        if playing {
-                            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                                isPulsing = true
-                            }
-                        } else {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isPulsing = false
-                            }
-                        }
-                    }
-                    .onAppear {
-                        if audioPlayer.isPlaying {
-                            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                                isPulsing = true
-                            }
-                        }
-                    }
                     .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
                     .accessibilityHint(audioPlayer.isPlaying ? "Double tap to pause playback" : "Double tap to resume playback")
 
@@ -391,10 +396,6 @@ struct MiniPlayerView: View {
                 .padding(.vertical, 6)
             }
             .background(Color.sapphoSurface)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                audioPlayer.showFullPlayer = true
-            }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Now playing: \(audiobook.title) by \(audiobook.author ?? "Unknown Author")")
             .accessibilityHint("Double tap to open full player")

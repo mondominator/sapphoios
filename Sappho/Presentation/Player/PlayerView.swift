@@ -42,6 +42,13 @@ struct PlayerView: View {
 
                         Spacer()
 
+                        if audioPlayer.isPlaying {
+                            PlayingAnimationBars()
+                                .accessibilityHidden(true)
+                        }
+
+                        Spacer()
+
                         // AirPlay (matches Cast button position on Android)
                         AirPlayButton()
                             .frame(width: 28, height: 28)
@@ -302,11 +309,6 @@ struct PlayerView: View {
                         }
                         .padding(.top, 8)
 
-                        // Playing animation bars
-                        PlayingAnimationBars()
-                            .padding(.top, 8)
-                            .opacity(audioPlayer.isPlaying ? 1 : 0)
-                            .accessibilityHidden(true)
                     }
                     .padding(.vertical, 16)
 
@@ -672,29 +674,23 @@ struct ChaptersSheet: View {
 // MARK: - Playing Animation Bars
 struct PlayingAnimationBars: View {
     var body: some View {
-        HStack(alignment: .bottom, spacing: 3) {
-            AnimatingBar(targetHeight: 12, delay: 0)
-            AnimatingBar(targetHeight: 7, delay: 0.1)
-            AnimatingBar(targetHeight: 10, delay: 0.2)
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .bottom, spacing: 3) {
+                bar(time: time, speed: 5.0, minHeight: 3, maxHeight: 12, offset: 0)
+                bar(time: time, speed: 4.0, minHeight: 3, maxHeight: 7, offset: 0.3)
+                bar(time: time, speed: 5.5, minHeight: 3, maxHeight: 10, offset: 0.6)
+            }
         }
         .frame(height: 12)
     }
-}
 
-private struct AnimatingBar: View {
-    let targetHeight: CGFloat
-    let delay: Double
-    @State private var animating = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 2)
+    private func bar(time: Double, speed: Double, minHeight: CGFloat, maxHeight: CGFloat, offset: Double) -> some View {
+        let wave = (sin((time + offset) * speed) + 1) / 2
+        let height = minHeight + CGFloat(wave) * (maxHeight - minHeight)
+        return RoundedRectangle(cornerRadius: 2)
             .fill(Color.sapphoPrimaryLight)
-            .frame(width: 3, height: animating ? targetHeight : 3)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true).delay(delay)) {
-                    animating = true
-                }
-            }
+            .frame(width: 3, height: height)
     }
 }
 

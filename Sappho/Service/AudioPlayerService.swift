@@ -154,8 +154,42 @@ class AudioPlayerService: NSObject {
 
         // If player was destroyed (e.g. app was killed and restored), recreate it
         if player == nil, let audiobook = currentAudiobook {
+            let savedPosition = position
             Task {
-                await play(audiobook: audiobook, startPosition: position)
+                // Re-create player without calling stop() to avoid clearing currentAudiobook
+                let url: URL?
+                if let localURL = DownloadManager.shared.localURL(for: audiobook.id) {
+                    url = localURL
+                } else {
+                    url = api?.streamURL(for: audiobook.id)
+                }
+                guard let streamURL = url else { return }
+
+                let asset: AVURLAsset
+                if DownloadManager.shared.localURL(for: audiobook.id) != nil {
+                    asset = AVURLAsset(url: streamURL)
+                } else {
+                    let headers = api?.authHeaders ?? [:]
+                    asset = AVURLAsset(url: streamURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+                }
+                playerItem = AVPlayerItem(asset: asset)
+                playerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: .new, context: nil)
+                playerItem?.addObserver(self, forKeyPath: "playbackLikelyToKeepUp", options: .new, context: nil)
+                isObservingPlayerItem = true
+
+                player = AVPlayer(playerItem: playerItem)
+                player?.rate = playbackSpeed
+
+                if let durationSeconds = audiobook.duration {
+                    duration = TimeInterval(durationSeconds)
+                }
+                if savedPosition > 0 {
+                    await seek(to: savedPosition)
+                }
+                player?.play()
+                isPlaying = true
+                startTimeObserver()
+                updateNowPlayingInfo()
             }
             return
         }
@@ -207,7 +241,6 @@ class AudioPlayerService: NSObject {
         isPlaying = false
         position = 0
         duration = 0
-        showFullPlayer = false
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
