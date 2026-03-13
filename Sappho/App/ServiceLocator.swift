@@ -5,9 +5,15 @@ import Foundation
 final class ServiceLocator {
     static let shared = ServiceLocator()
 
-    var api: SapphoAPI?
-    var audioPlayer: AudioPlayerService?
-    var authRepository: AuthRepository?
+    private(set) var api: SapphoAPI?
+    private(set) var audioPlayer: AudioPlayerService?
+    private(set) var authRepository: AuthRepository?
+
+    func configure(api: SapphoAPI, audioPlayer: AudioPlayerService, authRepository: AuthRepository) {
+        self.api = api
+        self.audioPlayer = audioPlayer
+        self.authRepository = authRepository
+    }
 
     private init() {}
 }

@@ -66,7 +66,6 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             onCollections: { [weak self] in self?.showCollections() },
             onAllBooks: { [weak self] in self?.showAllBooks() }
         )
-        libraryTemplate.tabSystemItem = .more
         libraryTemplate.tabTitle = "Library"
         if let libraryIcon = UIImage(systemName: "books.vertical") {
             libraryTemplate.tabImage = libraryIcon
@@ -270,13 +269,13 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
         Task {
             await audioPlayer.play(audiobook: audiobook)
-        }
 
-        // Switch to Now Playing tab
-        if let tabBar = tabBarTemplate {
-            let templates = tabBar.templates
-            if let nowPlayingTemplate = templates.last as? CPNowPlayingTemplate {
-                tabBar.select(nowPlayingTemplate)
+            // Switch to Now Playing tab after playback starts
+            await MainActor.run {
+                if let tabBar = tabBarTemplate,
+                   let nowPlayingTemplate = tabBar.templates.first(where: { $0 is CPNowPlayingTemplate }) {
+                    tabBar.select(nowPlayingTemplate)
+                }
             }
         }
     }
