@@ -37,6 +37,10 @@
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
 		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 		FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */; };
+		CARPLAY01A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CARPLAY11A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift */; };
+		CARPLAY02A1B2C3D4E5F67890 /* CarPlayContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CARPLAY12A1B2C3D4E5F67890 /* CarPlayContentProvider.swift */; };
+		CARPLAY03A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CARPLAY13A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift */; };
+		SVCLOCATOR01B2C3D4E5F67890 /* ServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVCLOCATOR11B2C3D4E5F67890 /* ServiceLocator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +96,10 @@
 		F973549065F7560B78B676B9 /* AuthorsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorsListView.swift; sourceTree = "<group>"; };
 		FA1C682221B24D9124ECE67C /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		FF8699D8C7A20599416FDDD8 /* SapphoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CARPLAY11A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
+		CARPLAY12A1B2C3D4E5F67890 /* CarPlayContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentProvider.swift; sourceTree = "<group>"; };
+		CARPLAY13A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayNowPlayingManager.swift; sourceTree = "<group>"; };
+		SVCLOCATOR11B2C3D4E5F67890 /* ServiceLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLocator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -177,6 +185,7 @@
 			isa = PBXGroup;
 			children = (
 				97737D2CFACB08287C5D4106 /* App */,
+				CARPLAYGRP1A1B2C3D4E5F678 /* CarPlay */,
 				3BBD3713CD4242AE28362590 /* Cast */,
 				0293B79B748029335C442F5B /* Data */,
 				897A9AD72967BFAFC9B4B2A5 /* Domain */,
@@ -185,6 +194,16 @@
 				71AB7EDFE0E36B1DD5C29977 /* Service */,
 			);
 			path = Sappho;
+			sourceTree = "<group>";
+		};
+		CARPLAYGRP1A1B2C3D4E5F678 /* CarPlay */ = {
+			isa = PBXGroup;
+			children = (
+				CARPLAY12A1B2C3D4E5F67890 /* CarPlayContentProvider.swift */,
+				CARPLAY13A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift */,
+				CARPLAY11A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift */,
+			);
+			path = CarPlay;
 			sourceTree = "<group>";
 		};
 		5A75871BEFF45E003C07BB40 /* Detail */ = {
@@ -267,6 +286,7 @@
 				F037A7D40D68AB3F9615452A /* AppDelegate.swift */,
 				7495FDDA796DFDA34333C7C8 /* RootView.swift */,
 				E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */,
+				SVCLOCATOR11B2C3D4E5F67890 /* ServiceLocator.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -446,6 +466,10 @@
 			files = (
 				4CC985518B90E1A33CF148A3 /* AppDelegate.swift in Sources */,
 				67ED1EFEE720295DCA598959 /* AudioPlayerService.swift in Sources */,
+				CARPLAY01A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift in Sources */,
+				CARPLAY02A1B2C3D4E5F67890 /* CarPlayContentProvider.swift in Sources */,
+				CARPLAY03A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift in Sources */,
+				SVCLOCATOR01B2C3D4E5F67890 /* ServiceLocator.swift in Sources */,
 				A81AA307CFA1EA9436EA01D4 /* AudiobookDetailView.swift in Sources */,
 				4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */,
 				99D95DB457A584F9C3C6C62A /* AuthorsListView.swift in Sources */,
