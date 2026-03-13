@@ -128,11 +128,15 @@ class DownloadManager: NSObject {
 
     private var downloadsDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let downloads = appSupport.appendingPathComponent("Downloads", isDirectory: true)
+        var downloads = appSupport.appendingPathComponent("Downloads", isDirectory: true)
 
         if !FileManager.default.fileExists(atPath: downloads.path) {
             try? FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
         }
+
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? downloads.setResourceValues(values)
 
         return downloads
     }
@@ -162,7 +166,12 @@ class DownloadManager: NSObject {
         // Store audiobook so we can save metadata when download completes
         pendingAudiobooks[audiobook.id] = audiobook
 
-        let task = session.downloadTask(with: url)
+        var request = URLRequest(url: url)
+        for (field, value) in (api?.authHeaders ?? [:]) {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+
+        let task = session.downloadTask(with: request)
         task.taskDescription = String(audiobook.id)
         downloadTasks[audiobook.id] = task
         downloads[audiobook.id] = .downloading(progress: 0)
@@ -344,7 +353,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
             return
         }
 
-        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        let progress: Double
+        if totalBytesExpectedToWrite > 0 {
+            progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        } else {
+            progress = -1
+        }
 
         DispatchQueue.main.async {
             self.downloads[audiobookId] = .downloading(progress: progress)

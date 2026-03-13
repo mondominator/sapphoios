@@ -36,11 +36,15 @@ struct HomeView: View {
                             }
                             .font(.sapphoCaption)
                             .foregroundColor(.white)
+                            .accessibilityHint("Double tap to retry connection")
                         }
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Color.sapphoError.opacity(0.9))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("No internet connection")
+                        .accessibilityAddTraits(.isStaticText)
                     }
                 }
 
@@ -144,24 +148,14 @@ struct HomeView: View {
     private func loadData() async {
         isLoading = errorMessage != nil || continueListening.isEmpty
 
-        do {
-            async let inProgress = api?.getInProgress(limit: 10)
-            async let recent = api?.getRecentlyAdded(limit: 10)
-            async let finished = api?.getFinished(limit: 10)
-            async let next = api?.getUpNext(limit: 10)
+        continueListening = (try? await api?.getInProgress(limit: 10)) ?? []
+        recentlyAdded = (try? await api?.getRecentlyAdded(limit: 10)) ?? []
+        listenAgain = (try? await api?.getFinished(limit: 10)) ?? []
+        upNext = (try? await api?.getUpNext(limit: 10)) ?? []
 
-            continueListening = try await inProgress ?? []
-            recentlyAdded = try await recent ?? []
-            listenAgain = try await finished ?? []
-            upNext = try await next ?? []
-
+        if !continueListening.isEmpty || !recentlyAdded.isEmpty || !listenAgain.isEmpty || !upNext.isEmpty {
             errorMessage = nil
             isOffline = false
-        } catch {
-            if case APIError.networkError = error {
-                isOffline = true
-            }
-            errorMessage = error.localizedDescription
         }
 
         isLoading = false
@@ -236,6 +230,7 @@ struct AudiobookCard: View {
                                 .foregroundColor(.white)
                         }
                         .padding(6)
+                        .accessibilityLabel("Completed")
                     }
 
                     Spacer()
@@ -245,6 +240,7 @@ struct AudiobookCard: View {
                         BookmarkRibbon()
                             .fill(Color.sapphoPrimary)
                             .frame(width: 28, height: 28)
+                            .accessibilityLabel("In reading list")
                     }
                 }
 
@@ -262,11 +258,15 @@ struct AudiobookCard: View {
                         }
                     }
                     .frame(height: 6)
+                    .accessibilityLabel("\(Int(progressPercent * 100)) percent complete")
                 }
             }
         }
         .frame(width: cardSize, height: cardSize)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(audiobook.progress?.completed == 1 ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")")
+        .accessibilityHint("Double tap to view details")
     }
 }
 

@@ -137,20 +137,20 @@ struct CollectionCard: View {
             ZStack {
                 if let bookIds = collection.bookIds, !bookIds.isEmpty {
                     ForEach(Array(bookIds.prefix(3).reversed().enumerated()), id: \.offset) { index, bookId in
-                        let offset = CGFloat(2 - index) * 6
+                        let offset = CGFloat(2 - index) * 5
                         CoverImage(audiobookId: bookId)
-                            .frame(width: 50, height: 70)
-                            .cornerRadius(6)
+                            .frame(width: 56, height: 56)
+                            .cornerRadius(8)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 6)
+                                RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.sapphoSurface, lineWidth: 1)
                             )
                             .offset(x: offset, y: offset)
                     }
                 } else {
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(Color.sapphoSurfaceElevated)
-                        .frame(width: 50, height: 70)
+                        .frame(width: 56, height: 56)
                         .overlay(
                             Image(systemName: "folder.fill")
                                 .font(.system(size: 20))
@@ -158,7 +158,7 @@ struct CollectionCard: View {
                         )
                 }
             }
-            .frame(width: 70, height: 90)
+            .frame(width: 70, height: 70)
 
             // Collection info
             VStack(alignment: .leading, spacing: 4) {

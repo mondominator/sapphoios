@@ -1,30 +1,46 @@
 import SwiftUI
-import UIKit
 
 // MARK: - Colors
 extension Color {
     // Background colors
     static let sapphoBackground = Color(hex: "0A0E1A")
-    static let sapphoBackgroundDeep = Color(hex: "050810")
     static let sapphoSurface = Color(hex: "1a1a1a")
     static let sapphoSurfaceElevated = Color(hex: "252525")
-    static let sapphoSurfaceDialog = Color(hex: "2a2a2a")
 
     // Primary colors
     static let sapphoPrimary = Color(hex: "3B82F6")
-    static let sapphoPrimaryDark = Color(hex: "2563EB")
-    static let sapphoSecondary = Color(hex: "8B5CF6")
 
     // Text colors
     static let sapphoTextHigh = Color(hex: "E0E7F1")
     static let sapphoTextMedium = Color(hex: "B0B8C4")
     static let sapphoTextMuted = Color(hex: "9ca3af")
-    static let sapphoTextDisabled = Color(hex: "6b7280")
 
     // Accent colors
     static let sapphoSuccess = Color(hex: "22C55E")
     static let sapphoWarning = Color(hex: "F59E0B")
     static let sapphoError = Color(hex: "EF4444")
+
+    static let sapphoRating = Color(hex: "FBBF26")
+
+    // Primary variants
+    static let sapphoPrimaryLight = Color(hex: "60A5FA")
+    static let sapphoPrimaryLighter = Color(hex: "87BFF8")
+    static let sapphoSecondary = Color(hex: "8B5CF6")
+    static let sapphoPlayingGreen = Color(hex: "34D399")
+    static let sapphoSuccessLight = Color(hex: "4CD981")
+
+    // Surface variants
+    static let sapphoSurfaceSlate = Color(hex: "1E293B")
+    static let sapphoBorder = Color(hex: "374151")
+    static let sapphoDisabled = Color(hex: "4B5563")
+
+    // Library category gradients
+    static let sapphoCategoryBlueStart = Color(hex: "3B82F6")
+    static let sapphoCategoryBlueEnd = Color(hex: "2563EB")
+    static let sapphoCategoryTealStart = Color(hex: "26A69A")
+    static let sapphoCategoryTealEnd = Color(hex: "00897B")
+    static let sapphoCategoryGrayStart = Color(hex: "374151")
+    static let sapphoCategoryGrayEnd = Color(hex: "1F2937")
 
     // Utility
     init(hex: String) {
@@ -63,14 +79,6 @@ extension Font {
 }
 
 // MARK: - View Modifiers
-struct SapphoCardStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .background(Color.sapphoSurface)
-            .cornerRadius(12)
-    }
-}
-
 struct SapphoPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -98,30 +106,6 @@ struct SapphoSecondaryButtonStyle: ButtonStyle {
                     .stroke(Color.sapphoPrimary, lineWidth: 1)
             )
             .opacity(configuration.isPressed ? 0.8 : 1.0)
-    }
-}
-
-extension View {
-    func sapphoCard() -> some View {
-        modifier(SapphoCardStyle())
-    }
-
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
-        )
-        return Path(path.cgPath)
     }
 }
 
