@@ -275,14 +275,20 @@ struct MainView: View {
 // MARK: - Mini Player
 struct MiniPlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
+    @AppStorage("showChapterProgress") private var showChapterProgress = false
     @Binding var showFullPlayer: Bool
 
     @State private var isSeeking = false
     @State private var seekPosition: Double = 0
 
     private var progressPercent: Double {
-        guard audioPlayer.duration > 0 else { return 0 }
         if isSeeking { return seekPosition }
+        if showChapterProgress, let chapter = audioPlayer.currentChapter {
+            let chapterDuration = chapter.duration ?? (audioPlayer.duration - chapter.startTime)
+            guard chapterDuration > 0 else { return 0 }
+            return max(0, min(1, (audioPlayer.position - chapter.startTime) / chapterDuration))
+        }
+        guard audioPlayer.duration > 0 else { return 0 }
         return audioPlayer.position / audioPlayer.duration
     }
 
@@ -326,7 +332,13 @@ struct MiniPlayerView: View {
                             }
                             .onEnded { value in
                                 let percent = max(0, min(1, value.location.x / geometry.size.width))
-                                let targetTime = percent * audioPlayer.duration
+                                let targetTime: Double
+                                if showChapterProgress, let chapter = audioPlayer.currentChapter {
+                                    let chapterDuration = chapter.duration ?? (audioPlayer.duration - chapter.startTime)
+                                    targetTime = chapter.startTime + percent * chapterDuration
+                                } else {
+                                    targetTime = percent * audioPlayer.duration
+                                }
                                 Task {
                                     await audioPlayer.seek(to: targetTime)
                                 }
@@ -360,7 +372,9 @@ struct MiniPlayerView: View {
                             MiniPlayerTimeDisplay(
                                 position: audioPlayer.position,
                                 duration: audioPlayer.duration,
-                                isPlaying: audioPlayer.isPlaying
+                                isPlaying: audioPlayer.isPlaying,
+                                showChapterProgress: showChapterProgress,
+                                currentChapter: audioPlayer.currentChapter
                             )
                         }
                     }
@@ -408,9 +422,25 @@ struct MiniPlayerTimeDisplay: View {
     let position: TimeInterval
     let duration: TimeInterval
     let isPlaying: Bool
+    var showChapterProgress: Bool = false
+    var currentChapter: Chapter? = nil
+
+    private var displayPosition: TimeInterval {
+        if showChapterProgress, let chapter = currentChapter {
+            return max(0, position - chapter.startTime)
+        }
+        return position
+    }
+
+    private var displayDuration: TimeInterval {
+        if showChapterProgress, let chapter = currentChapter {
+            return chapter.duration ?? (duration - chapter.startTime)
+        }
+        return duration
+    }
 
     var body: some View {
-        Text("\(formatTime(position)) / \(formatTime(duration))")
+        Text("\(formatTime(displayPosition)) / \(formatTime(displayDuration))")
             .font(.system(size: 10))
             .foregroundColor(isPlaying
                 ? Color.sapphoPrimaryLight

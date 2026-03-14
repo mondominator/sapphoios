@@ -8,6 +8,8 @@ struct PlayerView: View {
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
 
+    @AppStorage("showChapterProgress") private var showChapterProgress = false
+
     @State private var showSpeedPicker = false
     @State private var showSleepTimer = false
     @State private var showChapters = false
@@ -22,7 +24,7 @@ struct PlayerView: View {
                 Color.sapphoBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Drag handle + Header
+                // Drag handle + Header (outside drag gesture)
                 VStack(spacing: 0) {
                     Capsule()
                         .fill(Color.sapphoTextMuted.opacity(0.5))
@@ -36,6 +38,8 @@ struct PlayerView: View {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(.sapphoTextHigh)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
                         .accessibilityLabel("Minimize player")
                         .accessibilityHint("Double tap to minimize to mini player")
@@ -51,12 +55,12 @@ struct PlayerView: View {
 
                         // AirPlay (matches Cast button position on Android)
                         AirPlayButton()
-                            .frame(width: 28, height: 28)
+                            .frame(width: 44, height: 44)
                             .accessibilityLabel("AirPlay")
                             .accessibilityHint("Double tap to choose audio output device")
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
                 }
 
                 Spacer()
@@ -103,36 +107,75 @@ struct PlayerView: View {
 
                         // Progress Slider
                         VStack(spacing: 8) {
-                            Slider(
-                                value: Binding(
-                                    get: { isSeeking ? seekPosition : audioPlayer.position },
-                                    set: { newValue in
-                                        isSeeking = true
-                                        seekPosition = newValue
-                                    }
-                                ),
-                                in: 0...max(audioPlayer.duration, 1)
-                            ) { editing in
-                                if !editing {
-                                    Task {
-                                        await audioPlayer.seek(to: seekPosition)
-                                    }
-                                    isSeeking = false
-                                }
-                            }
-                            .tint(Color.sapphoPrimaryLight)
-                            .accessibilityLabel("Playback position")
-                            .accessibilityValue("\(formatTime(audioPlayer.position)) of \(formatTime(audioPlayer.duration))")
+                            if showChapterProgress, let chapter = audioPlayer.currentChapter {
+                                // Chapter-scoped slider
+                                let chapterStart = chapter.startTime
+                                let chapterDuration = max(chapter.duration ?? (audioPlayer.duration - chapterStart), 1)
+                                let chapterPosition = audioPlayer.position - chapterStart
 
-                            HStack {
-                                Text(formatTime(audioPlayer.position))
-                                    .accessibilityHidden(true)
-                                Spacer()
-                                Text("-" + formatTime(audioPlayer.duration - audioPlayer.position))
-                                    .accessibilityHidden(true)
+                                Slider(
+                                    value: Binding(
+                                        get: { isSeeking ? seekPosition : max(0, chapterPosition) },
+                                        set: { newValue in
+                                            isSeeking = true
+                                            seekPosition = newValue
+                                        }
+                                    ),
+                                    in: 0...chapterDuration
+                                ) { editing in
+                                    if !editing {
+                                        Task {
+                                            await audioPlayer.seek(to: chapterStart + seekPosition)
+                                        }
+                                        isSeeking = false
+                                    }
+                                }
+                                .tint(Color.sapphoPrimaryLight)
+                                .accessibilityLabel("Chapter position")
+                                .accessibilityValue("\(formatTime(max(0, chapterPosition))) of \(formatTime(chapterDuration))")
+
+                                HStack {
+                                    Text(formatTime(max(0, chapterPosition)))
+                                        .accessibilityHidden(true)
+                                    Spacer()
+                                    Text("-" + formatTime(max(0, chapterDuration - chapterPosition)))
+                                        .accessibilityHidden(true)
+                                }
+                                .font(.sapphoSmall)
+                                .foregroundColor(.sapphoTextMuted)
+                            } else {
+                                // Full book slider
+                                Slider(
+                                    value: Binding(
+                                        get: { isSeeking ? seekPosition : audioPlayer.position },
+                                        set: { newValue in
+                                            isSeeking = true
+                                            seekPosition = newValue
+                                        }
+                                    ),
+                                    in: 0...max(audioPlayer.duration, 1)
+                                ) { editing in
+                                    if !editing {
+                                        Task {
+                                            await audioPlayer.seek(to: seekPosition)
+                                        }
+                                        isSeeking = false
+                                    }
+                                }
+                                .tint(Color.sapphoPrimaryLight)
+                                .accessibilityLabel("Playback position")
+                                .accessibilityValue("\(formatTime(audioPlayer.position)) of \(formatTime(audioPlayer.duration))")
+
+                                HStack {
+                                    Text(formatTime(audioPlayer.position))
+                                        .accessibilityHidden(true)
+                                    Spacer()
+                                    Text("-" + formatTime(audioPlayer.duration - audioPlayer.position))
+                                        .accessibilityHidden(true)
+                                }
+                                .font(.sapphoSmall)
+                                .foregroundColor(.sapphoTextMuted)
                             }
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoTextMuted)
                         }
                         .padding(.horizontal, 20)
 
@@ -314,7 +357,6 @@ struct PlayerView: View {
 
                 Spacer()
             }
-            .contentShape(Rectangle())
             .offset(y: dragOffset)
             .gesture(
                 DragGesture()
