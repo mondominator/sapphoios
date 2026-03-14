@@ -173,15 +173,6 @@ struct AudiobookDetailView: View {
                         }
                     }
 
-                    moreMenuItem(
-                        icon: "square.and.arrow.up",
-                        title: "Share",
-                        subtitle: "Share this audiobook",
-                        color: .sapphoTextMuted
-                    ) {
-                        pendingSheet = .share
-                        showMoreMenu = false
-                    }
                 }
                 .padding(.horizontal, 16)
 

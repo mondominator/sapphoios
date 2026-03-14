@@ -45,7 +45,12 @@ class AudioPlayerService: NSObject {
 
     private func setupAudioSession() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .spokenAudio,
+                policy: .longFormAudio,
+                options: []
+            )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             print("Failed to configure audio session: \(error)")
@@ -94,6 +99,7 @@ class AudioPlayerService: NSObject {
 
         // Create player
         player = AVPlayer(playerItem: playerItem)
+        player?.allowsExternalPlayback = false // Force local decode + AirPlay audio routing (external playback fails with auth headers)
         player?.rate = playbackSpeed
 
         // Get duration
@@ -178,6 +184,7 @@ class AudioPlayerService: NSObject {
                 isObservingPlayerItem = true
 
                 player = AVPlayer(playerItem: playerItem)
+                player?.allowsExternalPlayback = false
                 player?.rate = playbackSpeed
 
                 if let durationSeconds = audiobook.duration {
@@ -565,17 +572,29 @@ class AudioPlayerService: NSObject {
         switch type {
         case .began:
             wasPlayingBeforeInterruption = isPlaying
-            pause()
+            player?.pause()
+            isPlaying = false
+            updateNowPlayingInfo()
         case .ended:
             let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
             if options.contains(.shouldResume) || wasPlayingBeforeInterruption {
-                resume()
+                do {
+                    try AVAudioSession.sharedInstance().setActive(true)
+                } catch {
+                    print("Failed to reactivate audio session after interruption: \(error)")
+                }
+                player?.play()
+                player?.rate = playbackSpeed
+                isPlaying = true
+                updateNowPlayingInfo()
             }
         @unknown default:
             break
         }
     }
+
+    private var wasPlayingBeforeRouteChange = false
 
     private func handleRouteChange(notification: Notification) {
         guard let userInfo = notification.userInfo,
@@ -584,9 +603,30 @@ class AudioPlayerService: NSObject {
             return
         }
 
-        // Pause when output device is disconnected (e.g. headphones unplugged)
-        if reason == .oldDeviceUnavailable {
-            pause()
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Device disconnected (AirPlay off, headphones unplugged)
+            // Just pause the player, don't sync or save (avoid side effects during route change)
+            wasPlayingBeforeRouteChange = isPlaying
+            player?.pause()
+            isPlaying = false
+            updateNowPlayingInfo()
+        case .newDeviceAvailable, .override, .routeConfigurationChange:
+            // AirPlay or Bluetooth connected — re-activate session and continue
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("Failed to reactivate audio session on route change: \(error)")
+            }
+            if wasPlayingBeforeRouteChange || isPlaying {
+                player?.play()
+                player?.rate = playbackSpeed
+                isPlaying = true
+                updateNowPlayingInfo()
+                wasPlayingBeforeRouteChange = false
+            }
+        default:
+            break
         }
     }
 
