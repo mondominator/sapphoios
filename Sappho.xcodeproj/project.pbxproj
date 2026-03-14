@@ -10,9 +10,8 @@
 		06CCCC6A13B73DFE6E972DC5 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C682221B24D9124ECE67C /* SearchView.swift */; };
 		0E910386749D27DA69B74339 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B193F831F3EF80C680572FD /* PlayerView.swift */; };
 		0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E33C4FB6DC3423B9A8C4070 /* Theme.swift */; };
-		TIMEFMT002A0B2C3D4E5F67 /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */; };
 		2A1B3C4D5E6F7A8B9C0D1E2F /* CoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B2C4D5E6F7A8B9C0D1E2F3A /* CoverImage.swift */; };
-392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */; };
+		392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */; };
 		454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28474CB2464BD5FF1D9330CC /* ReadingListView.swift */; };
 		4CC985518B90E1A33CF148A3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F037A7D40D68AB3F9615452A /* AppDelegate.swift */; };
 		4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657E1B7511077F283C3F1972 /* AuthRepository.swift */; };
@@ -31,7 +30,6 @@
 		AA216E7956ED6D234CE5BCF0 /* CollectionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */; };
 		BE70E78ECA5538D104C503E1 /* GenresListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F45DCB33D32E30D66D44B8C /* GenresListView.swift */; };
 		C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C36F9F36890A672725A97E /* ProfileView.swift */; };
-		C7F175B4645DE4A87C07210A /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFA9AB83C26D3F6BA04B15D2 /* FavoritesView.swift */; };
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		CARPLAY01A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CARPLAY11A1B2C3D4E5F67890 /* CarPlaySceneDelegate.swift */; };
 		CARPLAY02A1B2C3D4E5F67890 /* CarPlayContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CARPLAY12A1B2C3D4E5F67890 /* CarPlayContentProvider.swift */; };
@@ -40,11 +38,12 @@
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
 		FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */; };
 		SVCLOCATOR01B2C3D4E5F67890 /* ServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVCLOCATOR11B2C3D4E5F67890 /* ServiceLocator.swift */; };
-		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 		TEST011A0B2C3D4E5F6701 /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST001A0B2C3D4E5F6701 /* ModelsTests.swift */; };
 		TEST012A0B2C3D4E5F6702 /* TimeFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */; };
 		TEST013A0B2C3D4E5F6703 /* APIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST003A0B2C3D4E5F6703 /* APIErrorTests.swift */; };
 		TEST014A0B2C3D4E5F6704 /* AuthRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */; };
+		TIMEFMT002A0B2C3D4E5F67 /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */; };
+		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,8 +81,7 @@
 		769547B62C0F087079C253F5 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudiobookDetailView.swift; sourceTree = "<group>"; };
 		8B193F831F3EF80C680572FD /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
-8E33C4FB6DC3423B9A8C4070 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
+		8E33C4FB6DC3423B9A8C4070 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8F10CE90321BE63745D3C229 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
 		90C36F9F36890A672725A97E /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsListView.swift; sourceTree = "<group>"; };
@@ -93,7 +91,7 @@
 		CARPLAY12A1B2C3D4E5F67890 /* CarPlayContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentProvider.swift; sourceTree = "<group>"; };
 		CARPLAY13A1B2C3D4E5F67890 /* CarPlayNowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayNowPlayingManager.swift; sourceTree = "<group>"; };
 		D9320ADDDF94250E660D31DB /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoApp.swift; sourceTree = "<group>"; };
+		E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoApp.swift; sourceTree = "<group>"; };
 		E22ACA0246E31FF6761AD235 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		E71CC13BFD5841B345761EE1 /* Sappho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sappho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F037A7D40D68AB3F9615452A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -102,11 +100,12 @@ E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKn
 		FA1C682221B24D9124ECE67C /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		FF8699D8C7A20599416FDDD8 /* SapphoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		SVCLOCATOR11B2C3D4E5F67890 /* ServiceLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLocator.swift; sourceTree = "<group>"; };
-		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		TEST001A0B2C3D4E5F6701 /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormattingTests.swift; sourceTree = "<group>"; };
 		TEST003A0B2C3D4E5F6703 /* APIErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIErrorTests.swift; sourceTree = "<group>"; };
 		TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepositoryTests.swift; sourceTree = "<group>"; };
+		TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
+		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -166,7 +165,7 @@ E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKn
 			path = Profile;
 			sourceTree = "<group>";
 		};
-4966611AEC813118F14F705B /* Login */ = {
+		4966611AEC813118F14F705B /* Login */ = {
 			isa = PBXGroup;
 			children = (
 				09D48DA2D1495E05D31E31B2 /* LoginView.swift */,
@@ -188,7 +187,6 @@ E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKn
 			children = (
 				97737D2CFACB08287C5D4106 /* App */,
 				CARPLAYGRP1A1B2C3D4E5F678 /* CarPlay */,
-				3BBD3713CD4242AE28362590 /* Cast */,
 				0293B79B748029335C442F5B /* Data */,
 				897A9AD72967BFAFC9B4B2A5 /* Domain */,
 				AAFAC103B35D81F6E4E9235D /* Presentation */,
@@ -693,7 +691,7 @@ E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKn
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobooks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobook;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -732,7 +730,7 @@ E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */ = {isa = PBXFileReference; lastKn
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobooks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobook;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
