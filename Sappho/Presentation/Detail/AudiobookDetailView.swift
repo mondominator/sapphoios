@@ -334,10 +334,37 @@ struct AudiobookDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Action Row (Play + Download + Overflow)
+    // MARK: - Action Row (Download + Overflow + Play)
     private var actionRow: some View {
         HStack(spacing: 12) {
-            // Play/Continue button (expands to fill)
+            // Download button
+            Button {
+                handleDownloadTap()
+            } label: {
+                downloadButtonLabel
+            }
+            .accessibilityLabel(downloadLabel)
+            .accessibilityHint(downloadAccessibilityHint)
+
+            // Overflow menu button (icon only, 48x60)
+            Button {
+                showMoreMenu = true
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.sapphoTextHigh)
+                    .frame(width: 48, height: 60)
+                    .background(Color.sapphoSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+            }
+            .accessibilityLabel("More options")
+            .accessibilityHint("Double tap to open menu with chapters, collections, and more")
+
+            // Play/Continue button (expands to fill, on the right)
             Button {
                 if isCurrentlyPlaying {
                     audioPlayer.togglePlayPause()
@@ -350,17 +377,17 @@ struct AudiobookDetailView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 22))
                     Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
-                        .font(.sapphoSubheadline)
+                        .font(.system(size: 17, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 60)
                 .background(
                     isCurrentlyPlaying
-                        ? Color.sapphoPrimary.opacity(0.2)
-                        : Color.sapphoSuccess.opacity(0.2)
+                        ? Color.sapphoPlayingGreen.opacity(0.2)
+                        : Color.sapphoPrimaryLight.opacity(0.2)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
@@ -370,33 +397,6 @@ struct AudiobookDetailView: View {
             }
             .accessibilityLabel(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue listening" : "Play"))
             .accessibilityHint(isCurrentlyPlaying ? "Double tap to pause playback" : "Double tap to start playing \(displayBook.title)")
-
-            // Download button
-            Button {
-                handleDownloadTap()
-            } label: {
-                downloadButtonLabel
-            }
-            .accessibilityLabel(downloadLabel)
-            .accessibilityHint(downloadAccessibilityHint)
-
-            // Overflow menu button (icon only, 48x48)
-            Button {
-                showMoreMenu = true
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.sapphoTextHigh)
-                    .frame(width: 48, height: 52)
-                    .background(Color.sapphoSurface.opacity(0.5))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-                    .cornerRadius(12)
-            }
-            .accessibilityLabel("More options")
-            .accessibilityHint("Double tap to open menu with chapters, collections, and more")
         }
         .padding(.horizontal, 24)
     }
@@ -679,7 +679,7 @@ struct AudiobookDetailView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .frame(width: 100, height: 52)
+            .frame(width: 100, height: 60)
             .background(Color.sapphoPrimary.opacity(0.15))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -688,7 +688,7 @@ struct AudiobookDetailView: View {
             .cornerRadius(12)
         default:
             downloadIconOnly
-                .frame(width: 48, height: 52)
+                .frame(width: 48, height: 60)
                 .background(Color.sapphoSurface.opacity(0.5))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
