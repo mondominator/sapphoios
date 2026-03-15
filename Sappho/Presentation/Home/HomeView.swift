@@ -4,6 +4,7 @@ import Network
 struct HomeView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AudioPlayerService.self) private var audioPlayer
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var navigationPath: NavigationPath
 
     @State private var continueListening: [Audiobook] = []
@@ -142,6 +143,11 @@ struct HomeView: View {
         }
         .task {
             await loadData()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await loadData() }
+            }
         }
     }
 
