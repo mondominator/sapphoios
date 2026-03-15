@@ -738,7 +738,7 @@ struct AudiobookDetailView: View {
         case .downloading:
             return "Double tap to cancel download"
         case .downloaded:
-            return "Double tap to remove download"
+            return "Downloaded for offline listening"
         case .failed:
             return "Double tap to retry download"
         }
@@ -751,8 +751,8 @@ struct AudiobookDetailView: View {
         case .downloading:
             downloadManager.cancelDownload(audiobookId: displayBook.id)
         case .downloaded:
-            // Show option to remove download
-            downloadManager.removeDownload(audiobookId: displayBook.id)
+            // No-op: deletion only available from Downloads screen
+            break
         }
     }
 
