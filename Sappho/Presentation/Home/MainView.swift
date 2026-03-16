@@ -280,6 +280,8 @@ struct MiniPlayerView: View {
 
     @State private var isSeeking = false
     @State private var seekPosition: Double = 0
+    @State private var coverPulsing = false
+    @State private var gradientPhase: CGFloat = 0
 
     private var progressPercent: Double {
         if isSeeking { return seekPosition }
@@ -301,25 +303,43 @@ struct MiniPlayerView: View {
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
             VStack(spacing: 0) {
-                // Interactive progress bar at top
+                // Animated gradient progress bar
                 GeometryReader { geometry in
+                    let progressWidth = geometry.size.width * max(0, min(1, progressPercent))
                     ZStack(alignment: .leading) {
-                        // Track (thin, centered vertically)
+                        // Track
                         Rectangle()
-                            .fill(Color.sapphoBorder)
+                            .fill(Color.white.opacity(0.08))
                             .frame(height: 3)
                             .frame(maxHeight: .infinity, alignment: .center)
-                        // Progress fill
+                        // Animated gradient fill
                         Rectangle()
-                            .fill(Color.sapphoPrimaryLight)
-                            .frame(width: geometry.size.width * max(0, min(1, progressPercent)), height: 3)
+                            .fill(
+                                audioPlayer.isPlaying
+                                    ? LinearGradient(
+                                        colors: [
+                                            Color.sapphoPrimaryLight,
+                                            Color.sapphoPlayingGreen,
+                                            Color.sapphoPrimaryLight
+                                        ],
+                                        startPoint: UnitPoint(x: gradientPhase - 0.5, y: 0.5),
+                                        endPoint: UnitPoint(x: gradientPhase + 0.5, y: 0.5)
+                                    )
+                                    : LinearGradient(
+                                        colors: [Color.sapphoPrimaryLight],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                            )
+                            .frame(width: progressWidth, height: 3)
                             .frame(maxHeight: .infinity, alignment: .center)
-                        // Thumb circle
+                        // Glowing thumb
                         if progressPercent > 0 {
                             Circle()
-                                .fill(Color.sapphoPrimaryLight)
+                                .fill(audioPlayer.isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight)
                                 .frame(width: 12, height: 12)
-                                .offset(x: geometry.size.width * max(0, min(1, progressPercent)) - 6)
+                                .shadow(color: (audioPlayer.isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight).opacity(0.6), radius: audioPlayer.isPlaying ? 6 : 2)
+                                .offset(x: progressWidth - 6)
                         }
                     }
                     .contentShape(Rectangle())
@@ -352,23 +372,44 @@ struct MiniPlayerView: View {
                 .accessibilityValue("\(Int(progressPercent * 100)) percent")
 
                 // Main content
-                HStack(spacing: 8) {
-                    // Cover + Title (tappable to open full player)
-                    HStack(spacing: 8) {
-                        CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
-                            .frame(width: 64, height: 64)
+                HStack(spacing: 10) {
+                    // Cover art (tappable to open full player)
+                    CoverImage(audiobookId: audiobook.id, cornerRadius: 8)
+                        .frame(width: 56, height: 56)
+                        .shadow(color: (audioPlayer.isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight).opacity(0.4), radius: 8)
+                        .scaleEffect(audioPlayer.isPlaying && coverPulsing ? 1.04 : 1.0)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                                audioPlayer.showFullPlayer = true
+                            }
+                        }
 
-                        VStack(alignment: .leading, spacing: 2) {
+                    // Title + Author + Chapter (tappable to open full player)
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Marquee title when playing, static when paused
+                        if audioPlayer.isPlaying {
+                            MarqueeText(text: audiobook.title, font: .system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                        } else {
                             Text(audiobook.title)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
+                        }
 
-                            Text(audiobook.author ?? "Unknown Author")
-                                .font(.system(size: 11))
-                                .foregroundColor(.sapphoTextMuted)
+                        Text(audiobook.author ?? "Unknown Author")
+                            .font(.system(size: 11))
+                            .foregroundColor(.sapphoTextMuted)
+                            .lineLimit(1)
+
+                        // Chapter name (if available)
+                        if let chapter = audioPlayer.currentChapter, let chapterTitle = chapter.title {
+                            Text(chapterTitle)
+                                .font(.system(size: 10))
+                                .foregroundColor(Color.sapphoPrimaryLight.opacity(0.8))
                                 .lineLimit(1)
-
+                        } else {
                             MiniPlayerTimeDisplay(
                                 position: audioPlayer.position,
                                 duration: audioPlayer.duration,
@@ -385,7 +426,24 @@ struct MiniPlayerView: View {
                         }
                     }
 
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 4)
+
+                    // Waveform visualizer (when playing)
+                    if audioPlayer.isPlaying {
+                        MiniPlayerWaveAnimation()
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Skip backward
+                    Button {
+                        audioPlayer.skipBackward(seconds: 10)
+                    } label: {
+                        Image(systemName: "gobackward.10")
+                            .font(.system(size: 18))
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .frame(width: 36, height: 36)
+                    .accessibilityLabel("Skip back 10 seconds")
 
                     // Play/Pause
                     Button {
@@ -394,25 +452,134 @@ struct MiniPlayerView: View {
                         ZStack {
                             Circle()
                                 .fill(playButtonColor)
-                                .frame(width: 64, height: 64)
+                                .frame(width: 52, height: 52)
+                                .shadow(color: playButtonColor.opacity(0.4), radius: audioPlayer.isPlaying ? 8 : 0)
                             Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 26))
+                                .font(.system(size: 22))
                                 .foregroundColor(.white)
                         }
                     }
-                    .frame(width: 64, height: 64)
+                    .frame(width: 52, height: 52)
                     .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
                     .accessibilityHint(audioPlayer.isPlaying ? "Double tap to pause playback" : "Double tap to resume playback")
 
-                    Spacer(minLength: 8)
+                    // Skip forward
+                    Button {
+                        audioPlayer.skipForward(seconds: 10)
+                    } label: {
+                        Image(systemName: "goforward.10")
+                            .font(.system(size: 18))
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .frame(width: 36, height: 36)
+                    .accessibilityLabel("Skip forward 10 seconds")
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
-            .background(Color.sapphoSurface)
+            .background(Color.sapphoSurfaceElevated)
+            .animation(.easeInOut(duration: 0.3), value: audioPlayer.isPlaying)
+            .onChange(of: audioPlayer.isPlaying) { _, playing in
+                if playing {
+                    withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                        coverPulsing = true
+                    }
+                    withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                        gradientPhase = 1.5
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        coverPulsing = false
+                        gradientPhase = 0
+                    }
+                }
+            }
+            .onAppear {
+                if audioPlayer.isPlaying {
+                    withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                        coverPulsing = true
+                    }
+                    withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                        gradientPhase = 1.5
+                    }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                    .onEnded { value in
+                        // Swipe up to open full player
+                        if value.translation.height < -50 {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                                audioPlayer.showFullPlayer = true
+                            }
+                        }
+                    }
+            )
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Now playing: \(audiobook.title) by \(audiobook.author ?? "Unknown Author")")
-            .accessibilityHint("Double tap to open full player")
+            .accessibilityHint("Swipe up or double tap to open full player")
+        }
+    }
+}
+
+// MARK: - Marquee Text
+struct MarqueeText: View {
+    let text: String
+    let font: Font
+
+    @State private var offset: CGFloat = 0
+    @State private var textWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
+
+    private var needsScroll: Bool { textWidth > containerWidth }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            if needsScroll {
+                HStack(spacing: 40) {
+                    Text(text).font(font).fixedSize()
+                    Text(text).font(font).fixedSize()
+                }
+                .offset(x: offset)
+                .onAppear {
+                    containerWidth = w
+                    startScrolling()
+                }
+                .onChange(of: text) { _, _ in
+                    offset = 0
+                    measureText(in: w)
+                    startScrolling()
+                }
+            } else {
+                Text(text)
+                    .font(font)
+                    .lineLimit(1)
+            }
+        }
+        .frame(height: 18)
+        .clipped()
+        .background(
+            Text(text).font(font).fixedSize()
+                .hidden()
+                .background(GeometryReader { textGeo in
+                    Color.clear.onAppear {
+                        textWidth = textGeo.size.width
+                    }
+                })
+        )
+    }
+
+    private func measureText(in width: CGFloat) {
+        containerWidth = width
+    }
+
+    private func startScrolling() {
+        guard needsScroll else { return }
+        let scrollDistance = textWidth + 40
+        offset = 0
+        withAnimation(.linear(duration: Double(scrollDistance) / 30.0).repeatForever(autoreverses: false)) {
+            offset = -scrollDistance
         }
     }
 }
@@ -449,6 +616,39 @@ struct MiniPlayerTimeDisplay: View {
             .contentTransition(.numericText())
     }
 
+}
+
+// MARK: - Mini Player Wave Animation
+struct MiniPlayerWaveAnimation: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 2.5) {
+            ForEach(0..<5, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.sapphoPlayingGreen, Color.sapphoPrimaryLight],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+                    .frame(width: 3, height: animating ? heights[index] : 3)
+                    .animation(
+                        .easeInOut(duration: durations[index])
+                            .repeatForever(autoreverses: true)
+                            .delay(delays[index]),
+                        value: animating
+                    )
+            }
+        }
+        .frame(height: 22)
+        .onAppear { animating = true }
+    }
+
+    private var heights: [CGFloat] { [16, 22, 12, 20, 14] }
+    private var durations: [Double] { [0.5, 0.35, 0.6, 0.4, 0.55] }
+    private var delays: [Double] { [0.0, 0.1, 0.2, 0.05, 0.15] }
 }
 
 #Preview {
