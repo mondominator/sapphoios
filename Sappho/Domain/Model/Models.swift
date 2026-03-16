@@ -753,6 +753,36 @@ struct AdminUser: Codable, Identifiable {
     }
 }
 
+// MARK: - Notification
+struct NotificationItem: Codable, Identifiable {
+    let id: Int
+    let type: String
+    let title: String
+    let message: String
+    let metadata: String?
+    let createdAt: String
+    let isRead: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, title, message, metadata
+        case createdAt = "created_at"
+        case isRead = "is_read"
+    }
+
+    var metadataDict: [String: Any]? {
+        guard let data = metadata?.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    var isUnread: Bool {
+        isRead == 0
+    }
+}
+
+struct UnreadCount: Codable {
+    let count: Int
+}
+
 // MARK: - Scan Response
 struct ScanResponse: Codable {
     let message: String
