@@ -7,6 +7,7 @@ private enum PendingSheet {
 struct AudiobookDetailView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(AudioPlayerService.self) private var audioPlayer
+    @Environment(AuthRepository.self) private var authRepository
     @Environment(\.dismiss) private var dismiss
 
     let audiobook: Audiobook
@@ -20,6 +21,9 @@ struct AudiobookDetailView: View {
     // Full player is shown via audioPlayer.showFullPlayer (handled by MainView overlay)
     @State private var userRating: Int?
     @State private var averageRating: AverageRating?
+    @State private var reviews: [ReviewItem] = []
+    @State private var userReviewText: String = ""
+    @State private var isSubmittingReview = false
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
@@ -58,6 +62,12 @@ struct AudiobookDetailView: View {
 
                 // Rating Section (directly under cover)
                 ratingSection
+
+                // Review text input (when user has rated)
+                reviewInputSection
+
+                // Reviews list
+                reviewsSection
 
                 // Action row: Play + Download + Overflow (matches Android layout)
                 actionRow
@@ -187,6 +197,7 @@ struct AudiobookDetailView: View {
         .task {
             await loadFullAudiobook()
             await loadRating()
+            await loadReviews()
             await loadCollections()
         }
         .overlay(alignment: .bottom) {
@@ -332,6 +343,139 @@ struct AudiobookDetailView: View {
             .font(.sapphoCaption)
         }
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Review Input Section
+    @ViewBuilder
+    private var reviewInputSection: some View {
+        if userRating != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
+                    .lineLimit(3...6)
+                    .font(.sapphoBody)
+                    .foregroundColor(.sapphoTextHigh)
+                    .padding(12)
+                    .background(Color.sapphoSurface)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await submitReview() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isSubmittingReview {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(0.8)
+                            }
+                            Text("Submit Review")
+                                .font(.sapphoCaption)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.sapphoPrimary)
+                        .cornerRadius(8)
+                    }
+                    .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    // MARK: - Reviews Section
+    @ViewBuilder
+    private var reviewsSection: some View {
+        let currentUserId = authRepository.currentUser?.id ?? authRepository.currentLoginUser?.id
+        let filteredReviews = reviews.filter { item in
+            guard let review = item.review, !review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return false
+            }
+            if let currentUserId {
+                return item.userId != currentUserId
+            }
+            return true
+        }
+
+        if !filteredReviews.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Reviews (\(filteredReviews.count))")
+                    .font(.sapphoSubheadline)
+                    .foregroundColor(.sapphoTextHigh)
+
+                VStack(spacing: 10) {
+                    ForEach(filteredReviews) { item in
+                        reviewCard(item)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func reviewCard(_ item: ReviewItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(item.displayName ?? item.username ?? "User")
+                    .font(.sapphoCaption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.sapphoTextHigh)
+
+                Spacer()
+
+                // Star rating
+                if let rating = item.rating {
+                    HStack(spacing: 2) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .font(.system(size: 10))
+                                .foregroundColor(star <= rating ? .sapphoWarning : .sapphoTextMuted)
+                        }
+                    }
+                }
+            }
+
+            if let review = item.review {
+                Text(review)
+                    .font(.sapphoSmall)
+                    .foregroundColor(.sapphoTextMedium)
+            }
+
+            if let dateString = item.updatedAt ?? item.createdAt {
+                Text(relativeDate(from: dateString))
+                    .font(.system(size: 11))
+                    .foregroundColor(.sapphoTextMuted)
+            }
+        }
+        .padding(12)
+        .background(Color.sapphoSurface)
+        .cornerRadius(10)
+    }
+
+    private func relativeDate(from isoString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        // Try with fractional seconds first, then without
+        var date = formatter.date(from: isoString)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            date = formatter.date(from: isoString)
+        }
+
+        guard let parsedDate = date else { return "" }
+
+        let relativeFormatter = RelativeDateTimeFormatter()
+        relativeFormatter.unitsStyle = .short
+        return relativeFormatter.localizedString(for: parsedDate, relativeTo: Date())
     }
 
     // MARK: - Action Row (Download + Overflow + Play)
@@ -811,17 +955,53 @@ struct AudiobookDetailView: View {
         do {
             let rating = try await api?.getUserRating(audiobookId: audiobook.id)
             userRating = rating?.rating
+            userReviewText = rating?.review ?? ""
             averageRating = try await api?.getAverageRating(audiobookId: audiobook.id)
         } catch {
             print("Failed to load rating: \(error)")
         }
     }
 
+    private func loadReviews() async {
+        do {
+            reviews = try await api?.getAllRatings(audiobookId: audiobook.id) ?? []
+        } catch {
+            print("Failed to load reviews: \(error)")
+        }
+    }
+
+    private func submitReview() async {
+        guard let currentRating = userRating else { return }
+        isSubmittingReview = true
+        do {
+            let reviewText = userReviewText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let response = try await api?.setRating(
+                audiobookId: displayBook.id,
+                rating: currentRating,
+                review: reviewText.isEmpty ? nil : reviewText
+            )
+            userRating = response?.rating
+            userReviewText = response?.review ?? ""
+            averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
+            await loadReviews()
+            showToast("Review submitted")
+        } catch {
+            showToast("Failed to submit review")
+        }
+        isSubmittingReview = false
+    }
+
     private func setRating(_ rating: Int) async {
         do {
-            let response = try await api?.setRating(audiobookId: displayBook.id, rating: rating)
+            let reviewText = userReviewText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let response = try await api?.setRating(
+                audiobookId: displayBook.id,
+                rating: rating,
+                review: reviewText.isEmpty ? nil : reviewText
+            )
             userRating = response?.rating
             averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
+            await loadReviews()
             showToast("Rated \(rating) star\(rating == 1 ? "" : "s")")
         } catch {
             showToast("Failed to set rating")

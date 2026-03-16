@@ -415,6 +415,10 @@ class SapphoAPI {
         return try await request("api/ratings/audiobook/\(audiobookId)", method: "POST", body: body)
     }
 
+    func getAllRatings(audiobookId: Int) async throws -> [ReviewItem] {
+        try await request("api/ratings/audiobook/\(audiobookId)/all")
+    }
+
     // MARK: - Series Recap
 
     func getSeriesRecap(seriesName: String) async throws -> SeriesRecapResponse {

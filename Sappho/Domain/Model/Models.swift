@@ -641,6 +641,28 @@ struct AverageRating: Codable {
     let count: Int
 }
 
+// MARK: - Review Item (all ratings for a book)
+struct ReviewItem: Codable, Identifiable {
+    let id: Int
+    let userId: Int
+    let audiobookId: Int
+    let rating: Int?
+    let review: String?
+    let username: String?
+    let displayName: String?
+    let createdAt: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, review, username
+        case userId = "user_id"
+        case audiobookId = "audiobook_id"
+        case displayName = "display_name"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
 // MARK: - Health Response
 struct HealthResponse: Codable {
     let status: String
