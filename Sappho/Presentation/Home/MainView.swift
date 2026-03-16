@@ -680,34 +680,56 @@ struct MiniPlayerTimeDisplay: View {
 // MARK: - Mini Player Wave Animation
 struct MiniPlayerWaveAnimation: View {
     @State private var animating = false
+    @State private var colorShift = false
 
     var body: some View {
         HStack(spacing: 2.5) {
-            ForEach(0..<5, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 1.5)
+            ForEach(0..<3, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 3)
                     .fill(
                         LinearGradient(
-                            colors: [Color.sapphoPlayingGreen, Color.sapphoPrimaryLight],
+                            colors: colorShift
+                                ? [colorSetsShifted[index].0, colorSetsShifted[index].1]
+                                : [colorSets[index].0, colorSets[index].1],
                             startPoint: .bottom,
                             endPoint: .top
                         )
                     )
                     .frame(width: 3, height: animating ? heights[index] : 3)
                     .animation(
-                        .easeInOut(duration: durations[index])
+                        .timingCurve(0.4, 0, 0.2, 1, duration: durations[index])
                             .repeatForever(autoreverses: true)
                             .delay(delays[index]),
                         value: animating
                     )
+                    .animation(
+                        .easeInOut(duration: colorDurations[index])
+                            .repeatForever(autoreverses: true),
+                        value: colorShift
+                    )
             }
         }
-        .frame(height: 22)
-        .onAppear { animating = true }
+        .frame(height: 14)
+        .onAppear {
+            animating = true
+            colorShift = true
+        }
     }
 
-    private var heights: [CGFloat] { [16, 22, 12, 20, 14] }
-    private var durations: [Double] { [0.5, 0.35, 0.6, 0.4, 0.55] }
-    private var delays: [Double] { [0.0, 0.1, 0.2, 0.05, 0.15] }
+    private var heights: [CGFloat] { [8, 14, 10] }
+    private var durations: [Double] { [1.2, 0.9, 1.1] }
+    private var delays: [Double] { [0.0, 0.1, 0.05] }
+    private var colorDurations: [Double] { [2.4, 2.0, 2.8] }
+    private var colorSets: [(Color, Color)] {
+        [(.sapphoPlayingGreen, .sapphoPrimaryLight),
+         (.sapphoPrimaryLight, .sapphoPlayingGreen),
+         (.sapphoPlayingGreen, .sapphoPrimaryLight)]
+    }
+    private var colorSetsShifted: [(Color, Color)] {
+        [(.sapphoPrimaryLight, .sapphoPlayingGreen),
+         (.sapphoPlayingGreen, .sapphoPrimaryLight),
+         (.sapphoPrimaryLight, .sapphoPlayingGreen)]
+    }
 }
 
 #Preview {
