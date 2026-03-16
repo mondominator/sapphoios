@@ -641,6 +641,28 @@ struct AverageRating: Codable {
     let count: Int
 }
 
+// MARK: - Review Item (all ratings for a book)
+struct ReviewItem: Codable, Identifiable {
+    let id: Int
+    let userId: Int
+    let audiobookId: Int
+    let rating: Int?
+    let review: String?
+    let username: String?
+    let displayName: String?
+    let createdAt: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, review, username
+        case userId = "user_id"
+        case audiobookId = "audiobook_id"
+        case displayName = "display_name"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
 // MARK: - Health Response
 struct HealthResponse: Codable {
     let status: String
@@ -729,6 +751,36 @@ struct AdminUser: Codable, Identifiable {
     var isAccountDisabled: Bool {
         isDisabled == 1
     }
+}
+
+// MARK: - Notification
+struct NotificationItem: Codable, Identifiable {
+    let id: Int
+    let type: String
+    let title: String
+    let message: String
+    let metadata: String?
+    let createdAt: String
+    let isRead: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, title, message, metadata
+        case createdAt = "created_at"
+        case isRead = "is_read"
+    }
+
+    var metadataDict: [String: Any]? {
+        guard let data = metadata?.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    var isUnread: Bool {
+        isRead == 0
+    }
+}
+
+struct UnreadCount: Codable {
+    let count: Int
 }
 
 // MARK: - Scan Response

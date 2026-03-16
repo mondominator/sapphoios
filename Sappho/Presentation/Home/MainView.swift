@@ -14,14 +14,18 @@ struct MainView: View {
 
     @State private var selectedTab: Tab = .home
     // showFullPlayer is on audioPlayer (shared so detail screen can trigger it)
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var showLogoutConfirmation = false
     @State private var showProfile = false
     @State private var showDownloads = false
     @State private var showAdmin = false
+    @State private var showNotificationPanel = false
     @State private var serverVersion: String?
     @State private var avatarLoader = ImageLoader()
     @State private var homeNavigationPath = NavigationPath()
     @State private var libraryNavigationPath = NavigationPath()
+    @State private var unreadCount: Int = 0
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
 
@@ -112,9 +116,26 @@ struct MainView: View {
         } message: {
             Text("Are you sure you want to logout?")
         }
+        .sheet(isPresented: $showNotificationPanel) {
+            NotificationPanel {
+                Task { await refreshUnreadCount() }
+            }
+        }
         .task {
             await loadServerVersion()
             avatarLoader.load(url: api?.avatarURL(), headers: api?.authHeaders ?? [:])
+        }
+        .task {
+            // Poll unread notification count every 2 minutes
+            while !Task.isCancelled {
+                await refreshUnreadCount()
+                try? await Task.sleep(for: .seconds(120))
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await refreshUnreadCount() }
+            }
         }
     }
 
@@ -150,6 +171,9 @@ struct MainView: View {
             }
 
             Spacer()
+
+            // Notification bell
+            notificationBell
 
             // Avatar with dropdown menu
             avatarMenu
@@ -260,7 +284,42 @@ struct MainView: View {
         }
     }
 
+    // MARK: - Notification Bell
+
+    private var notificationBell: some View {
+        Button {
+            showNotificationPanel = true
+        } label: {
+            Image(systemName: "bell")
+                .font(.system(size: 20))
+                .foregroundColor(.sapphoTextMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+                .overlay(alignment: .topTrailing) {
+                    if unreadCount > 0 {
+                        Text("\(unreadCount)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(4)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 8, y: -4)
+                    }
+                }
+        }
+        .accessibilityLabel("Notifications")
+        .accessibilityHint(unreadCount > 0 ? "\(unreadCount) unread notifications" : "No unread notifications")
+    }
+
     // MARK: - Helpers
+
+    private func refreshUnreadCount() async {
+        if let count = try? await api?.getUnreadNotificationCount() {
+            await MainActor.run {
+                unreadCount = count.count
+            }
+        }
+    }
 
     private func loadServerVersion() async {
         do {

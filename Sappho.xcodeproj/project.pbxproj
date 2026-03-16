@@ -44,6 +44,7 @@
 		TEST014A0B2C3D4E5F6704 /* AuthRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */; };
 		TIMEFMT002A0B2C3D4E5F67 /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */; };
 		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
+		NOTIF002A0B2C3D4E5F67890 /* NotificationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +107,7 @@
 		TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepositoryTests.swift; sourceTree = "<group>"; };
 		TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
 		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
+		NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -171,6 +173,14 @@
 				09D48DA2D1495E05D31E31B2 /* LoginView.swift */,
 			);
 			path = Login;
+			sourceTree = "<group>";
+		};
+		NOTIFGRP1A0B2C3D4E5F67890 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */,
+			);
+			path = Notifications;
 			sourceTree = "<group>";
 		};
 		4B012D47CCF0E8FDA00F5D1F /* Home */ = {
@@ -298,6 +308,7 @@
 				4B012D47CCF0E8FDA00F5D1F /* Home */,
 				94FBFF175431737DE9E5BA75 /* Library */,
 				4966611AEC813118F14F705B /* Login */,
+				NOTIFGRP1A0B2C3D4E5F67890 /* Notifications */,
 				19C4657DFEDF79509E63BC77 /* Player */,
 				2446AB170B42CACBFB1DD2AA /* Profile */,
 				9FFCFC168DA50ECA72C4CBF8 /* Search */,
@@ -489,6 +500,7 @@
 				731015E6B088ED705983ACE5 /* LoginView.swift in Sources */,
 				8058DFFACF970A9CDC969555 /* MainView.swift in Sources */,
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,
+				NOTIF002A0B2C3D4E5F67890 /* NotificationPanel.swift in Sources */,
 				0E910386749D27DA69B74339 /* PlayerView.swift in Sources */,
 				C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */,
 				454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */,

@@ -415,6 +415,30 @@ class SapphoAPI {
         return try await request("api/ratings/audiobook/\(audiobookId)", method: "POST", body: body)
     }
 
+    func getAllRatings(audiobookId: Int) async throws -> [ReviewItem] {
+        try await request("api/ratings/audiobook/\(audiobookId)/all")
+    }
+
+    // MARK: - Notifications
+
+    func getNotifications(limit: Int = 50) async throws -> [NotificationItem] {
+        try await request("api/notifications", queryItems: [
+            URLQueryItem(name: "limit", value: String(limit))
+        ])
+    }
+
+    func getUnreadNotificationCount() async throws -> UnreadCount {
+        try await request("api/notifications/unread-count")
+    }
+
+    func markNotificationRead(id: Int) async throws {
+        try await requestVoid("api/notifications/\(id)/read", method: "POST")
+    }
+
+    func markAllNotificationsRead() async throws {
+        try await requestVoid("api/notifications/read-all", method: "POST")
+    }
+
     // MARK: - Series Recap
 
     func getSeriesRecap(seriesName: String) async throws -> SeriesRecapResponse {
