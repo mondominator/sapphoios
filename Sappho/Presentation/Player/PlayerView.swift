@@ -97,8 +97,10 @@ struct PlayerView: View {
 
                             // Current chapter
                             if let chapter = audioPlayer.currentChapter {
-                                MarqueeText(text: chapter.title ?? "Chapter \(chapter.id)", font: .sapphoCaption)
+                                Text(chapter.title ?? "Chapter \(chapter.id)")
+                                    .font(.sapphoCaption)
                                     .foregroundColor(.sapphoPrimary)
+                                    .lineLimit(1)
                                     .padding(.top, 2)
                             }
                         }
@@ -289,8 +291,10 @@ struct PlayerView: View {
                                     Image(systemName: "list.bullet")
                                         .font(.system(size: 20))
                                         .foregroundColor(hasChapters ? .sapphoPrimary : Color.sapphoDisabled)
-                                    MarqueeText(text: audioPlayer.currentChapter?.title ?? "Chapters", font: .sapphoSmall)
+                                    Text(audioPlayer.currentChapter?.title ?? "Chapters")
+                                        .font(.sapphoSmall)
                                         .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
+                                        .lineLimit(1)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)

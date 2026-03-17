@@ -341,6 +341,7 @@ struct MiniPlayerView: View {
     @State private var seekPosition: Double = 0
     @State private var coverPulsing = false
     @State private var gradientPhase: CGFloat = 0
+    @State private var playButtonGlowing = false
 
     private var progressPercent: Double {
         if isSeeking { return seekPosition }
@@ -512,15 +513,25 @@ struct MiniPlayerView: View {
                             Circle()
                                 .fill(playButtonColor)
                                 .frame(width: 52, height: 52)
-                                .shadow(color: playButtonColor.opacity(0.4), radius: audioPlayer.isPlaying ? 8 : 0)
+                                .scaleEffect(audioPlayer.isPlaying ? (playButtonGlowing ? 1.08 : 1.0) : 1.0)
+                                .shadow(color: playButtonColor.opacity(audioPlayer.isPlaying ? (playButtonGlowing ? 0.6 : 0.2) : 0), radius: audioPlayer.isPlaying ? 12 : 0)
                             Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 22))
                                 .foregroundColor(.white)
                         }
+                        .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: playButtonGlowing)
                     }
                     .frame(width: 52, height: 52)
                     .accessibilityLabel(audioPlayer.isPlaying ? "Pause" : "Play")
                     .accessibilityHint(audioPlayer.isPlaying ? "Double tap to pause playback" : "Double tap to resume playback")
+                    .onChange(of: audioPlayer.isPlaying) { _, isPlaying in
+                        playButtonGlowing = isPlaying
+                    }
+                    .onAppear {
+                        if audioPlayer.isPlaying {
+                            playButtonGlowing = true
+                        }
+                    }
 
                     // Skip forward
                     Button {
