@@ -770,7 +770,7 @@ struct SettingsView: View {
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
     @AppStorage("rewindOnResume") private var rewindOnResume = 0
-    @AppStorage("showChapterProgress") private var showChapterProgress = false
+    @AppStorage("showChapterProgress") private var showChapterProgress = true
 
     var body: some View {
         Form {

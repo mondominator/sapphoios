@@ -8,7 +8,7 @@ struct PlayerView: View {
     @AppStorage("skipForwardSeconds") private var skipForwardSeconds = 30
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
 
-    @AppStorage("showChapterProgress") private var showChapterProgress = false
+    @AppStorage("showChapterProgress") private var showChapterProgress = true
 
     @State private var showSpeedPicker = false
     @State private var showSleepTimer = false
@@ -17,6 +17,7 @@ struct PlayerView: View {
     @State private var isPulsing = false
     @State private var isSeeking = false
     @State private var seekPosition: TimeInterval = 0
+    @State private var gradientPhase: CGFloat = 0
 
     var body: some View {
         if let audiobook = audioPlayer.currentAudiobook {
@@ -109,34 +110,31 @@ struct PlayerView: View {
                         // Progress Slider
                         VStack(spacing: 8) {
                             if showChapterProgress, let chapter = audioPlayer.currentChapter {
-                                // Chapter-scoped slider
+                                // Chapter-scoped progress
                                 let chapterStart = chapter.startTime
                                 let chapterDuration = max(chapter.duration ?? (audioPlayer.duration - chapterStart), 1)
-                                let chapterPosition = audioPlayer.position - chapterStart
+                                let chapterPosition = max(0, audioPlayer.position - chapterStart)
+                                let progressPercent = isSeeking
+                                    ? seekPosition / chapterDuration
+                                    : min(1, chapterPosition / chapterDuration)
 
-                                Slider(
-                                    value: Binding(
-                                        get: { isSeeking ? seekPosition : max(0, chapterPosition) },
-                                        set: { newValue in
-                                            isSeeking = true
-                                            seekPosition = newValue
-                                        }
-                                    ),
-                                    in: 0...chapterDuration
-                                ) { editing in
-                                    if !editing {
-                                        Task {
-                                            await audioPlayer.seek(to: chapterStart + seekPosition)
-                                        }
-                                        isSeeking = false
-                                    }
+                                PlayerProgressBar(
+                                    progressPercent: progressPercent,
+                                    isPlaying: audioPlayer.isPlaying,
+                                    gradientPhase: gradientPhase
+                                ) { percent in
+                                    isSeeking = true
+                                    seekPosition = percent * chapterDuration
+                                } onSeekEnd: { percent in
+                                    let target = chapterStart + percent * chapterDuration
+                                    Task { await audioPlayer.seek(to: target) }
+                                    isSeeking = false
                                 }
-                                .tint(Color.sapphoPrimaryLight)
                                 .accessibilityLabel("Chapter position")
-                                .accessibilityValue("\(formatTime(max(0, chapterPosition))) of \(formatTime(chapterDuration))")
+                                .accessibilityValue("\(formatTime(chapterPosition)) of \(formatTime(chapterDuration))")
 
                                 HStack {
-                                    Text(formatTime(max(0, chapterPosition)))
+                                    Text(formatTime(chapterPosition))
                                         .accessibilityHidden(true)
                                     Spacer()
                                     Text("-" + formatTime(max(0, chapterDuration - chapterPosition)))
@@ -145,25 +143,23 @@ struct PlayerView: View {
                                 .font(.sapphoSmall)
                                 .foregroundColor(.sapphoTextMuted)
                             } else {
-                                // Full book slider
-                                Slider(
-                                    value: Binding(
-                                        get: { isSeeking ? seekPosition : audioPlayer.position },
-                                        set: { newValue in
-                                            isSeeking = true
-                                            seekPosition = newValue
-                                        }
-                                    ),
-                                    in: 0...max(audioPlayer.duration, 1)
-                                ) { editing in
-                                    if !editing {
-                                        Task {
-                                            await audioPlayer.seek(to: seekPosition)
-                                        }
-                                        isSeeking = false
-                                    }
+                                // Full book progress
+                                let progressPercent = isSeeking
+                                    ? (audioPlayer.duration > 0 ? seekPosition / audioPlayer.duration : 0)
+                                    : (audioPlayer.duration > 0 ? audioPlayer.position / audioPlayer.duration : 0)
+
+                                PlayerProgressBar(
+                                    progressPercent: progressPercent,
+                                    isPlaying: audioPlayer.isPlaying,
+                                    gradientPhase: gradientPhase
+                                ) { percent in
+                                    isSeeking = true
+                                    seekPosition = percent * max(audioPlayer.duration, 1)
+                                } onSeekEnd: { percent in
+                                    let target = percent * max(audioPlayer.duration, 1)
+                                    Task { await audioPlayer.seek(to: target) }
+                                    isSeeking = false
                                 }
-                                .tint(Color.sapphoPrimaryLight)
                                 .accessibilityLabel("Playback position")
                                 .accessibilityValue("\(formatTime(audioPlayer.position)) of \(formatTime(audioPlayer.duration))")
 
@@ -179,6 +175,11 @@ struct PlayerView: View {
                             }
                         }
                         .padding(.horizontal, 20)
+                        .onAppear {
+                            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                                gradientPhase = 1.0
+                            }
+                        }
 
                         // Playback Controls
                         HStack(spacing: 0) {
@@ -734,6 +735,73 @@ struct PlayingAnimationBars: View {
         return RoundedRectangle(cornerRadius: 2)
             .fill(Color.sapphoPrimaryLight)
             .frame(width: 3, height: height)
+    }
+}
+
+// MARK: - Player Progress Bar
+struct PlayerProgressBar: View {
+    let progressPercent: Double
+    let isPlaying: Bool
+    let gradientPhase: CGFloat
+    let onSeekChanged: (Double) -> Void
+    let onSeekEnd: (Double) -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let progressWidth = width * max(0, min(1, progressPercent))
+
+            ZStack(alignment: .leading) {
+                // Track
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 4)
+
+                // Animated gradient fill
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(
+                        isPlaying
+                            ? LinearGradient(
+                                colors: [
+                                    Color.sapphoPrimaryLight,
+                                    Color.sapphoPlayingGreen,
+                                    Color.sapphoPrimaryLight
+                                ],
+                                startPoint: UnitPoint(x: gradientPhase - 0.5, y: 0.5),
+                                endPoint: UnitPoint(x: gradientPhase + 0.5, y: 0.5)
+                            )
+                            : LinearGradient(
+                                colors: [Color.sapphoPrimaryLight],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                    )
+                    .frame(width: progressWidth, height: 4)
+
+                // Glowing thumb
+                if progressPercent > 0 {
+                    Circle()
+                        .fill(isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight)
+                        .frame(width: 14, height: 14)
+                        .shadow(color: (isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight).opacity(0.6), radius: isPlaying ? 8 : 2)
+                        .offset(x: progressWidth - 7)
+                }
+            }
+            .frame(height: 14)
+            .contentShape(Rectangle().inset(by: -10))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let percent = max(0, min(1, value.location.x / width))
+                        onSeekChanged(percent)
+                    }
+                    .onEnded { value in
+                        let percent = max(0, min(1, value.location.x / width))
+                        onSeekEnd(percent)
+                    }
+            )
+        }
+        .frame(height: 14)
     }
 }
 

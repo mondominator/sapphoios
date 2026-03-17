@@ -334,7 +334,7 @@ struct MainView: View {
 // MARK: - Mini Player
 struct MiniPlayerView: View {
     @Environment(AudioPlayerService.self) private var audioPlayer
-    @AppStorage("showChapterProgress") private var showChapterProgress = false
+    @AppStorage("showChapterProgress") private var showChapterProgress = true
     @Binding var showFullPlayer: Bool
 
     @State private var isSeeking = false
