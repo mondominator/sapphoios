@@ -292,10 +292,12 @@ struct PlayerView: View {
                                     Image(systemName: "list.bullet")
                                         .font(.system(size: 20))
                                         .foregroundColor(hasChapters ? .sapphoPrimary : Color.sapphoDisabled)
-                                    Text(audioPlayer.currentChapter?.title ?? "Chapters")
-                                        .font(.sapphoSmall)
-                                        .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
-                                        .lineLimit(1)
+                                    MarqueeUILabel(
+                                        text: audioPlayer.currentChapter?.title ?? "Chapters",
+                                        fontSize: 11,
+                                        textColor: UIColor(hasChapters ? Color.sapphoTextHigh : Color.sapphoDisabled)
+                                    )
+                                    .frame(height: 14)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -329,7 +331,14 @@ struct PlayerView: View {
                                 showSleepTimer = true
                             } label: {
                                 VStack(spacing: 6) {
-                                    if let remaining = audioPlayer.sleepTimerRemaining {
+                                    if audioPlayer.sleepAtEndOfChapter {
+                                        Image(systemName: "moon.zzz.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.sapphoWarning)
+                                        Text("Chapter")
+                                            .font(.sapphoSmall)
+                                            .foregroundColor(.sapphoWarning)
+                                    } else if let remaining = audioPlayer.sleepTimerRemaining, remaining > 0 {
                                         Image(systemName: "moon.zzz.fill")
                                             .font(.system(size: 20))
                                             .foregroundColor(.sapphoWarning)
@@ -388,14 +397,19 @@ struct PlayerView: View {
             .sheet(isPresented: $showSleepTimer) {
                 SleepTimerSheet(
                     currentRemaining: audioPlayer.sleepTimerRemaining,
+                    hasChapters: hasChapters,
+                    isEndOfChapter: audioPlayer.sleepAtEndOfChapter,
                     onSet: { minutes in
                         audioPlayer.setSleepTimer(minutes: minutes)
+                    },
+                    onEndOfChapter: {
+                        audioPlayer.setSleepTimerEndOfChapter()
                     },
                     onCancel: {
                         audioPlayer.cancelSleepTimer()
                     }
                 )
-                .presentationDetents([.height(350)])
+                .presentationDetents([.height(450)])
             }
             .sheet(isPresented: $showChapters) {
                 ChaptersSheet(
@@ -487,21 +501,11 @@ struct SpeedPickerSheet: View {
         self._speed = State(initialValue: currentSpeed)
     }
 
-    private let presets: [Float] = [0.75, 1.0, 1.25, 1.3, 1.5, 2.0]
-
     private var displaySpeed: String {
         if speed == Float(Int(speed)) {
             return String(format: "%.0fx", speed)
         } else {
             return String(format: "%.2gx", speed)
-        }
-    }
-
-    private func formatPreset(_ value: Float) -> String {
-        if value == Float(Int(value)) {
-            return String(format: "%.0fx", value)
-        } else {
-            return String(format: "%.2gx", value)
         }
     }
 
@@ -517,82 +521,65 @@ struct SpeedPickerSheet: View {
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoTextHigh)
 
-            // Current speed display with fine-tune controls
-            HStack(spacing: 24) {
-                Button {
-                    adjustSpeed(by: -0.05)
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.sapphoPrimary)
-                }
-                .accessibilityLabel("Decrease speed")
-                .accessibilityHint("Double tap to decrease by 0.05")
+            // Current speed display
+            Text(displaySpeed)
+                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .foregroundColor(.sapphoTextHigh)
+                .contentTransition(.numericText())
 
-                Text(displaySpeed)
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundColor(.sapphoTextHigh)
-                    .frame(minWidth: 100)
-                    .contentTransition(.numericText())
-                    .accessibilityLabel("Current speed: \(displaySpeed)")
-
-                Button {
-                    adjustSpeed(by: 0.05)
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.sapphoPrimary)
-                }
-                .accessibilityLabel("Increase speed")
-                .accessibilityHint("Double tap to increase by 0.05")
-            }
-
-            // Preset buttons
-            HStack(spacing: 10) {
-                ForEach(presets, id: \.self) { preset in
-                    Button {
-                        speed = preset
-                        onSelect(preset)
-                    } label: {
-                        Text(formatPreset(preset))
-                            .font(.sapphoCaption)
-                            .fontWeight(speed == preset ? .semibold : .regular)
-                            .foregroundColor(speed == preset ? .white : .sapphoTextHigh)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
-                            .background(speed == preset ? Color.sapphoPrimary : Color.sapphoSurface)
-                            .cornerRadius(8)
+            // Slider
+            VStack(spacing: 8) {
+                Slider(
+                    value: $speed,
+                    in: 0.5...3.0,
+                    step: 0.05
+                ) {
+                    Text("Speed")
+                } onEditingChanged: { editing in
+                    if !editing {
+                        onSelect(speed)
                     }
-                    .accessibilityLabel(String(format: "%.2g times speed", preset))
-                    .accessibilityAddTraits(speed == preset ? .isSelected : [])
                 }
+                .tint(.sapphoPrimary)
+                .padding(.horizontal, 16)
+                .onChange(of: speed) { _, newSpeed in
+                    onSelect(newSpeed)
+                }
+
+                HStack {
+                    Text("0.5x")
+                    Spacer()
+                    Text("3x")
+                }
+                .font(.sapphoSmall)
+                .foregroundColor(.sapphoTextMuted)
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
 
             Spacer()
         }
         .background(Color.sapphoBackground)
-    }
-
-    private func adjustSpeed(by delta: Float) {
-        let newSpeed = max(0.5, min(3.0, speed + delta))
-        speed = (newSpeed * 20).rounded() / 20
-        onSelect(speed)
     }
 }
 
 // MARK: - Sleep Timer Sheet
 struct SleepTimerSheet: View {
     let currentRemaining: TimeInterval?
+    let hasChapters: Bool
+    let isEndOfChapter: Bool
     let onSet: (Int) -> Void
+    let onEndOfChapter: () -> Void
     let onCancel: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var customMinutes: String = ""
+    @FocusState private var customFieldFocused: Bool
+
     private let options = [5, 10, 15, 30, 45, 60, 90, 120]
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             // Handle
             Capsule()
                 .fill(Color.sapphoTextMuted.opacity(0.4))
@@ -603,7 +590,7 @@ struct SleepTimerSheet: View {
                 .font(.sapphoHeadline)
                 .foregroundColor(.sapphoTextHigh)
 
-            if let remaining = currentRemaining {
+            if let remaining = currentRemaining, remaining > 0 {
                 // Active timer display
                 VStack(spacing: 8) {
                     Text(formatTime(remaining))
@@ -628,31 +615,111 @@ struct SleepTimerSheet: View {
                         .cornerRadius(8)
                 }
                 .padding(.horizontal, 16)
+            } else if isEndOfChapter {
+                // End of chapter active
+                VStack(spacing: 8) {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(.sapphoWarning)
+                    Text("End of chapter")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(.sapphoWarning)
+                }
+
+                Button {
+                    onCancel()
+                    dismiss()
+                } label: {
+                    Text("Cancel Timer")
+                        .font(.sapphoSubheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color.sapphoSurface)
+                        .cornerRadius(8)
+                }
+                .padding(.horizontal, 16)
             }
 
-            // Timer options
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 10) {
-                ForEach(options, id: \.self) { minutes in
-                    Button {
-                        onSet(minutes)
-                        dismiss()
-                    } label: {
-                        Text("\(minutes) min")
-                            .font(.sapphoCaption)
-                            .fontWeight(.medium)
+            ScrollView {
+                VStack(spacing: 10) {
+                    // End of chapter option
+                    if hasChapters {
+                        Button {
+                            onEndOfChapter()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "bookmark.fill")
+                                    .foregroundColor(.sapphoWarning)
+                                Text("End of chapter")
+                                    .foregroundColor(.sapphoTextHigh)
+                                Spacer()
+                                if isEndOfChapter {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.sapphoWarning)
+                                }
+                            }
+                            .font(.sapphoBody)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .background(isEndOfChapter ? Color.sapphoWarning.opacity(0.15) : Color.sapphoSurface)
+                            .cornerRadius(8)
+                        }
+                    }
+
+                    // Preset options
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 10) {
+                        ForEach(options, id: \.self) { minutes in
+                            Button {
+                                onSet(minutes)
+                                dismiss()
+                            } label: {
+                                Text(minutes >= 60 ? "\(minutes / 60)h\(minutes % 60 > 0 ? " \(minutes % 60)m" : "")" : "\(minutes) min")
+                                    .font(.sapphoCaption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.sapphoTextHigh)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .background(Color.sapphoSurface)
+                                    .cornerRadius(8)
+                            }
+                        }
+                    }
+
+                    // Custom timer
+                    HStack(spacing: 10) {
+                        TextField("Custom", text: $customMinutes)
+                            .keyboardType(.numberPad)
+                            .font(.sapphoBody)
                             .foregroundColor(.sapphoTextHigh)
-                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12)
                             .frame(height: 40)
                             .background(Color.sapphoSurface)
                             .cornerRadius(8)
-                    }
-                    .accessibilityLabel("\(minutes) minutes")
-                    .accessibilityHint("Double tap to set sleep timer for \(minutes) minutes")
-                }
-            }
-            .padding(.horizontal, 16)
+                            .focused($customFieldFocused)
 
-            Spacer()
+                        Button {
+                            if let mins = Int(customMinutes), mins > 0 {
+                                onSet(mins)
+                                dismiss()
+                            }
+                        } label: {
+                            Text("Set")
+                                .font(.sapphoBody)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .frame(height: 40)
+                                .background(customMinutes.isEmpty ? Color.sapphoSurface : Color.sapphoPrimary)
+                                .cornerRadius(8)
+                        }
+                        .disabled(Int(customMinutes) == nil || Int(customMinutes)! <= 0)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
         }
         .background(Color.sapphoBackground)
     }
@@ -673,15 +740,26 @@ struct ChaptersSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(chapters) { chapter in
-                Button {
-                    onSelect(chapter)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+            ScrollViewReader { proxy in
+                List(chapters) { chapter in
+                    let isCurrent = chapter.id == currentChapter?.id
+                    Button {
+                        onSelect(chapter)
+                    } label: {
+                        HStack {
+                            if isCurrent {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.sapphoPrimary)
+                                    .accessibilityHidden(true)
+                            }
+
                             Text(chapter.title ?? "Chapter \(chapter.id)")
                                 .font(.sapphoBody)
-                                .foregroundColor(chapter.id == currentChapter?.id ? .sapphoPrimary : .sapphoTextHigh)
+                                .foregroundColor(isCurrent ? .sapphoPrimary : .sapphoTextHigh)
+                                .lineLimit(2)
+
+                            Spacer()
 
                             if let duration = chapter.duration {
                                 Text(formatDuration(Int(duration)))
@@ -689,27 +767,33 @@ struct ChaptersSheet: View {
                                     .foregroundColor(.sapphoTextMuted)
                             }
                         }
-
-                        Spacer()
-
-                        if chapter.id == currentChapter?.id {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundColor(.sapphoPrimary)
-                                .accessibilityHidden(true)
+                    }
+                    .listRowBackground(
+                        isCurrent
+                            ? Color.sapphoPrimary.opacity(0.12)
+                            : Color.sapphoSurface
+                    )
+                    .id(chapter.id)
+                    .accessibilityLabel("\(chapter.title ?? "Chapter \(chapter.id)")\(chapter.duration != nil ? ", \(formatDuration(Int(chapter.duration!)))" : "")")
+                    .accessibilityValue(isCurrent ? "Currently playing" : "")
+                    .accessibilityHint("Double tap to play this chapter")
+                }
+                .listStyle(.plain)
+                .background(Color.sapphoBackground)
+                .navigationTitle("Chapters")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
+                .onAppear {
+                    if let currentId = currentChapter?.id {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                proxy.scrollTo(currentId, anchor: .center)
+                            }
                         }
                     }
                 }
-                .listRowBackground(Color.sapphoSurface)
-                .accessibilityLabel("\(chapter.title ?? "Chapter \(chapter.id)")\(chapter.duration != nil ? ", \(formatDuration(Int(chapter.duration!)))" : "")")
-                .accessibilityValue(chapter.id == currentChapter?.id ? "Currently playing" : "")
-                .accessibilityHint("Double tap to play this chapter")
             }
-            .listStyle(.plain)
-            .background(Color.sapphoBackground)
-            .navigationTitle("Chapters")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
         }
     }
 
@@ -802,6 +886,131 @@ struct PlayerProgressBar: View {
             )
         }
         .frame(height: 14)
+    }
+}
+
+// MARK: - Marquee UILabel (UIKit-based for reliable clipping and scrolling)
+struct MarqueeUILabel: UIViewRepresentable {
+    let text: String
+    let fontSize: CGFloat
+    let textColor: UIColor
+
+    func makeUIView(context: Context) -> MarqueeContainerView {
+        let view = MarqueeContainerView()
+        view.fontSize = fontSize
+        view.textColor = textColor
+        view.clipsToBounds = true
+        return view
+    }
+
+    func updateUIView(_ view: MarqueeContainerView, context: Context) {
+        view.textColor = textColor
+        view.setText(text)
+    }
+}
+
+class MarqueeContainerView: UIView {
+    var fontSize: CGFloat = 11
+    var textColor: UIColor = .white {
+        didSet {
+            label1.textColor = textColor
+            label2.textColor = textColor
+        }
+    }
+
+    private let label1 = UILabel()
+    private let label2 = UILabel()
+    private var displayLink: CADisplayLink?
+    private var scrollOffset: CGFloat = 0
+    private let gap: CGFloat = 40
+    private let speed: CGFloat = 25 // points per second
+    private var lastTimestamp: CFTimeInterval = 0
+
+    private var needsScroll: Bool {
+        label1.intrinsicContentSize.width > bounds.width && bounds.width > 0
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupLabels()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupLabels()
+    }
+
+    private func setupLabels() {
+        label1.numberOfLines = 1
+        label2.numberOfLines = 1
+        addSubview(label1)
+        addSubview(label2)
+        label2.isHidden = true
+    }
+
+    func setText(_ text: String) {
+        let font = UIFont.systemFont(ofSize: fontSize)
+        label1.font = font
+        label2.font = font
+        label1.text = text
+        label2.text = text
+        scrollOffset = 0
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let textSize = label1.intrinsicContentSize
+        label1.frame = CGRect(x: 0, y: 0, width: textSize.width, height: bounds.height)
+        label2.frame = CGRect(x: textSize.width + gap, y: 0, width: textSize.width, height: bounds.height)
+
+        if needsScroll {
+            label2.isHidden = false
+            startScrolling()
+        } else {
+            label2.isHidden = true
+            label1.frame = bounds
+            stopScrolling()
+        }
+    }
+
+    private func startScrolling() {
+        guard displayLink == nil else { return }
+        lastTimestamp = 0
+        let link = CADisplayLink(target: self, selector: #selector(tick))
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    private func stopScrolling() {
+        displayLink?.invalidate()
+        displayLink = nil
+        scrollOffset = 0
+        updateLabelPositions()
+    }
+
+    @objc private func tick(_ link: CADisplayLink) {
+        if lastTimestamp == 0 {
+            lastTimestamp = link.timestamp
+            return
+        }
+        let dt = link.timestamp - lastTimestamp
+        lastTimestamp = link.timestamp
+
+        scrollOffset -= speed * CGFloat(dt)
+
+        let textWidth = label1.intrinsicContentSize.width
+        let totalCycle = textWidth + gap
+        if scrollOffset <= -totalCycle {
+            scrollOffset += totalCycle
+        }
+        updateLabelPositions()
+    }
+
+    private func updateLabelPositions() {
+        let textWidth = label1.intrinsicContentSize.width
+        label1.frame.origin.x = scrollOffset
+        label2.frame.origin.x = scrollOffset + textWidth + gap
     }
 }
 

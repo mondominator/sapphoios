@@ -294,6 +294,8 @@ class AudioPlayerService: NSObject {
 
     // MARK: - Sleep Timer
 
+    var sleepAtEndOfChapter = false
+
     func setSleepTimer(minutes: Int) {
         cancelSleepTimer()
         sleepTimerRemaining = TimeInterval(minutes * 60)
@@ -311,10 +313,17 @@ class AudioPlayerService: NSObject {
         }
     }
 
+    func setSleepTimerEndOfChapter() {
+        cancelSleepTimer()
+        sleepAtEndOfChapter = true
+        sleepTimerRemaining = -1 // sentinel value to indicate active but chapter-based
+    }
+
     func cancelSleepTimer() {
         sleepTimer?.invalidate()
         sleepTimer = nil
         sleepTimerRemaining = nil
+        sleepAtEndOfChapter = false
     }
 
     // MARK: - State Persistence
@@ -394,8 +403,17 @@ class AudioPlayerService: NSObject {
 
     private func updateCurrentChapter() {
         guard let chapters = currentAudiobook?.chapters else { return }
+        let previousChapter = currentChapter
         currentChapter = chapters.last { chapter in
             position >= chapter.startTime
+        }
+        // End-of-chapter sleep: pause when chapter changes
+        if sleepAtEndOfChapter,
+           let prev = previousChapter,
+           let curr = currentChapter,
+           prev.id != curr.id {
+            pause()
+            cancelSleepTimer()
         }
     }
 

@@ -75,11 +75,11 @@ struct AudiobookDetailView: View {
                 // Progress Section (if has progress)
                 progressSection
 
-                // Title and Metadata
-                titleMetadataSection
-
                 // Description
                 descriptionSection
+
+                // Title and Metadata
+                titleMetadataSection
             }
             .padding(.bottom, 120) // Space for mini player
         }
@@ -638,11 +638,6 @@ struct AudiobookDetailView: View {
     // MARK: - Title and Metadata Section
     private var titleMetadataSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Title
-            Text(displayBook.title)
-                .font(.sapphoTitle)
-                .foregroundColor(.sapphoTextHigh)
-
             // Metadata grid
             VStack(alignment: .leading, spacing: 16) {
                 if let author = displayBook.author {

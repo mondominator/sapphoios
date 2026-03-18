@@ -300,10 +300,10 @@ struct MainView: View {
                         Text("\(unreadCount)")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white)
-                            .padding(4)
+                            .frame(minWidth: 16, minHeight: 16)
                             .background(Color.red)
                             .clipShape(Circle())
-                            .offset(x: 8, y: -4)
+                            .offset(x: 4, y: -2)
                     }
                 }
         }
@@ -596,52 +596,71 @@ struct MiniPlayerView: View {
 struct MarqueeText: View {
     let text: String
     let font: Font
+    var height: CGFloat = 18
 
     @State private var offset: CGFloat = 0
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
+    @State private var animationId = UUID()
 
-    private var needsScroll: Bool { textWidth > containerWidth }
+    private var needsScroll: Bool { textWidth > containerWidth && containerWidth > 0 }
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            if needsScroll {
-                HStack(spacing: 40) {
-                    Text(text).font(font).fixedSize()
-                    Text(text).font(font).fixedSize()
+            Group {
+                if needsScroll {
+                    HStack(spacing: 40) {
+                        Text(text).font(font).fixedSize()
+                        Text(text).font(font).fixedSize()
+                    }
+                    .offset(x: offset)
+                    .id(animationId)
+                } else {
+                    Text(text)
+                        .font(font)
+                        .lineLimit(1)
                 }
-                .offset(x: offset)
-                .onAppear {
-                    containerWidth = w
-                    startScrolling()
-                }
-                .onChange(of: text) { _, _ in
-                    offset = 0
-                    measureText(in: w)
-                    startScrolling()
-                }
-            } else {
-                Text(text)
-                    .font(font)
-                    .lineLimit(1)
+            }
+            .onAppear {
+                containerWidth = w
+                if needsScroll { startScrolling() }
+            }
+            .onChange(of: w) { _, newWidth in
+                containerWidth = newWidth
+                restartIfNeeded()
+            }
+            .onChange(of: text) { _, _ in
+                // Re-measure text width
+                textWidth = 0
+                offset = 0
+                animationId = UUID()
+            }
+            .onChange(of: textWidth) { _, _ in
+                restartIfNeeded()
             }
         }
-        .frame(height: 18)
+        .frame(height: height)
         .clipped()
-        .background(
+        .overlay(
             Text(text).font(font).fixedSize()
                 .hidden()
                 .background(GeometryReader { textGeo in
-                    Color.clear.onAppear {
-                        textWidth = textGeo.size.width
-                    }
+                    Color.clear
+                        .onAppear { textWidth = textGeo.size.width }
+                        .onChange(of: text) { _, _ in
+                            textWidth = textGeo.size.width
+                        }
                 })
         )
     }
 
-    private func measureText(in width: CGFloat) {
-        containerWidth = width
+    private func restartIfNeeded() {
+        offset = 0
+        animationId = UUID()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if needsScroll { startScrolling() }
+        }
     }
 
     private func startScrolling() {

@@ -3,6 +3,7 @@ import UIKit
 
 /// Configures CPNowPlayingTemplate.shared with custom buttons for chapter navigation
 /// and playback speed cycling.
+@MainActor
 final class CarPlayNowPlayingManager {
 
     private weak var audioPlayer: AudioPlayerService?

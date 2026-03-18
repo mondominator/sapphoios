@@ -9,9 +9,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Configure audio session for background playback
         configureAudioSession()
 
-        // TODO: Configure Google Cast when SDK is added via CocoaPods
-        // configureCast()
-
         return true
     }
 

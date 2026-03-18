@@ -2,6 +2,7 @@ import CarPlay
 import UIKit
 
 /// Fetches data from SapphoAPI and builds CPListItem arrays for CarPlay templates.
+@MainActor
 final class CarPlayContentProvider {
 
     private let api: SapphoAPI
