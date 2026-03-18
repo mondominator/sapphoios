@@ -24,6 +24,7 @@ struct AudiobookDetailView: View {
     @State private var reviews: [ReviewItem] = []
     @State private var userReviewText: String = ""
     @State private var isSubmittingReview = false
+    @State private var showRatingPicker = false
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
@@ -297,50 +298,77 @@ struct AudiobookDetailView: View {
 
     // MARK: - Rating Section
     private var ratingSection: some View {
-        VStack(spacing: 8) {
-            // Star rating (tap same star to clear)
-            HStack(spacing: 12) {
-                ForEach(1...5, id: \.self) { star in
-                    Button {
-                        if userRating == star {
-                            Task { await clearRating() }
-                        } else {
-                            Task { await setRating(star) }
-                        }
-                    } label: {
-                        Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
-                            .font(.system(size: 28))
-                            .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted)
-                    }
-                    .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
-                    .accessibilityValue(userRating == star ? "Selected" : (star <= (userRating ?? 0) ? "Filled" : "Empty"))
-                    .accessibilityHint(userRating == star ? "Double tap to clear rating" : "Double tap to rate \(star) star\(star == 1 ? "" : "s")")
-                }
-            }
-
-            // Rating info
-            HStack(spacing: 4) {
-                if userRating != nil {
-                    Text("Your rating")
-                        .foregroundColor(.sapphoTextMuted)
-                } else {
-                    Text("Tap to rate")
-                        .foregroundColor(.sapphoTextMuted)
-                }
-
+        VStack(spacing: 12) {
+            // Main row: Average rating + Rate button
+            HStack(spacing: 16) {
+                // Show average rating
                 if let avg = averageRating, avg.count > 0 {
-                    Text("·")
-                        .foregroundColor(.sapphoTextMuted)
-                    Image(systemName: "star.fill")
-                        .foregroundColor(.sapphoWarning)
-                        .font(.system(size: 12))
-                    Text(String(format: "%.1f", avg.average ?? 0))
-                        .foregroundColor(.sapphoTextHigh)
-                    Text("(\(avg.count))")
-                        .foregroundColor(.sapphoTextMuted)
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.sapphoWarning)
+                            .font(.system(size: 15))
+                        Text(String(format: "%.1f", avg.average ?? 0))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.sapphoTextHigh)
+                        Text("(\(avg.count))")
+                            .font(.system(size: 13))
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                }
+
+                // Rate button - pill style
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showRatingPicker.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if userRating != nil {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.sapphoWarning)
+                        } else {
+                            Image(systemName: "star")
+                                .font(.system(size: 14))
+                                .foregroundColor(.sapphoTextMuted)
+                            Text("Rate")
+                                .font(.system(size: 13))
+                                .foregroundColor(.sapphoTextMuted)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                userRating != nil ? Color.sapphoWarning.opacity(0.5) : Color.sapphoTextMuted.opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
                 }
             }
-            .font(.sapphoCaption)
+
+            // Expandable star picker
+            if showRatingPicker {
+                HStack(spacing: 6) {
+                    ForEach(1...5, id: \.self) { star in
+                        Button {
+                            if userRating == star {
+                                Task { await clearRating() }
+                            } else {
+                                Task { await setRating(star) }
+                                withAnimation { showRatingPicker = false }
+                            }
+                        } label: {
+                            Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
+                                .font(.system(size: 32))
+                                .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted.opacity(0.4))
+                        }
+                        .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
+                    }
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
         }
         .padding(.horizontal, 16)
     }
