@@ -76,9 +76,6 @@ struct ProfileView: View {
                     // SECTION 6: PLAYER
                     playerSection()
 
-                    // SECTION 7: ABOUT
-                    aboutSection()
-
                     Spacer().frame(height: 100)
                 }
             }
@@ -800,32 +797,6 @@ struct SettingsView: View {
                 }
 
                 Toggle("Show Chapter Progress", isOn: $showChapterProgress)
-            }
-
-            // About
-            Section("About") {
-                HStack {
-                    Text("Version")
-                    Spacer()
-                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
-                        .foregroundColor(.sapphoTextMuted)
-                }
-
-                HStack {
-                    Text("Build")
-                    Spacer()
-                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1")
-                        .foregroundColor(.sapphoTextMuted)
-                }
-
-                Link(destination: URL(string: "https://github.com/mondominator/sappho")!) {
-                    HStack {
-                        Text("View on GitHub")
-                        Spacer()
-                        Image(systemName: "arrow.up.right.square")
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                }
             }
         }
         .scrollContentBackground(.hidden)
