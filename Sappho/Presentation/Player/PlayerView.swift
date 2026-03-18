@@ -949,6 +949,7 @@ class MarqueeContainerView: UIView {
     }
 
     func setText(_ text: String) {
+        guard text != label1.text else { return }
         let font = UIFont.systemFont(ofSize: fontSize)
         label1.font = font
         label2.font = font
