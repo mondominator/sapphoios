@@ -292,12 +292,9 @@ struct PlayerView: View {
                                     Image(systemName: "list.bullet")
                                         .font(.system(size: 20))
                                         .foregroundColor(hasChapters ? .sapphoPrimary : Color.sapphoDisabled)
-                                    MarqueeUILabel(
-                                        text: audioPlayer.currentChapter?.title ?? "Chapters",
-                                        fontSize: 11,
-                                        textColor: UIColor(hasChapters ? Color.sapphoTextHigh : Color.sapphoDisabled)
-                                    )
-                                    .frame(height: 14)
+                                    Text("Chapters")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -925,6 +922,7 @@ class MarqueeContainerView: UIView {
     private let gap: CGFloat = 40
     private let speed: CGFloat = 25 // points per second
     private var lastTimestamp: CFTimeInterval = 0
+    private var currentText: String = ""
 
     private var needsScroll: Bool {
         label1.intrinsicContentSize.width > bounds.width && bounds.width > 0
@@ -949,25 +947,32 @@ class MarqueeContainerView: UIView {
     }
 
     func setText(_ text: String) {
-        guard text != label1.text else { return }
         let font = UIFont.systemFont(ofSize: fontSize)
         label1.font = font
         label2.font = font
         label1.text = text
         label2.text = text
-        scrollOffset = 0
+        if text != currentText {
+            currentText = text
+            scrollOffset = 0
+            lastTimestamp = 0
+            displayLink?.invalidate()
+            displayLink = nil
+        }
         setNeedsLayout()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let textSize = label1.intrinsicContentSize
-        label1.frame = CGRect(x: 0, y: 0, width: textSize.width, height: bounds.height)
-        label2.frame = CGRect(x: textSize.width + gap, y: 0, width: textSize.width, height: bounds.height)
 
         if needsScroll {
-            label2.isHidden = false
-            startScrolling()
+            if displayLink == nil {
+                label1.frame = CGRect(x: 0, y: 0, width: textSize.width, height: bounds.height)
+                label2.frame = CGRect(x: textSize.width + gap, y: 0, width: textSize.width, height: bounds.height)
+                label2.isHidden = false
+                startScrolling()
+            }
         } else {
             label2.isHidden = true
             label1.frame = bounds
@@ -987,7 +992,6 @@ class MarqueeContainerView: UIView {
         displayLink?.invalidate()
         displayLink = nil
         scrollOffset = 0
-        updateLabelPositions()
     }
 
     @objc private func tick(_ link: CADisplayLink) {
@@ -1005,11 +1009,6 @@ class MarqueeContainerView: UIView {
         if scrollOffset <= -totalCycle {
             scrollOffset += totalCycle
         }
-        updateLabelPositions()
-    }
-
-    private func updateLabelPositions() {
-        let textWidth = label1.intrinsicContentSize.width
         label1.frame.origin.x = scrollOffset
         label2.frame.origin.x = scrollOffset + textWidth + gap
     }
