@@ -42,6 +42,10 @@
 		TEST012A0B2C3D4E5F6702 /* TimeFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */; };
 		TEST013A0B2C3D4E5F6703 /* APIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST003A0B2C3D4E5F6703 /* APIErrorTests.swift */; };
 		TEST014A0B2C3D4E5F6704 /* AuthRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */; };
+		TEST015A0B2C3D4E5F6705 /* SapphoAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST005A0B2C3D4E5F6705 /* SapphoAPITests.swift */; };
+		TEST016A0B2C3D4E5F6706 /* AudioPlayerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST006A0B2C3D4E5F6706 /* AudioPlayerServiceTests.swift */; };
+		TEST017A0B2C3D4E5F6707 /* DownloadManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST007A0B2C3D4E5F6707 /* DownloadManagerTests.swift */; };
+		TEST018A0B2C3D4E5F6708 /* AdditionalModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST008A0B2C3D4E5F6708 /* AdditionalModelsTests.swift */; };
 		TIMEFMT002A0B2C3D4E5F67 /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */; };
 		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 		NOTIF002A0B2C3D4E5F67890 /* NotificationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */; };
@@ -105,6 +109,10 @@
 		TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormattingTests.swift; sourceTree = "<group>"; };
 		TEST003A0B2C3D4E5F6703 /* APIErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIErrorTests.swift; sourceTree = "<group>"; };
 		TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepositoryTests.swift; sourceTree = "<group>"; };
+		TEST005A0B2C3D4E5F6705 /* SapphoAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPITests.swift; sourceTree = "<group>"; };
+		TEST006A0B2C3D4E5F6706 /* AudioPlayerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerServiceTests.swift; sourceTree = "<group>"; };
+		TEST007A0B2C3D4E5F6707 /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
+		TEST008A0B2C3D4E5F6708 /* AdditionalModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalModelsTests.swift; sourceTree = "<group>"; };
 		TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
 		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPanel.swift; sourceTree = "<group>"; };
@@ -123,9 +131,13 @@
 		09243126A95DB1D6E8B03881 /* SapphoTests */ = {
 			isa = PBXGroup;
 			children = (
+				TEST008A0B2C3D4E5F6708 /* AdditionalModelsTests.swift */,
 				TEST003A0B2C3D4E5F6703 /* APIErrorTests.swift */,
+				TEST006A0B2C3D4E5F6706 /* AudioPlayerServiceTests.swift */,
 				TEST004A0B2C3D4E5F6704 /* AuthRepositoryTests.swift */,
+				TEST007A0B2C3D4E5F6707 /* DownloadManagerTests.swift */,
 				TEST001A0B2C3D4E5F6701 /* ModelsTests.swift */,
+				TEST005A0B2C3D4E5F6705 /* SapphoAPITests.swift */,
 				0334889B3C2A16A4E53AFFA1 /* SapphoTests.swift */,
 				TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */,
 			);
@@ -460,9 +472,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				TEST018A0B2C3D4E5F6708 /* AdditionalModelsTests.swift in Sources */,
 				TEST013A0B2C3D4E5F6703 /* APIErrorTests.swift in Sources */,
+				TEST016A0B2C3D4E5F6706 /* AudioPlayerServiceTests.swift in Sources */,
 				TEST014A0B2C3D4E5F6704 /* AuthRepositoryTests.swift in Sources */,
+				TEST017A0B2C3D4E5F6707 /* DownloadManagerTests.swift in Sources */,
 				TEST011A0B2C3D4E5F6701 /* ModelsTests.swift in Sources */,
+				TEST015A0B2C3D4E5F6705 /* SapphoAPITests.swift in Sources */,
 				64FCC36EFF66C83F1ACC0144 /* SapphoTests.swift in Sources */,
 				TEST012A0B2C3D4E5F6702 /* TimeFormattingTests.swift in Sources */,
 			);
