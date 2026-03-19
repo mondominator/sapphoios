@@ -17,7 +17,6 @@
 		4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657E1B7511077F283C3F1972 /* AuthRepository.swift */; };
 		52DB44178852809417DBFFA9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7495FDDA796DFDA34333C7C8 /* RootView.swift */; };
 		56695E5A3716F94A5500D086 /* SapphoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550305815B68B533E1045145 /* SapphoUITests.swift */; };
-		64FCC36EFF66C83F1ACC0144 /* SapphoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0334889B3C2A16A4E53AFFA1 /* SapphoTests.swift */; };
 		67ED1EFEE720295DCA598959 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */; };
 		731015E6B088ED705983ACE5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D48DA2D1495E05D31E31B2 /* LoginView.swift */; };
 		8058DFFACF970A9CDC969555 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9320ADDDF94250E660D31DB /* MainView.swift */; };
@@ -69,7 +68,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		0334889B3C2A16A4E53AFFA1 /* SapphoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoTests.swift; sourceTree = "<group>"; };
 		09D48DA2D1495E05D31E31B2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		1C5C653DEA9849EE3405ACDA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeriesListView.swift; sourceTree = "<group>"; };
@@ -138,7 +136,6 @@
 				TEST007A0B2C3D4E5F6707 /* DownloadManagerTests.swift */,
 				TEST001A0B2C3D4E5F6701 /* ModelsTests.swift */,
 				TEST005A0B2C3D4E5F6705 /* SapphoAPITests.swift */,
-				0334889B3C2A16A4E53AFFA1 /* SapphoTests.swift */,
 				TEST002A0B2C3D4E5F6702 /* TimeFormattingTests.swift */,
 			);
 			path = SapphoTests;
@@ -479,7 +476,6 @@
 				TEST017A0B2C3D4E5F6707 /* DownloadManagerTests.swift in Sources */,
 				TEST011A0B2C3D4E5F6701 /* ModelsTests.swift in Sources */,
 				TEST015A0B2C3D4E5F6705 /* SapphoAPITests.swift in Sources */,
-				64FCC36EFF66C83F1ACC0144 /* SapphoTests.swift in Sources */,
 				TEST012A0B2C3D4E5F6702 /* TimeFormattingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

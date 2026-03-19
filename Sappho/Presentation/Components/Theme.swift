@@ -71,9 +71,7 @@ extension Color {
 // MARK: - Typography
 extension Font {
     // Display fonts - large prominent text
-    static let sapphoDisplayLarge = Font.system(size: 48, weight: .bold, design: .rounded)
     static let sapphoDisplayMedium = Font.system(size: 40, weight: .bold, design: .rounded)
-    static let sapphoDisplaySmall = Font.system(size: 36, weight: .bold)
 
     // Title fonts
     static let sapphoTitle = Font.system(size: 28, weight: .bold)
@@ -86,7 +84,6 @@ extension Font {
 
     // Subheadline fonts
     static let sapphoSubheadline = Font.system(size: 16, weight: .medium)
-    static let sapphoSubheadlineBold = Font.system(size: 16, weight: .bold)
     static let sapphoSubheadlineRounded = Font.system(size: 16, weight: .bold, design: .rounded)
 
     // Body fonts
@@ -101,13 +98,11 @@ extension Font {
 
     // Caption fonts
     static let sapphoCaption = Font.system(size: 13, weight: .regular)
-    static let sapphoCaptionMedium = Font.system(size: 13, weight: .medium)
     static let sapphoCaptionSemibold = Font.system(size: 13, weight: .semibold)
 
     // Small fonts
     static let sapphoSmall = Font.system(size: 11, weight: .regular)
     static let sapphoSmallMedium = Font.system(size: 11, weight: .medium)
-    static let sapphoSmallBold = Font.system(size: 11, weight: .bold)
 
     // Tiny fonts - badges, labels
     static let sapphoTiny = Font.system(size: 10, weight: .regular)
@@ -147,22 +142,6 @@ struct SapphoPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-struct SapphoSecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.sapphoSubheadline)
-            .foregroundColor(.sapphoPrimary)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(Color.sapphoSurface)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.sapphoPrimary, lineWidth: 1)
-            )
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-    }
-}
 
 // MARK: - Common Components
 struct LoadingView: View {

@@ -156,7 +156,7 @@ class SapphoAPI {
     // MARK: - Authentication
 
     func login(serverURL: URL, username: String, password: String) async throws -> AuthResponse {
-        var urlComponents = URLComponents(url: serverURL.appendingPathComponent("api/auth/login"), resolvingAgainstBaseURL: true)
+        let urlComponents = URLComponents(url: serverURL.appendingPathComponent("api/auth/login"), resolvingAgainstBaseURL: true)
 
         guard let url = urlComponents?.url else {
             throw APIError.invalidURL
