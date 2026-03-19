@@ -299,10 +299,17 @@ final class CarPlayContentProvider {
             return
         }
 
-        // Load asynchronously
+        // Capture auth headers for authenticated request
+        let authHeaders = api.authHeaders
+
+        // Load asynchronously with authentication
         Task {
             do {
-                let (data, response) = try await URLSession.shared.data(from: coverURL)
+                var request = URLRequest(url: coverURL)
+                for (field, value) in authHeaders {
+                    request.setValue(value, forHTTPHeaderField: field)
+                }
+                let (data, response) = try await URLSession.shared.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse,
                       200..<300 ~= httpResponse.statusCode,
                       let image = UIImage(data: data) else { return }
