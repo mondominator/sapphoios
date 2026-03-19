@@ -3,7 +3,6 @@ import SwiftUI
 struct GenresListView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var genres: [GenreInfo] = []
-    @State private var allBooks: [Audiobook] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
 
@@ -58,11 +57,7 @@ struct GenresListView: View {
         errorMessage = nil
 
         do {
-            async let genresData = api?.getGenres()
-            async let booksData = api?.getAudiobooks()
-
-            genres = try await genresData ?? []
-            allBooks = try await booksData ?? []
+            genres = try await api?.getGenres() ?? []
 
             // Sort genres by book count (descending)
             genres.sort { $0.count > $1.count }
