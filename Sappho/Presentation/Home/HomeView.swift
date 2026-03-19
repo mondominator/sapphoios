@@ -1,5 +1,4 @@
 import SwiftUI
-import Network
 
 struct HomeView: View {
     @Environment(\.sapphoAPI) private var api

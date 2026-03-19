@@ -281,12 +281,6 @@ struct Progress: Codable {
     var isCompleted: Bool {
         completed == 1
     }
-
-    var progressPercentage: Double {
-        guard let audiobookId = audiobookId else { return 0 }
-        // This would need duration from the audiobook to calculate properly
-        return 0
-    }
 }
 
 // MARK: - Chapter
