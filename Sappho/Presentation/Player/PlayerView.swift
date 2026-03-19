@@ -389,7 +389,7 @@ struct PlayerView: View {
                 SpeedPickerSheet(currentSpeed: audioPlayer.playbackSpeed) { speed in
                     audioPlayer.setPlaybackSpeed(speed)
                 }
-                .presentationDetents([.height(300)])
+                .presentationDetents([.height(400)])
             }
             .sheet(isPresented: $showSleepTimer) {
                 SleepTimerSheet(
@@ -488,6 +488,8 @@ struct SpeedPickerSheet: View {
     let currentSpeed: Float
     let onSelect: (Float) -> Void
 
+    private let presetSpeeds: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var speed: Float
@@ -502,12 +504,12 @@ struct SpeedPickerSheet: View {
         if speed == Float(Int(speed)) {
             return String(format: "%.0fx", speed)
         } else {
-            return String(format: "%.2gx", speed)
+            return String(format: "%.1fx", speed)
         }
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             // Handle
             Capsule()
                 .fill(Color.sapphoTextMuted.opacity(0.4))
@@ -524,12 +526,33 @@ struct SpeedPickerSheet: View {
                 .foregroundColor(.sapphoTextHigh)
                 .contentTransition(.numericText())
 
-            // Slider
+            // Preset speed buttons
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+                ForEach(presetSpeeds, id: \.self) { preset in
+                    Button {
+                        speed = preset
+                        onSelect(preset)
+                    } label: {
+                        Text(preset == Float(Int(preset)) ? String(format: "%.0fx", preset) : String(format: "%.2gx", preset))
+                            .font(.sapphoCaptionSemibold)
+                            .foregroundColor(abs(speed - preset) < 0.01 ? .white : .sapphoTextHigh)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(abs(speed - preset) < 0.01 ? Color.sapphoPrimary : Color.sapphoSurfaceElevated)
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // Fine-tune slider
             VStack(spacing: 8) {
                 Slider(
                     value: $speed,
                     in: 0.5...3.0,
-                    step: 0.05
+                    step: 0.1
                 ) {
                     Text("Speed")
                 } onEditingChanged: { editing in

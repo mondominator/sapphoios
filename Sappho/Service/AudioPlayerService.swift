@@ -33,11 +33,16 @@ class AudioPlayerService: NSObject {
     private static let lastAudiobookIdKey = "lastPlayedAudiobookId"
     private static let lastPositionKey = "lastPlayedPosition"
     private static let pendingSyncKey = "pendingProgressSync"
+    private static let playbackSpeedKey = "playbackSpeed"
 
     // MARK: - Initialization
 
     override init() {
         super.init()
+        let savedSpeed = UserDefaults.standard.float(forKey: Self.playbackSpeedKey)
+        if savedSpeed > 0 {
+            playbackSpeed = savedSpeed
+        }
         setupAudioSession()
         setupRemoteCommands()
         setupInterruptionHandling()
@@ -280,6 +285,7 @@ class AudioPlayerService: NSObject {
 
     func setPlaybackSpeed(_ speed: Float) {
         playbackSpeed = speed
+        UserDefaults.standard.set(speed, forKey: Self.playbackSpeedKey)
         if isPlaying {
             player?.rate = speed
         }
