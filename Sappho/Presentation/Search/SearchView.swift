@@ -45,7 +45,7 @@ struct SearchView: View {
                                 seriesResults = []
                                 authorResults = []
                             }
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.sapphoDetailMedium)
                             .foregroundColor(.sapphoPrimary)
                         }
                     } else if !hasResults && searchText.isEmpty {
@@ -168,11 +168,11 @@ struct SearchBar: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 18))
+                .font(.sapphoIconTiny)
                 .foregroundColor(.sapphoTextMuted)
 
             TextField("Search books, series, authors...", text: $text)
-                .font(.system(size: 16))
+                .font(.sapphoSubheadline)
                 .foregroundColor(.sapphoTextHigh)
                 .focused($isFocused)
                 .autocorrectionDisabled()
@@ -183,7 +183,7 @@ struct SearchBar: View {
                     onClear()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(.sapphoIconTiny)
                         .foregroundColor(.sapphoTextMuted)
                 }
             }
@@ -292,7 +292,7 @@ struct BookSearchResult: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(audiobook.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.sapphoDetailMedium)
                     .foregroundColor(.sapphoTextHigh)
                     .lineLimit(1)
 
@@ -305,7 +305,7 @@ struct BookSearchResult: View {
                         Text(series)
                     }
                 }
-                .font(.system(size: 12))
+                .font(.sapphoIconMini)
                 .foregroundColor(.sapphoTextMuted)
                 .lineLimit(1)
             }
@@ -313,7 +313,7 @@ struct BookSearchResult: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.sapphoIconMini)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(8)
@@ -329,21 +329,21 @@ struct SeriesSearchResult: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "books.vertical.fill")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.white)
                 .frame(width: 48, height: 48)
                 .background(Color.sapphoBorder)
                 .cornerRadius(6)
 
             Text(series.series)
-                .font(.system(size: 14, weight: .medium))
+                .font(.sapphoDetailMedium)
                 .foregroundColor(.sapphoTextHigh)
                 .lineLimit(1)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.sapphoIconMini)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(8)
@@ -359,21 +359,21 @@ struct AuthorSearchResult: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.fill")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.white)
                 .frame(width: 48, height: 48)
                 .background(Color.sapphoBorder)
                 .cornerRadius(6)
 
             Text(author.author)
-                .font(.system(size: 14, weight: .medium))
+                .font(.sapphoDetailMedium)
                 .foregroundColor(.sapphoTextHigh)
                 .lineLimit(1)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(.sapphoIconMini)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(8)

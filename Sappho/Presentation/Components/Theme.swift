@@ -70,12 +70,67 @@ extension Color {
 
 // MARK: - Typography
 extension Font {
+    // Display fonts - large prominent text
+    static let sapphoDisplayLarge = Font.system(size: 48, weight: .bold, design: .rounded)
+    static let sapphoDisplayMedium = Font.system(size: 40, weight: .bold, design: .rounded)
+    static let sapphoDisplaySmall = Font.system(size: 36, weight: .bold)
+
+    // Title fonts
     static let sapphoTitle = Font.system(size: 28, weight: .bold)
+    static let sapphoTitleMedium = Font.system(size: 24, weight: .bold)
+    static let sapphoTitleSmall = Font.system(size: 22, weight: .bold)
+
+    // Headline fonts
     static let sapphoHeadline = Font.system(size: 20, weight: .semibold)
+    static let sapphoHeadlineMedium = Font.system(size: 18, weight: .semibold)
+
+    // Subheadline fonts
     static let sapphoSubheadline = Font.system(size: 16, weight: .medium)
+    static let sapphoSubheadlineBold = Font.system(size: 16, weight: .bold)
+    static let sapphoSubheadlineRounded = Font.system(size: 16, weight: .bold, design: .rounded)
+
+    // Body fonts
     static let sapphoBody = Font.system(size: 15, weight: .regular)
+    static let sapphoBodyMedium = Font.system(size: 15, weight: .medium)
+    static let sapphoBodySemibold = Font.system(size: 15, weight: .semibold)
+
+    // Detail fonts
+    static let sapphoDetail = Font.system(size: 14, weight: .regular)
+    static let sapphoDetailMedium = Font.system(size: 14, weight: .medium)
+    static let sapphoDetailSemibold = Font.system(size: 14, weight: .semibold)
+
+    // Caption fonts
     static let sapphoCaption = Font.system(size: 13, weight: .regular)
+    static let sapphoCaptionMedium = Font.system(size: 13, weight: .medium)
+    static let sapphoCaptionSemibold = Font.system(size: 13, weight: .semibold)
+
+    // Small fonts
     static let sapphoSmall = Font.system(size: 11, weight: .regular)
+    static let sapphoSmallMedium = Font.system(size: 11, weight: .medium)
+    static let sapphoSmallBold = Font.system(size: 11, weight: .bold)
+
+    // Tiny fonts - badges, labels
+    static let sapphoTiny = Font.system(size: 10, weight: .regular)
+    static let sapphoTinyBold = Font.system(size: 10, weight: .bold)
+    static let sapphoTinySemibold = Font.system(size: 10, weight: .semibold)
+    static let sapphoMicro = Font.system(size: 8, weight: .regular)
+    static let sapphoTinyDetail = Font.system(size: 12, weight: .regular)
+
+    // Icon fonts - for SF Symbol sizing
+    static let sapphoIconXXLarge = Font.system(size: 48)
+    static let sapphoIconXLarge = Font.system(size: 40)
+    static let sapphoIconHuge = Font.system(size: 36)
+    static let sapphoIconLarge = Font.system(size: 32)
+    static let sapphoIconMedium = Font.system(size: 22)
+    static let sapphoIconSmall = Font.system(size: 20)
+    static let sapphoIconTiny = Font.system(size: 18)
+    static let sapphoIconMini = Font.system(size: 12)
+
+    // Player-specific fonts
+    static let sapphoPlayerSpeed = Font.system(size: 48, weight: .bold, design: .rounded)
+    static let sapphoPlayerTimerDisplay = Font.system(size: 40, weight: .bold, design: .rounded)
+    static let sapphoPlayerTimerLabel = Font.system(size: 20, weight: .semibold, design: .rounded)
+    static let sapphoPlayerPlayButton = Font.system(size: 28)
 }
 
 // MARK: - View Modifiers
@@ -134,7 +189,7 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.sapphoIconXXLarge)
                 .foregroundColor(.sapphoError)
 
             Text(message)
@@ -161,7 +216,7 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 48))
+                .font(.sapphoIconXXLarge)
                 .foregroundColor(.sapphoTextMuted)
 
             Text(title)

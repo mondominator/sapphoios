@@ -28,7 +28,7 @@ struct HomeView: View {
                     if isOffline {
                         HStack(spacing: 8) {
                             Image(systemName: "wifi.slash")
-                                .font(.system(size: 14))
+                                .font(.sapphoDetail)
                             Text("No internet connection")
                                 .font(.sapphoCaption)
                             Spacer()
