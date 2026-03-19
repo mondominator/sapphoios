@@ -120,7 +120,7 @@ struct GenreCard: View {
             // Icon and title
             HStack {
                 Image(systemName: iconName)
-                    .font(.system(size: 24))
+                    .font(.sapphoTitleMedium)
                     .foregroundColor(.white)
 
                 Spacer()

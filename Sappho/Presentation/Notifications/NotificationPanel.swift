@@ -21,7 +21,7 @@ struct NotificationPanel: View {
                 } else if let errorMessage {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
+                            .font(.sapphoIconXLarge)
                             .foregroundColor(.sapphoTextMuted)
                         Text(errorMessage)
                             .font(.subheadline)
@@ -36,7 +36,7 @@ struct NotificationPanel: View {
                 } else if notifications.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "bell.slash")
-                            .font(.system(size: 40))
+                            .font(.sapphoIconXLarge)
                             .foregroundColor(.sapphoTextMuted)
                         Text("No notifications yet")
                             .font(.headline)
@@ -107,7 +107,7 @@ struct NotificationPanel: View {
 
             // Type icon
             Image(systemName: iconForType(notification.type))
-                .font(.system(size: 18))
+                .font(.sapphoIconTiny)
                 .foregroundColor(colorForType(notification.type))
                 .frame(width: 32, height: 32)
                 .background(colorForType(notification.type).opacity(0.15))

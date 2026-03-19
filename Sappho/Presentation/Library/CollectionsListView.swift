@@ -39,7 +39,7 @@ struct CollectionsListView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 20))
+                                    .font(.sapphoIconSmall)
                                     .foregroundColor(.sapphoPrimary)
                                 Text("Create New Collection")
                                     .font(.sapphoSubheadline)
@@ -153,7 +153,7 @@ struct CollectionCard: View {
                         .frame(width: 56, height: 56)
                         .overlay(
                             Image(systemName: "folder.fill")
-                                .font(.system(size: 20))
+                                .font(.sapphoIconSmall)
                                 .foregroundColor(.sapphoTextMuted)
                         )
                 }
@@ -170,7 +170,7 @@ struct CollectionCard: View {
 
                     if collection.isPublic == 1 {
                         Image(systemName: "globe")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                     }
                 }
@@ -187,7 +187,7 @@ struct CollectionCard: View {
                 HStack(spacing: 12) {
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                         Text("\(collection.bookCount ?? 0)")
                             .font(.sapphoSmall)
@@ -197,7 +197,7 @@ struct CollectionCard: View {
                     if let creator = collection.creatorUsername, collection.isOwner != 1 {
                         HStack(spacing: 4) {
                             Image(systemName: "person.fill")
-                                .font(.system(size: 12))
+                                .font(.sapphoIconMini)
                                 .foregroundColor(.sapphoTextMuted)
                             Text(creator)
                                 .font(.sapphoSmall)
@@ -210,7 +210,7 @@ struct CollectionCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.sapphoDetail)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(12)

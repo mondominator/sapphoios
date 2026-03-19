@@ -133,7 +133,7 @@ struct ProfileView: View {
                                     .aspectRatio(contentMode: .fill)
                             } else {
                                 Text(avatarInitial)
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(.sapphoTitleMedium)
                                     .foregroundColor(.sapphoTextHigh)
                             }
                         }
@@ -144,7 +144,7 @@ struct ProfileView: View {
                 VStack {
                     Spacer()
                     Text("Edit")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.sapphoSmallMedium)
                         .foregroundColor(.sapphoTextHigh)
                         .frame(maxWidth: .infinity)
                         .frame(height: 20)
@@ -161,7 +161,7 @@ struct ProfileView: View {
             Button("Remove photo") {
                 Task { await deleteAvatar() }
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.sapphoSmallMedium)
             .foregroundColor(.sapphoTextMuted)
             .padding(.top, 4)
         } else {
@@ -170,13 +170,13 @@ struct ProfileView: View {
 
         // Display name
         Text(currentName)
-            .font(.system(size: 20, weight: .semibold))
+            .font(.sapphoHeadline)
             .foregroundColor(.sapphoTextHigh)
             .padding(.top, 8)
 
         // Member since
         Text(memberSinceText(user: user))
-            .font(.system(size: 13))
+            .font(.sapphoCaption)
             .foregroundColor(.sapphoTextMuted)
             .padding(.top, 2)
 
@@ -194,23 +194,23 @@ struct ProfileView: View {
             VStack(spacing: 2) {
                 HStack(alignment: .bottom, spacing: 0) {
                     Text("\(hours)")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.sapphoHeadline)
                         .foregroundColor(.sapphoTextHigh)
                     Text("h")
-                        .font(.system(size: 13))
+                        .font(.sapphoCaption)
                         .foregroundColor(.sapphoTextMuted)
                         .padding(.leading, 1)
                     Spacer().frame(width: 4)
                     Text("\(minutes)")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.sapphoHeadline)
                         .foregroundColor(.sapphoTextHigh)
                     Text("m")
-                        .font(.system(size: 13))
+                        .font(.sapphoCaption)
                         .foregroundColor(.sapphoTextMuted)
                         .padding(.leading, 1)
                 }
                 Text("listened")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.sapphoSmallMedium)
                     .foregroundColor(.sapphoTextMuted)
             }
             .frame(maxWidth: .infinity)
@@ -223,10 +223,10 @@ struct ProfileView: View {
             // Finished
             VStack(spacing: 2) {
                 Text("\(stats.booksCompleted)")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.sapphoHeadline)
                     .foregroundColor(.sapphoTextHigh)
                 Text("finished")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.sapphoSmallMedium)
                     .foregroundColor(.sapphoTextMuted)
             }
             .frame(maxWidth: .infinity)
@@ -239,10 +239,10 @@ struct ProfileView: View {
             // In Progress
             VStack(spacing: 2) {
                 Text("\(stats.currentlyListening)")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.sapphoHeadline)
                     .foregroundColor(.sapphoTextHigh)
                 Text("in progress")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.sapphoSmallMedium)
                     .foregroundColor(.sapphoTextMuted)
             }
             .frame(maxWidth: .infinity)
@@ -346,7 +346,7 @@ struct ProfileView: View {
                 Task { await saveProfile() }
             } label: {
                 Text(isSaving ? "Saving..." : "Save Changes")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.sapphoDetailMedium)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -359,7 +359,7 @@ struct ProfileView: View {
             // Save message
             if let message = saveMessage {
                 Text(message)
-                    .font(.system(size: 12))
+                    .font(.sapphoTinyDetail)
                     .foregroundColor(message.hasPrefix("Error") ? .sapphoError : .sapphoSuccess)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -384,7 +384,7 @@ struct ProfileView: View {
                     withAnimation { showPasswordSection = true }
                 } label: {
                     Text("Change Password")
-                        .font(.system(size: 14))
+                        .font(.sapphoDetail)
                         .foregroundColor(.sapphoTextHigh)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -407,7 +407,7 @@ struct ProfileView: View {
 
                         if let error = passwordError {
                             Text(error)
-                                .font(.system(size: 12))
+                                .font(.sapphoTinyDetail)
                                 .foregroundColor(.sapphoError)
                         }
                     }
@@ -425,7 +425,7 @@ struct ProfileView: View {
                             }
                         } label: {
                             Text("Cancel")
-                                .font(.system(size: 14))
+                                .font(.sapphoDetail)
                                 .foregroundColor(.sapphoTextMuted)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -440,7 +440,7 @@ struct ProfileView: View {
                             Task { await changePassword() }
                         } label: {
                             Text(isChangingPassword ? "Changing..." : "Change Password")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.sapphoDetailMedium)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -473,9 +473,9 @@ struct ProfileView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 16))
+                        .font(.sapphoSubheadline)
                     Text("Playback Settings")
-                        .font(.system(size: 14))
+                        .font(.sapphoDetail)
                 }
                 .foregroundColor(.sapphoTextHigh)
                 .frame(maxWidth: .infinity)
@@ -505,11 +505,11 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 HStack {
                     Text("App Version")
-                        .font(.system(size: 14))
+                        .font(.sapphoDetail)
                         .foregroundColor(.sapphoTextMuted)
                     Spacer()
                     Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
-                        .font(.system(size: 14))
+                        .font(.sapphoDetail)
                         .foregroundColor(.sapphoTextHigh)
                 }
 
@@ -517,11 +517,11 @@ struct ProfileView: View {
                     Spacer().frame(height: 8)
                     HStack {
                         Text("Server Version")
-                            .font(.system(size: 14))
+                            .font(.sapphoDetail)
                             .foregroundColor(.sapphoTextMuted)
                         Spacer()
                         Text(version)
-                            .font(.system(size: 14))
+                            .font(.sapphoDetail)
                             .foregroundColor(.sapphoTextHigh)
                     }
                 }
@@ -539,9 +539,9 @@ struct ProfileView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 16))
+                        .font(.sapphoSubheadline)
                     Text("Logout")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.sapphoDetailMedium)
                 }
                 .foregroundColor(.sapphoError)
                 .frame(maxWidth: .infinity)
@@ -564,7 +564,7 @@ struct ProfileView: View {
 
     private func outlinedTextField(_ label: String, text: Binding<String>) -> some View {
         TextField(label, text: text)
-            .font(.system(size: 14))
+            .font(.sapphoDetail)
             .foregroundStyle(Color.sapphoTextHigh)
             .padding(12)
             .background(Color.clear)
@@ -576,7 +576,7 @@ struct ProfileView: View {
 
     private func outlinedSecureField(_ label: String, text: Binding<String>) -> some View {
         SecureField(label, text: text)
-            .font(.system(size: 14))
+            .font(.sapphoDetail)
             .foregroundStyle(Color.sapphoTextHigh)
             .padding(12)
             .background(Color.clear)
@@ -919,7 +919,7 @@ struct DownloadedBookRow: View {
                 if let duration = audiobook.duration {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.system(size: 10))
+                            .font(.sapphoTiny)
                         Text(formatDuration(duration))
                             .font(.sapphoSmall)
                     }
@@ -928,7 +928,7 @@ struct DownloadedBookRow: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 10))
+                        .font(.sapphoTiny)
                     Text("Downloaded")
                         .font(.sapphoSmall)
                 }
@@ -942,14 +942,14 @@ struct DownloadedBookRow: View {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 16))
+                    .font(.sapphoSubheadline)
                     .foregroundColor(.sapphoError)
             }
             .buttonStyle(.plain)
             .padding(8)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.sapphoDetail)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(12)

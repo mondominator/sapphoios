@@ -190,7 +190,7 @@ struct StatItem: View {
     var body: some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.sapphoSubheadline)
                 .foregroundColor(color)
 
             Text(value)
@@ -258,7 +258,7 @@ struct BookListItem: View {
                     if let duration = audiobook.duration {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                             Text(formatDuration(duration))
                                 .font(.sapphoSmall)
                         }
@@ -268,7 +268,7 @@ struct BookListItem: View {
                     if isCompleted {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                             Text("Completed")
                                 .font(.sapphoSmall)
                         }
@@ -276,7 +276,7 @@ struct BookListItem: View {
                     } else if let percent = progressPercent, percent > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "play.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                             Text("\(Int(percent * 100))%")
                                 .font(.sapphoSmall)
                         }
@@ -287,7 +287,7 @@ struct BookListItem: View {
                     if let rating = audiobook.userRating {
                         HStack(spacing: 2) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                             Text(String(format: "%.0f", rating))
                                 .font(.sapphoSmall)
                         }
@@ -306,7 +306,7 @@ struct BookListItem: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.sapphoDetail)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(12)
@@ -347,7 +347,7 @@ struct SeriesRecapSheet: View {
                 } else if let error = errorMessage {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
+                            .font(.sapphoDisplayMedium)
                             .foregroundColor(.sapphoWarning)
                         Text(error)
                             .font(.sapphoBody)
@@ -366,7 +366,7 @@ struct SeriesRecapSheet: View {
                             if recap.cached {
                                 HStack(spacing: 6) {
                                     Image(systemName: "clock.arrow.circlepath")
-                                        .font(.system(size: 12))
+                                        .font(.sapphoIconMini)
                                     Text("Cached recap")
                                         .font(.sapphoSmall)
                                 }

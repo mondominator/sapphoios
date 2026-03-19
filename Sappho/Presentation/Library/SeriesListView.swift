@@ -142,7 +142,7 @@ struct SeriesCard: View {
                     // Book count
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                         Text("\(seriesInfo.bookCount)")
                             .font(.sapphoSmall)
@@ -152,7 +152,7 @@ struct SeriesCard: View {
                     // Duration
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                         Text("\(totalDuration / 3600)h")
                             .font(.sapphoSmall)
@@ -163,7 +163,7 @@ struct SeriesCard: View {
                     if completedCount > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.sapphoIconMini)
                                 .foregroundColor(.sapphoSuccess)
                             Text("\(completedCount)/\(seriesInfo.bookCount)")
                                 .font(.sapphoSmall)
@@ -175,7 +175,7 @@ struct SeriesCard: View {
                     if let avgRating = seriesInfo.averageRating {
                         HStack(spacing: 4) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 12))
+                                .font(.sapphoIconMini)
                                 .foregroundColor(.sapphoWarning)
                             Text(String(format: "%.1f", avgRating))
                                 .font(.sapphoSmall)
@@ -188,7 +188,7 @@ struct SeriesCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.sapphoDetail)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(16)

@@ -106,7 +106,7 @@ struct LibraryView: View {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Library")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.sapphoTitle)
                         .foregroundColor(.sapphoTextHigh)
 
                     if totalBooks > 0 {
@@ -258,7 +258,7 @@ struct CategoryCardLarge: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.sapphoTitleSmall)
                         .foregroundColor(.white)
                     Text("\(count)")
                         .font(.system(size: 32, weight: .bold))
@@ -272,7 +272,7 @@ struct CategoryCardLarge: View {
                         .fill(Color.white.opacity(0.2))
                         .frame(width: 56, height: 56)
                     Image(systemName: icon)
-                        .font(.system(size: 28))
+                        .font(.sapphoTitle)
                         .foregroundColor(.white)
                 }
             }
@@ -309,7 +309,7 @@ struct CategoryCardMedium: View {
                         .fill(Color.white.opacity(0.2))
                         .frame(width: 48, height: 48)
                     Image(systemName: icon)
-                        .font(.system(size: 24))
+                        .font(.sapphoTitleMedium)
                         .foregroundColor(.white)
                 }
 
@@ -317,10 +317,10 @@ struct CategoryCardMedium: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(count)")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.sapphoTitle)
                         .foregroundColor(.white)
                     Text(title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.sapphoDetailMedium)
                         .foregroundColor(.white.opacity(0.9))
                 }
             }
@@ -357,17 +357,17 @@ struct CategoryCardWide: View {
                         .fill(Color.white.opacity(0.1))
                         .frame(width: 48, height: 48)
                     Image(systemName: icon)
-                        .font(.system(size: 24))
+                        .font(.sapphoTitleMedium)
                         .foregroundColor(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.sapphoHeadlineMedium)
                         .foregroundColor(.white)
                     if let subtitle {
                         Text(subtitle)
-                            .font(.system(size: 13))
+                            .font(.sapphoCaption)
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
@@ -375,7 +375,7 @@ struct CategoryCardWide: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 20))
+                    .font(.sapphoIconSmall)
                     .foregroundColor(.white.opacity(0.5))
             }
             .padding(.horizontal, 20)
@@ -493,13 +493,13 @@ struct AllBooksView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Text("Sort")
-                                        .font(.system(size: 12))
+                                        .font(.sapphoIconMini)
                                         .foregroundColor(.sapphoTextMuted)
                                     Text(sortOption.rawValue)
-                                        .font(.system(size: 14))
+                                        .font(.sapphoDetail)
                                         .foregroundColor(.white)
                                     Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 10))
+                                        .font(.sapphoTiny)
                                         .foregroundColor(.sapphoTextMuted)
                                 }
                                 .padding(.horizontal, 12)
@@ -526,13 +526,13 @@ struct AllBooksView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Text("Show")
-                                        .font(.system(size: 12))
+                                        .font(.sapphoIconMini)
                                         .foregroundColor(.sapphoTextMuted)
                                     Text(filterOption.rawValue)
-                                        .font(.system(size: 14))
+                                        .font(.sapphoDetail)
                                         .foregroundColor(.white)
                                     Image(systemName: "chevron.down")
-                                        .font(.system(size: 10))
+                                        .font(.sapphoTiny)
                                         .foregroundColor(.sapphoTextMuted)
                                 }
                                 .padding(.horizontal, 12)
@@ -544,7 +544,7 @@ struct AllBooksView: View {
                             Spacer()
 
                             Text("\(sortedAudiobooks.count) books")
-                                .font(.system(size: 13))
+                                .font(.sapphoCaption)
                                 .foregroundColor(.sapphoTextMuted)
                         }
                         .padding(.horizontal, 16)
@@ -637,7 +637,7 @@ struct AllBooksGridItem: View {
                                 .fill(Color.sapphoSuccess)
                                 .frame(width: 20, height: 20)
                             Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.sapphoTinyBold)
                                 .foregroundColor(.white)
                         }
                         .padding(4)
@@ -652,10 +652,10 @@ struct AllBooksGridItem: View {
                         Spacer()
                         HStack(spacing: 2) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 8))
+                                .font(.sapphoMicro)
                                 .foregroundColor(.sapphoRating)
                             Text(String(format: "%.0f", rating))
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.sapphoTinySemibold)
                                 .foregroundColor(.white)
                         }
                         .padding(.horizontal, 4)
