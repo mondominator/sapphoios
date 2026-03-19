@@ -242,7 +242,7 @@ struct AudiobookDetailView: View {
                         Task { await toggleFavorite() }
                     } label: {
                         Image(systemName: isFavorite ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.sapphoTitleSmall)
                             .foregroundColor(isFavorite ? .sapphoPrimary : .white)
                             .frame(width: 40, height: 40)
                             .background(Color.black.opacity(0.5))
@@ -306,12 +306,12 @@ struct AudiobookDetailView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill")
                             .foregroundColor(.sapphoWarning)
-                            .font(.system(size: 15))
+                            .font(.sapphoBody)
                         Text(String(format: "%.1f", avg.average ?? 0))
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.sapphoBodyMedium)
                             .foregroundColor(.sapphoTextHigh)
                         Text("(\(avg.count))")
-                            .font(.system(size: 13))
+                            .font(.sapphoCaption)
                             .foregroundColor(.sapphoTextMuted)
                     }
                 }
@@ -325,14 +325,14 @@ struct AudiobookDetailView: View {
                     HStack(spacing: 4) {
                         if userRating != nil {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 14))
+                                .font(.sapphoDetail)
                                 .foregroundColor(.sapphoWarning)
                         } else {
                             Image(systemName: "star")
-                                .font(.system(size: 14))
+                                .font(.sapphoDetail)
                                 .foregroundColor(.sapphoTextMuted)
                             Text("Rate")
-                                .font(.system(size: 13))
+                                .font(.sapphoCaption)
                                 .foregroundColor(.sapphoTextMuted)
                         }
                     }
@@ -361,7 +361,7 @@ struct AudiobookDetailView: View {
                             }
                         } label: {
                             Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
-                                .font(.system(size: 32))
+                                .font(.sapphoIconLarge)
                                 .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted.opacity(0.4))
                         }
                         .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
@@ -464,7 +464,7 @@ struct AudiobookDetailView: View {
                     HStack(spacing: 2) {
                         ForEach(1...5, id: \.self) { star in
                             Image(systemName: star <= rating ? "star.fill" : "star")
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                                 .foregroundColor(star <= rating ? .sapphoWarning : .sapphoTextMuted)
                         }
                     }
@@ -479,7 +479,7 @@ struct AudiobookDetailView: View {
 
             if let dateString = item.updatedAt ?? item.createdAt {
                 Text(relativeDate(from: dateString))
-                    .font(.system(size: 11))
+                    .font(.sapphoSmall)
                     .foregroundColor(.sapphoTextMuted)
             }
         }
@@ -523,7 +523,7 @@ struct AudiobookDetailView: View {
                 showMoreMenu = true
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.sapphoHeadline)
                     .foregroundColor(.sapphoTextHigh)
                     .frame(width: 48, height: 60)
                     .background(Color.sapphoSurface.opacity(0.5))
@@ -549,9 +549,9 @@ struct AudiobookDetailView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 22))
+                        .font(.sapphoIconMedium)
                     Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.sapphoBodySemibold)
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -624,7 +624,7 @@ struct AudiobookDetailView: View {
                             let chapterIndex = chapters.firstIndex(where: { $0.startTime == chapter.startTime }) ?? 0
                             HStack(spacing: 6) {
                                 Image(systemName: "bookmark.fill")
-                                    .font(.system(size: 12))
+                                    .font(.sapphoIconMini)
                                     .foregroundColor(.sapphoPrimary)
                                 Text(chapter.title ?? "Chapter \(chapterIndex + 1)")
                                     .font(.sapphoSmall)
@@ -780,7 +780,7 @@ struct AudiobookDetailView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.sapphoHeadlineMedium)
                     .foregroundColor(color)
                     .frame(width: 40, height: 40)
                     .background(color.opacity(0.12))
@@ -788,17 +788,17 @@ struct AudiobookDetailView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.sapphoSubheadline)
                         .foregroundColor(.sapphoTextHigh)
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.sapphoCaption)
                         .foregroundColor(.sapphoTextMuted)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.sapphoCaptionSemibold)
                     .foregroundColor(.sapphoTextMuted.opacity(0.5))
             }
             .padding(.horizontal, 14)
@@ -828,7 +828,7 @@ struct AudiobookDetailView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.sapphoTextMuted)
                     Text("\(Int(progress * 100))%")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.sapphoDetailSemibold)
                         .foregroundColor(.sapphoTextHigh)
                         .contentTransition(.numericText())
                 }
@@ -870,17 +870,17 @@ struct AudiobookDetailView: View {
         switch downloadState {
         case .notDownloaded:
             Image(systemName: "arrow.down.circle")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.sapphoTextMuted)
         case .downloading:
             EmptyView()
         case .downloaded:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.sapphoSuccess)
         case .failed:
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.sapphoError)
         }
     }
@@ -1093,13 +1093,13 @@ struct MetadataItem: View {
             if let onTap = onTap {
                 Button(action: onTap) {
                     Text(value)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.sapphoSubheadline)
                         .foregroundColor(.sapphoPrimary)
                 }
                 .buttonStyle(.plain)
             } else {
                 Text(value)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.sapphoSubheadline)
                     .foregroundColor(isLink ? .sapphoPrimary : .sapphoTextHigh)
             }
         }
@@ -1159,7 +1159,7 @@ struct AddToCollectionSheet: View {
 
                                     if collection.isPublic == 1 {
                                         Image(systemName: "globe")
-                                            .font(.system(size: 12))
+                                            .font(.sapphoIconMini)
                                             .foregroundColor(.sapphoTextMuted)
                                     }
                                 }

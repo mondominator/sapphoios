@@ -32,7 +32,7 @@ struct UploadView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "folder")
-                                .font(.system(size: 16))
+                                .font(.sapphoSubheadline)
                             Text("Select Files")
                                 .font(.sapphoSubheadline)
                         }
@@ -60,7 +60,7 @@ struct UploadView: View {
                         ForEach(selectedFiles.prefix(5), id: \.absoluteString) { url in
                             HStack(spacing: 8) {
                                 Image(systemName: "music.note")
-                                    .font(.system(size: 14))
+                                    .font(.sapphoDetail)
                                     .foregroundColor(.sapphoTextMuted)
                                 Text(url.lastPathComponent)
                                     .font(.sapphoSmall)

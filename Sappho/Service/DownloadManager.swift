@@ -99,8 +99,40 @@ struct CachedChapter: Codable {
     }
 }
 
+// MARK: - DownloadManaging Protocol
+
+/// Protocol for download management, enabling testability via dependency injection.
+/// In production, use `DownloadManager.shared`. In tests, provide a mock conforming to this protocol.
+protocol DownloadManaging {
+    var downloads: [Int: DownloadState] { get }
+    var cachedMeta: [Int: DownloadedBookMeta] { get }
+    func configure(api: SapphoAPI)
+    func download(audiobook: Audiobook)
+    func cancelDownload(audiobookId: Int)
+    func removeDownload(audiobookId: Int)
+    func localURL(for audiobookId: Int) -> URL?
+    func isDownloaded(_ audiobookId: Int) -> Bool
+    func downloadProgress(for audiobookId: Int) -> Double?
+    func updatePosition(audiobookId: Int, position: Int)
+    func cacheChapters(audiobookId: Int, chapters: [Chapter])
+    func downloadedAudiobooks() -> [Audiobook]
+    func totalDownloadSize() -> Int64
+    func clearAllDownloads()
+}
+
+// MARK: - DownloadManager
+
+/// Manages audiobook downloads with background URL session support.
+///
+/// This class uses the singleton pattern (`DownloadManager.shared`) because:
+/// 1. It must handle background URL session delegate callbacks from the system
+/// 2. `AppDelegate` must forward background session events to the same instance
+/// 3. `URLSession` background sessions require a single delegate for the app lifetime
+///
+/// For testability, code that depends on download functionality should accept
+/// a `DownloadManaging` protocol rather than referencing `DownloadManager.shared` directly.
 @Observable
-class DownloadManager: NSObject {
+class DownloadManager: NSObject, DownloadManaging {
     static let shared = DownloadManager()
 
     var downloads: [Int: DownloadState] = [:]

@@ -37,7 +37,7 @@ struct PlayerView: View {
                             showFullPlayer = false
                         } label: {
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.sapphoHeadline)
                                 .foregroundColor(.sapphoTextHigh)
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
@@ -190,7 +190,7 @@ struct PlayerView: View {
                                 jumpToPreviousChapter()
                             } label: {
                                 Image(systemName: "backward.end.fill")
-                                    .font(.system(size: 22))
+                                    .font(.sapphoIconMedium)
                                     .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                             }
                             .disabled(!hasChapters)
@@ -205,7 +205,7 @@ struct PlayerView: View {
                                 audioPlayer.skipBackward(seconds: 10)
                             } label: {
                                 Image(systemName: "gobackward.10")
-                                    .font(.system(size: 32))
+                                    .font(.sapphoIconLarge)
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
@@ -224,7 +224,7 @@ struct PlayerView: View {
                                             : Color.sapphoPrimaryLight)
                                         .frame(width: 72, height: 72)
                                     Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 28))
+                                        .font(.sapphoPlayerPlayButton)
                                         .foregroundColor(.white)
                                 }
                                 .scaleEffect(audioPlayer.isPlaying && isPulsing ? 1.08 : 1.0)
@@ -258,7 +258,7 @@ struct PlayerView: View {
                                 audioPlayer.skipForward(seconds: 10)
                             } label: {
                                 Image(systemName: "goforward.10")
-                                    .font(.system(size: 32))
+                                    .font(.sapphoIconLarge)
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
@@ -271,7 +271,7 @@ struct PlayerView: View {
                                 jumpToNextChapter()
                             } label: {
                                 Image(systemName: "forward.end.fill")
-                                    .font(.system(size: 22))
+                                    .font(.sapphoIconMedium)
                                     .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                             }
                             .disabled(!hasChapters)
@@ -290,10 +290,10 @@ struct PlayerView: View {
                             } label: {
                                 VStack(spacing: 6) {
                                     Image(systemName: "list.bullet")
-                                        .font(.system(size: 20))
+                                        .font(.sapphoIconSmall)
                                         .foregroundColor(hasChapters ? .sapphoPrimary : Color.sapphoDisabled)
                                     Text("Chapters")
-                                        .font(.system(size: 11))
+                                        .font(.sapphoSmall)
                                         .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -310,7 +310,7 @@ struct PlayerView: View {
                             } label: {
                                 VStack(spacing: 6) {
                                     Image(systemName: "speedometer")
-                                        .font(.system(size: 20))
+                                        .font(.sapphoIconSmall)
                                         .foregroundColor(.sapphoSecondary)
                                     Text(String(format: "%.2gx", audioPlayer.playbackSpeed))
                                         .font(.sapphoSmall)
@@ -330,21 +330,21 @@ struct PlayerView: View {
                                 VStack(spacing: 6) {
                                     if audioPlayer.sleepAtEndOfChapter {
                                         Image(systemName: "moon.zzz.fill")
-                                            .font(.system(size: 20))
+                                            .font(.sapphoIconSmall)
                                             .foregroundColor(.sapphoWarning)
                                         Text("Chapter")
                                             .font(.sapphoSmall)
                                             .foregroundColor(.sapphoWarning)
                                     } else if let remaining = audioPlayer.sleepTimerRemaining, remaining > 0 {
                                         Image(systemName: "moon.zzz.fill")
-                                            .font(.system(size: 20))
+                                            .font(.sapphoIconSmall)
                                             .foregroundColor(.sapphoWarning)
                                         Text(formatTime(remaining))
                                             .font(.sapphoSmall)
                                             .foregroundColor(.sapphoWarning)
                                     } else {
                                         Image(systemName: "moon.zzz")
-                                            .font(.system(size: 20))
+                                            .font(.sapphoIconSmall)
                                             .foregroundColor(.sapphoWarning)
                                         Text("Off")
                                             .font(.sapphoSmall)
@@ -520,7 +520,7 @@ struct SpeedPickerSheet: View {
 
             // Current speed display
             Text(displaySpeed)
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .font(.sapphoPlayerSpeed)
                 .foregroundColor(.sapphoTextHigh)
                 .contentTransition(.numericText())
 
@@ -591,7 +591,7 @@ struct SleepTimerSheet: View {
                 // Active timer display
                 VStack(spacing: 8) {
                     Text(formatTime(remaining))
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.sapphoPlayerTimerDisplay)
                         .foregroundColor(.sapphoWarning)
                     Text("remaining")
                         .font(.sapphoCaption)
@@ -616,10 +616,10 @@ struct SleepTimerSheet: View {
                 // End of chapter active
                 VStack(spacing: 8) {
                     Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 36))
+                        .font(.sapphoIconHuge)
                         .foregroundColor(.sapphoWarning)
                     Text("End of chapter")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(.sapphoPlayerTimerLabel)
                         .foregroundColor(.sapphoWarning)
                 }
 
@@ -746,7 +746,7 @@ struct ChaptersSheet: View {
                         HStack {
                             if isCurrent {
                                 Image(systemName: "speaker.wave.2.fill")
-                                    .font(.system(size: 12))
+                                    .font(.sapphoIconMini)
                                     .foregroundColor(.sapphoPrimary)
                                     .accessibilityHidden(true)
                             }

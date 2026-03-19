@@ -126,7 +126,7 @@ struct AuthorCard: View {
                     // Book count
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                         Text("\(authorInfo.bookCount)")
                             .font(.sapphoSmall)
@@ -136,7 +136,7 @@ struct AuthorCard: View {
                     // Duration
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.system(size: 12))
+                            .font(.sapphoIconMini)
                             .foregroundColor(.sapphoPrimary)
                         Text("\(totalDuration / 3600)h")
                             .font(.sapphoSmall)
@@ -147,7 +147,7 @@ struct AuthorCard: View {
                     if completedCount > 0 {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.sapphoIconMini)
                                 .foregroundColor(.sapphoSuccess)
                             Text("\(completedCount)/\(authorInfo.bookCount)")
                                 .font(.sapphoSmall)
@@ -160,7 +160,7 @@ struct AuthorCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(.sapphoDetail)
                 .foregroundColor(.sapphoTextMuted)
         }
         .padding(16)

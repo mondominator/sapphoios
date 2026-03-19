@@ -86,16 +86,18 @@ struct MainView: View {
         }
         .overlay {
             if audioPlayer.currentAudiobook != nil {
-                PlayerView(showFullPlayer: Binding(
-                    get: { audioPlayer.showFullPlayer },
-                    set: { newValue in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                            audioPlayer.showFullPlayer = newValue
+                GeometryReader { geometry in
+                    PlayerView(showFullPlayer: Binding(
+                        get: { audioPlayer.showFullPlayer },
+                        set: { newValue in
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                                audioPlayer.showFullPlayer = newValue
+                            }
                         }
-                    }
-                ))
-                    .offset(y: audioPlayer.showFullPlayer ? 0 : UIScreen.main.bounds.height)
-                    .zIndex(1)
+                    ))
+                    .offset(y: audioPlayer.showFullPlayer ? 0 : geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom)
+                }
+                .zIndex(1)
             }
         }
         .sheet(isPresented: $showDownloads) {
@@ -204,7 +206,7 @@ struct MainView: View {
             }
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.sapphoTextMuted)
                 .frame(width: 48, height: 48)
                 .contentShape(Rectangle())
@@ -281,7 +283,7 @@ struct MainView: View {
                 .fill(Color.sapphoPrimary)
                 .frame(width: 40, height: 40)
             Text(userInitial)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.sapphoSubheadline)
                 .foregroundColor(.white)
         }
     }
@@ -293,14 +295,14 @@ struct MainView: View {
             showNotificationPanel = true
         } label: {
             Image(systemName: "bell")
-                .font(.system(size: 20))
+                .font(.sapphoIconSmall)
                 .foregroundColor(.sapphoTextMuted)
                 .frame(width: 40, height: 40)
                 .contentShape(Rectangle())
                 .overlay(alignment: .topTrailing) {
                     if unreadCount > 0 {
                         Text("\(unreadCount)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.sapphoTinyBold)
                             .foregroundColor(.white)
                             .frame(minWidth: 16, minHeight: 16)
                             .background(Color.red)
@@ -451,24 +453,24 @@ struct MiniPlayerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         // Marquee title when playing, static when paused
                         if audioPlayer.isPlaying {
-                            MarqueeText(text: audiobook.title, font: .system(size: 13, weight: .semibold))
+                            MarqueeText(text: audiobook.title, font: .sapphoCaptionSemibold)
                                 .foregroundColor(.white)
                         } else {
                             Text(audiobook.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.sapphoCaptionSemibold)
                                 .foregroundColor(.white)
                                 .lineLimit(1)
                         }
 
                         Text(audiobook.author ?? "Unknown Author")
-                            .font(.system(size: 11))
+                            .font(.sapphoSmall)
                             .foregroundColor(.sapphoTextMuted)
                             .lineLimit(1)
 
                         // Chapter name (if available)
                         if let chapter = audioPlayer.currentChapter, let chapterTitle = chapter.title {
                             Text(chapterTitle)
-                                .font(.system(size: 10))
+                                .font(.sapphoTiny)
                                 .foregroundColor(Color.sapphoPrimaryLight.opacity(0.8))
                                 .lineLimit(1)
                         } else {
@@ -501,7 +503,7 @@ struct MiniPlayerView: View {
                         audioPlayer.skipBackward(seconds: 10)
                     } label: {
                         Image(systemName: "gobackward.10")
-                            .font(.system(size: 18))
+                            .font(.sapphoIconTiny)
                             .foregroundColor(.sapphoTextMuted)
                     }
                     .frame(width: 36, height: 36)
@@ -518,7 +520,7 @@ struct MiniPlayerView: View {
                                 .scaleEffect(audioPlayer.isPlaying ? (playButtonGlowing ? 1.08 : 1.0) : 1.0)
                                 .shadow(color: playButtonColor.opacity(audioPlayer.isPlaying ? (playButtonGlowing ? 0.6 : 0.2) : 0), radius: audioPlayer.isPlaying ? 12 : 0)
                             Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22))
+                                .font(.sapphoIconMedium)
                                 .foregroundColor(.white)
                         }
                         .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: playButtonGlowing)
@@ -540,7 +542,7 @@ struct MiniPlayerView: View {
                         audioPlayer.skipForward(seconds: 10)
                     } label: {
                         Image(systemName: "goforward.10")
-                            .font(.system(size: 18))
+                            .font(.sapphoIconTiny)
                             .foregroundColor(.sapphoTextMuted)
                     }
                     .frame(width: 36, height: 36)
@@ -699,7 +701,7 @@ struct MiniPlayerTimeDisplay: View {
 
     var body: some View {
         Text("\(formatTime(displayPosition)) / \(formatTime(displayDuration))")
-            .font(.system(size: 10))
+            .font(.sapphoTiny)
             .foregroundColor(isPlaying
                 ? Color.sapphoPrimaryLight
                 : .sapphoTextMuted

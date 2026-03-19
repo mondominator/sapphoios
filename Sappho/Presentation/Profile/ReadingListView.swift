@@ -163,7 +163,7 @@ struct ReadingListRow: View {
         HStack(spacing: 12) {
             // Position number
             Text("\(position)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.sapphoSubheadlineRounded)
                 .foregroundColor(.sapphoPrimary)
                 .frame(width: 28)
 
