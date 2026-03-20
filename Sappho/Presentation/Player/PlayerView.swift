@@ -296,9 +296,11 @@ struct PlayerView: View {
                                         .font(.sapphoSmall)
                                         .foregroundColor(hasChapters ? .sapphoTextHigh : Color.sapphoDisabled)
                                 }
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .contentShape(Rectangle())
                                 .padding(.vertical, 12)
                             }
+                            .buttonStyle(.plain)
                             .disabled(!hasChapters)
                             .accessibilityLabel("Chapters")
                             .accessibilityValue(audioPlayer.currentChapter?.title ?? "No chapter selected")
@@ -316,9 +318,11 @@ struct PlayerView: View {
                                         .font(.sapphoSmall)
                                         .foregroundColor(.sapphoTextHigh)
                                 }
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .contentShape(Rectangle())
                                 .padding(.vertical, 12)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityLabel("Playback speed")
                             .accessibilityValue(String(format: "%.2g times", audioPlayer.playbackSpeed))
                             .accessibilityHint("Double tap to change playback speed")
@@ -351,9 +355,11 @@ struct PlayerView: View {
                                             .foregroundColor(.sapphoTextHigh)
                                     }
                                 }
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .contentShape(Rectangle())
                                 .padding(.vertical, 12)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityLabel("Sleep timer")
                             .accessibilityValue(audioPlayer.sleepTimerRemaining != nil ? "\(formatTime(audioPlayer.sleepTimerRemaining!)) remaining" : "Off")
                             .accessibilityHint("Double tap to set sleep timer")

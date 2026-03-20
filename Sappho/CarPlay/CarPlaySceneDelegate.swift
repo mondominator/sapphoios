@@ -70,10 +70,21 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     // MARK: - Playback
 
     private func playBook(_ book: Audiobook) {
-        guard let audioPlayer = ServiceLocator.shared.audioPlayer else { return }
+        guard let audioPlayer = ServiceLocator.shared.audioPlayer,
+              let api = ServiceLocator.shared.api else { return }
 
         Task { @MainActor in
-            await audioPlayer.play(audiobook: book)
+            // Fetch fresh audiobook data from server to get latest progress
+            // (user may have listened on another device since app launched)
+            let freshBook: Audiobook
+            do {
+                freshBook = try await api.getAudiobook(id: book.id)
+            } catch {
+                // Fall back to cached data if server is unreachable
+                freshBook = book
+            }
+
+            await audioPlayer.play(audiobook: freshBook)
 
             // Show Now Playing
             if let interfaceController = interfaceController,
