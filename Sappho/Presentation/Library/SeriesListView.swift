@@ -67,8 +67,7 @@ struct SeriesListView: View {
             series = try await seriesData ?? []
             allBooks = try await booksData ?? []
 
-            // Sort series by book count (descending)
-            series.sort { $0.bookCount > $1.bookCount }
+            // Keep server order (alphabetical by series name)
         } catch {
             errorMessage = error.localizedDescription
         }
