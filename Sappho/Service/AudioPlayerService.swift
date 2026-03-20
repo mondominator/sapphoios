@@ -635,8 +635,18 @@ class AudioPlayerService: NSObject {
             player?.pause()
             isPlaying = false
             updateNowPlayingInfo()
-        case .newDeviceAvailable, .override, .routeConfigurationChange:
-            // AirPlay or Bluetooth connected — re-activate session and continue
+        case .newDeviceAvailable:
+            // New device connected (CarPlay, Bluetooth, etc.)
+            // Re-activate session but don't auto-resume — let user press play
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("Failed to reactivate audio session on route change: \(error)")
+            }
+            updateNowPlayingInfo()
+            wasPlayingBeforeRouteChange = false
+        case .override, .routeConfigurationChange:
+            // Route reconfigured (e.g., speaker switch) — safe to resume
             do {
                 try AVAudioSession.sharedInstance().setActive(true)
             } catch {
