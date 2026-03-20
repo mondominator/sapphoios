@@ -13,6 +13,7 @@ struct PlayerView: View {
     @State private var showSpeedPicker = false
     @State private var showSleepTimer = false
     @State private var showChapters = false
+    @State private var showHistory = false
     @State private var dragOffset: CGFloat = 0
     @State private var isPulsing = false
     @State private var isSeeking = false
@@ -363,6 +364,26 @@ struct PlayerView: View {
                             .accessibilityLabel("Sleep timer")
                             .accessibilityValue(audioPlayer.sleepTimerRemaining != nil ? "\(formatTime(audioPlayer.sleepTimerRemaining!)) remaining" : "Off")
                             .accessibilityHint("Double tap to set sleep timer")
+
+                            // History
+                            Button {
+                                showHistory = true
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.sapphoIconSmall)
+                                        .foregroundColor(.sapphoSecondary)
+                                    Text("History")
+                                        .font(.sapphoSmall)
+                                        .foregroundColor(.sapphoTextHigh)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .contentShape(Rectangle())
+                                .padding(.vertical, 12)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Listening history")
+                            .accessibilityHint("Double tap to view listening history")
                         }
                         .padding(.top, 8)
 
@@ -422,6 +443,14 @@ struct PlayerView: View {
                     audioPlayer.jumpToChapter(chapter)
                     showChapters = false
                 }
+            }
+            .sheet(isPresented: $showHistory) {
+                ListeningHistorySheet(audiobookId: audiobook.id) { position in
+                    Task {
+                        await audioPlayer.seek(to: Double(position))
+                    }
+                }
+                .presentationDetents([.medium, .large])
             }
         } else {
             EmptyStateView(

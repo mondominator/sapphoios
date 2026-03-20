@@ -285,6 +285,16 @@ class SapphoAPI {
         try await request("api/audiobooks/\(audiobookId)/chapters")
     }
 
+    // MARK: - Listening Sessions
+
+    func getListeningSessions(audiobookId: Int, limit: Int = 50) async throws -> [ListeningSession] {
+        let response: ListeningSessionsResponse = try await request(
+            "api/audiobooks/\(audiobookId)/sessions",
+            queryItems: [URLQueryItem(name: "limit", value: String(limit))]
+        )
+        return response.sessions
+    }
+
     // MARK: - Favorites
 
     func getFavorites(sort: String = "custom") async throws -> [Audiobook] {
