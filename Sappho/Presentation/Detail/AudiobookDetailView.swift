@@ -25,7 +25,8 @@ struct AudiobookDetailView: View {
     @State private var userReviewText: String = ""
     @State private var isSubmittingReview = false
     @State private var showRatingPicker = false
-    @State private var showReviewInput = false
+    @State private var showReviews = false
+    @FocusState private var isReviewFocused: Bool
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
@@ -69,12 +70,6 @@ struct AudiobookDetailView: View {
 
                 // Rating Section (directly under cover)
                 ratingSection
-
-                // Review text input (when user has rated)
-                reviewInputSection
-
-                // Reviews list
-                reviewsSection
 
                 // Action row: Play + Download + Overflow (matches Android layout)
                 actionRow
@@ -305,9 +300,13 @@ struct AudiobookDetailView: View {
     }
 
     // MARK: - Rating Section
+    private var reviewCount: Int {
+        reviews.count
+    }
+
     private var ratingSection: some View {
         VStack(spacing: 12) {
-            // Main row: Average rating + Rate button
+            // Main row: Average rating + Rate button + Comment count
             HStack(spacing: 16) {
                 // Show average rating
                 if let avg = averageRating, avg.count > 0 {
@@ -318,9 +317,6 @@ struct AudiobookDetailView: View {
                         Text(String(format: "%.1f", avg.average ?? 0))
                             .font(.sapphoBodyMedium)
                             .foregroundColor(.sapphoTextHigh)
-                        Text("(\(avg.count))")
-                            .font(.sapphoCaption)
-                            .foregroundColor(.sapphoTextMuted)
                     }
                 }
 
@@ -328,6 +324,7 @@ struct AudiobookDetailView: View {
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         showRatingPicker.toggle()
+                        if !showRatingPicker { isReviewFocused = false }
                     }
                 } label: {
                     HStack(spacing: 4) {
@@ -354,25 +351,102 @@ struct AudiobookDetailView: View {
                             )
                     )
                 }
+
+                // Comment count bubble - tappable to show/hide reviews
+                if reviewCount > 0 {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showReviews.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: showReviews ? "bubble.left.fill" : "bubble.left")
+                                .font(.sapphoDetail)
+                                .foregroundColor(showReviews ? .sapphoPrimary : .sapphoTextMuted)
+                            Text("\(reviewCount)")
+                                .font(.sapphoCaption)
+                                .foregroundColor(showReviews ? .sapphoPrimary : .sapphoTextMuted)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    showReviews ? Color.sapphoPrimary.opacity(0.5) : Color.sapphoTextMuted.opacity(0.3),
+                                    lineWidth: 1
+                                )
+                        )
+                    }
+                }
             }
 
-            // Expandable star picker
+            // Expandable star picker + review input (open/close together)
             if showRatingPicker {
-                HStack(spacing: 6) {
-                    ForEach(1...5, id: \.self) { star in
-                        Button {
-                            if userRating == star {
-                                Task { await clearRating() }
-                            } else {
-                                Task { await setRating(star) }
-                                withAnimation { showRatingPicker = false }
+                VStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                        ForEach(1...5, id: \.self) { star in
+                            Button {
+                                if userRating == star {
+                                    Task { await clearRating() }
+                                } else {
+                                    Task { await setRating(star) }
+                                }
+                            } label: {
+                                Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
+                                    .font(.sapphoIconLarge)
+                                    .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted.opacity(0.4))
                             }
-                        } label: {
-                            Image(systemName: star <= (userRating ?? 0) ? "star.fill" : "star")
-                                .font(.sapphoIconLarge)
-                                .foregroundColor(star <= (userRating ?? 0) ? .sapphoWarning : .sapphoTextMuted.opacity(0.4))
+                            .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
                         }
-                        .accessibilityLabel("Rate \(star) star\(star == 1 ? "" : "s")")
+                    }
+
+                    // Review input
+                    TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
+                        .lineLimit(3...6)
+                        .font(.sapphoBody)
+                        .foregroundColor(.sapphoTextHigh)
+                        .focused($isReviewFocused)
+                        .padding(12)
+                        .background(Color.sapphoSurface)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+
+                    HStack {
+                        Spacer()
+                        Button {
+                            Task { await submitReview() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if isSubmittingReview {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .scaleEffect(0.8)
+                                }
+                                Text("Submit")
+                                    .font(.sapphoCaption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.sapphoPrimary)
+                            .cornerRadius(8)
+                        }
+                        .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                    }
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+
+            // Reviews dropdown (toggled by comment bubble)
+            if showReviews {
+                VStack(spacing: 10) {
+                    ForEach(allReviewsWithText) { item in
+                        reviewCard(item)
                     }
                 }
                 .transition(.scale.combined(with: .opacity))
@@ -381,118 +455,29 @@ struct AudiobookDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Review Input Section
-    @ViewBuilder
-    private var reviewInputSection: some View {
-        if userRating != nil {
-            VStack(alignment: .leading, spacing: 10) {
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        showReviewInput.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: showReviewInput ? "text.bubble.fill" : "text.bubble")
-                            .font(.sapphoDetail)
-                            .foregroundColor(showReviewInput ? .sapphoPrimary : .sapphoTextMuted)
-                        Text(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Write a review" : "Edit review")
-                            .font(.sapphoCaption)
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                showReviewInput ? Color.sapphoPrimary.opacity(0.5) : Color.sapphoTextMuted.opacity(0.3),
-                                lineWidth: 1
-                            )
-                    )
-                }
-
-                if showReviewInput {
-                    VStack(alignment: .leading, spacing: 10) {
-                        TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
-                            .lineLimit(3...6)
-                            .font(.sapphoBody)
-                            .foregroundColor(.sapphoTextHigh)
-                            .padding(12)
-                            .background(Color.sapphoSurface)
-                            .cornerRadius(10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            )
-
-                        HStack {
-                            Spacer()
-                            Button {
-                                Task { await submitReview() }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    if isSubmittingReview {
-                                        ProgressView()
-                                            .tint(.white)
-                                            .scaleEffect(0.8)
-                                    }
-                                    Text("Submit Review")
-                                        .font(.sapphoCaption)
-                                        .fontWeight(.semibold)
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.sapphoPrimary)
-                                .cornerRadius(8)
-                            }
-                            .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
-                        }
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .padding(.horizontal, 24)
-        }
-    }
-
-    // MARK: - Reviews Section
-    @ViewBuilder
-    private var reviewsSection: some View {
-        let currentUserId = authRepository.currentUser?.id ?? authRepository.currentLoginUser?.id
-        let filteredReviews = reviews.filter { item in
-            guard let review = item.review, !review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                return false
-            }
-            if let currentUserId {
-                return item.userId != currentUserId
-            }
+    private var allReviewsWithText: [ReviewItem] {
+        reviews.filter { item in
+            guard let review = item.review, !review.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
             return true
         }
-
-        if !filteredReviews.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Reviews (\(filteredReviews.count))")
-                    .font(.sapphoSubheadline)
-                    .foregroundColor(.sapphoTextHigh)
-
-                VStack(spacing: 10) {
-                    ForEach(filteredReviews) { item in
-                        reviewCard(item)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-        }
     }
+
+
+
+
 
     private func reviewCard(_ item: ReviewItem) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(item.displayName ?? item.username ?? "User")
-                    .font(.sapphoCaption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.sapphoTextHigh)
+                HStack(spacing: 6) {
+                    Image(systemName: "person.circle.fill")
+                        .font(.sapphoBody)
+                        .foregroundColor(.sapphoTextMuted)
+                    Text(item.displayName ?? item.username ?? "User")
+                        .font(.sapphoCaption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.sapphoTextHigh)
+                }
 
                 Spacer()
 
@@ -516,7 +501,7 @@ struct AudiobookDetailView: View {
 
             if let dateString = item.updatedAt ?? item.createdAt {
                 Text(relativeDate(from: dateString))
-                    .font(.sapphoSmall)
+                    .font(.sapphoTiny)
                     .foregroundColor(.sapphoTextMuted)
             }
         }
@@ -1054,6 +1039,7 @@ struct AudiobookDetailView: View {
     private func submitReview() async {
         guard let currentRating = userRating else { return }
         isSubmittingReview = true
+        isReviewFocused = false
         do {
             let reviewText = userReviewText.trimmingCharacters(in: .whitespacesAndNewlines)
             let response = try await api?.setRating(
@@ -1062,7 +1048,7 @@ struct AudiobookDetailView: View {
                 review: reviewText.isEmpty ? nil : reviewText
             )
             userRating = response?.rating
-            userReviewText = response?.review ?? ""
+            userReviewText = ""
             averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
             await loadReviews()
             showToast("Review submitted")
