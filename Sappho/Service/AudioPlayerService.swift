@@ -23,6 +23,7 @@ class AudioPlayerService: NSObject {
     private var isObservingPlayerItem = false
     private var interruptionObserver: Any?
     private var routeChangeObserver: Any?
+    private var playbackEndObserver: Any?
 
     private var api: SapphoAPI?
     private var lastSyncPosition: Int = 0
@@ -584,6 +585,13 @@ class AudioPlayerService: NSObject {
         ) { [weak self] notification in
             self?.handleRouteChange(notification: notification)
         }
+        playbackEndObserver = NotificationCenter.default.addObserver(
+            forName: AVPlayerItem.didPlayToEndTimeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handlePlaybackEnd()
+        }
     }
 
     private func handleInterruption(notification: Notification) {
@@ -664,6 +672,22 @@ class AudioPlayerService: NSObject {
         }
     }
 
+    private func handlePlaybackEnd() {
+        guard let audiobook = currentAudiobook, let api = api else { return }
+        isPlaying = false
+        updateNowPlayingInfo()
+        savePlaybackState()
+
+        Task {
+            do {
+                try await api.markFinished(audiobookId: audiobook.id)
+                print("Marked audiobook \(audiobook.id) as finished")
+            } catch {
+                print("Failed to mark audiobook as finished: \(error)")
+            }
+        }
+    }
+
     /// Call when the app returns to foreground to ensure audio session is still valid
     func handleAppDidBecomeActive() {
         // Flush any progress that failed to sync while offline
@@ -693,6 +717,7 @@ class AudioPlayerService: NSObject {
     deinit {
         if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = routeChangeObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = playbackEndObserver { NotificationCenter.default.removeObserver(obs) }
     }
 }
 

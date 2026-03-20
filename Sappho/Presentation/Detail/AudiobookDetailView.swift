@@ -82,10 +82,7 @@ struct AudiobookDetailView: View {
                 // Progress Section (if has progress)
                 progressSection
 
-                // Catch Up (AI Recap)
-                catchUpSection
-
-                // Description
+                // Description (with Catch Up button)
                 descriptionSection
 
                 // Title and Metadata
@@ -616,7 +613,7 @@ struct AudiobookDetailView: View {
     // MARK: - Progress Section
     @ViewBuilder
     private var progressSection: some View {
-        if let progress = displayBook.progress, let duration = displayBook.duration, duration > 0, progress.position > 0 {
+        if let progress = displayBook.progress, let duration = displayBook.duration, duration > 0, (progress.position > 0 || progress.completed == 1) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Progress")
                     .font(.sapphoSubheadline)
@@ -762,12 +759,30 @@ struct AudiobookDetailView: View {
     // MARK: - Description Section
     @ViewBuilder
     private var descriptionSection: some View {
+        let showCatchUp = catchUpVisible
         if let description = displayBook.description, !description.isEmpty {
             let cleanText = stripHTML(description)
             VStack(alignment: .leading, spacing: 8) {
-                Text("About")
-                    .font(.sapphoHeadline)
-                    .foregroundColor(.sapphoTextHigh)
+                // Header row with About title and Catch Up button (matches Android)
+                HStack {
+                    Text("About")
+                        .font(.sapphoHeadline)
+                        .foregroundColor(.sapphoTextHigh)
+                    Spacer()
+                    if showCatchUp {
+                        Button {
+                            Task { await loadRecap() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 14))
+                                Text("Catch Up")
+                                    .font(.system(size: 14, weight: .medium))
+                            }
+                            .foregroundColor(Color(red: 0.655, green: 0.545, blue: 0.98)) // #A78BFA
+                        }
+                    }
+                }
 
                 Text(cleanText)
                     .font(.sapphoBody)
@@ -785,6 +800,9 @@ struct AudiobookDetailView: View {
                 }
                 .accessibilityLabel(descriptionExpanded ? "Show less of description" : "Show more of description")
                 .accessibilityHint("Double tap to \(descriptionExpanded ? "collapse" : "expand") the description")
+
+                // Recap content (inline below description)
+                catchUpContent
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
@@ -1112,83 +1130,65 @@ struct AudiobookDetailView: View {
 
     // MARK: - Catch Up (AI Recap)
 
+    private var catchUpVisible: Bool {
+        let bookProgress = (fullAudiobook ?? audiobook).progress
+        let bookHasProgress = (bookProgress?.position ?? 0 > 0) || (bookProgress?.completed ?? 0 == 1)
+        return isAiConfigured && displayBook.series != nil && (bookHasProgress || previousBookCompleted)
+    }
+
     @ViewBuilder
-    private var catchUpSection: some View {
-        let bookHasProgress = (fullAudiobook ?? audiobook).progress?.position ?? 0 > 0
-        if isAiConfigured && displayBook.series != nil && (bookHasProgress || previousBookCompleted) {
-            VStack(spacing: 12) {
-                Button {
+    private var catchUpContent: some View {
+        if isLoadingRecap {
+            VStack(spacing: 8) {
+                ProgressView()
+                    .tint(.sapphoTextMuted)
+                Text("Generating recap...")
+                    .font(.sapphoCaption)
+                    .foregroundColor(.sapphoTextMuted)
+                Text("This may take a moment")
+                    .font(.sapphoCaption)
+                    .foregroundColor(.sapphoTextMuted)
+            }
+            .padding()
+        }
+
+        if let error = recapError {
+            VStack(spacing: 8) {
+                Text(error)
+                    .font(.sapphoCaption)
+                    .foregroundColor(.red)
+                Button("Retry") {
                     Task { await loadRecap() }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
-                            .font(.sapphoBody)
-                        Text("Catch Up")
-                            .font(.sapphoBodyMedium)
-                    }
-                    .foregroundColor(.purple)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.purple.opacity(0.5), lineWidth: 1)
-                    )
                 }
+                .font(.sapphoCaption)
+                .foregroundColor(.sapphoPrimary)
+            }
+        }
 
-                if isLoadingRecap {
-                    VStack(spacing: 8) {
-                        ProgressView()
-                            .tint(.sapphoTextMuted)
-                        Text("Generating recap...")
-                            .font(.sapphoCaption)
-                            .foregroundColor(.sapphoTextMuted)
-                        Text("This may take a moment")
-                            .font(.sapphoCaption)
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-                    .padding()
-                }
+        if let recap = recapText {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(recap)
+                    .font(.sapphoBody)
+                    .foregroundColor(.sapphoTextHigh)
+                    .textSelection(.enabled)
 
-                if let error = recapError {
-                    VStack(spacing: 8) {
-                        Text(error)
-                            .font(.sapphoCaption)
-                            .foregroundColor(.red)
-                        Button("Retry") {
-                            Task { await loadRecap() }
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await regenerateRecap() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Regenerate")
                         }
                         .font(.sapphoCaption)
-                        .foregroundColor(.sapphoPrimary)
+                        .foregroundColor(.sapphoTextMuted)
                     }
-                }
-
-                if let recap = recapText {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(recap)
-                            .font(.sapphoBody)
-                            .foregroundColor(.sapphoTextHigh)
-                            .textSelection(.enabled)
-
-                        HStack {
-                            Spacer()
-                            Button {
-                                Task { await regenerateRecap() }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("Regenerate")
-                                }
-                                .font(.sapphoCaption)
-                                .foregroundColor(.sapphoTextMuted)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(12)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(16)
+            .background(Color.sapphoSurface)
+            .cornerRadius(12)
         }
     }
 
