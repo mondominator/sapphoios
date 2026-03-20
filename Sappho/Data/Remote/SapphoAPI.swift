@@ -285,6 +285,16 @@ class SapphoAPI {
         try await request("api/audiobooks/\(audiobookId)/chapters")
     }
 
+    // MARK: - Listening Sessions
+
+    func getListeningSessions(audiobookId: Int, limit: Int = 50) async throws -> [ListeningSession] {
+        let response: ListeningSessionsResponse = try await request(
+            "api/audiobooks/\(audiobookId)/sessions",
+            queryItems: [URLQueryItem(name: "limit", value: String(limit))]
+        )
+        return response.sessions
+    }
+
     // MARK: - Favorites
 
     func getFavorites(sort: String = "custom") async throws -> [Audiobook] {
@@ -444,6 +454,24 @@ class SapphoAPI {
     func getSeriesRecap(seriesName: String) async throws -> SeriesRecapResponse {
         let encoded = seriesName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? seriesName
         return try await request("api/series/\(encoded)/recap")
+    }
+
+    // MARK: - Audiobook Recap (Catch Up)
+
+    func getAiStatus() async throws -> AiStatusResponse {
+        try await request("api/settings/ai/status")
+    }
+
+    func getAudiobookRecap(audiobookId: Int) async throws -> AudiobookRecapResponse {
+        try await request("api/audiobooks/\(audiobookId)/recap")
+    }
+
+    func clearAudiobookRecap(audiobookId: Int) async throws {
+        try await requestVoid("api/audiobooks/\(audiobookId)/recap", method: "DELETE")
+    }
+
+    func getPreviousBookStatus(audiobookId: Int) async throws -> PreviousBookStatusResponse {
+        try await request("api/audiobooks/\(audiobookId)/previous-book-status")
     }
 
     // MARK: - Health

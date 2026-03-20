@@ -25,6 +25,7 @@ struct AudiobookDetailView: View {
     @State private var userReviewText: String = ""
     @State private var isSubmittingReview = false
     @State private var showRatingPicker = false
+    @State private var showReviewInput = false
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
@@ -37,6 +38,11 @@ struct AudiobookDetailView: View {
     @State private var seriesToNavigate: String = ""
     @State private var showAuthorView = false
     @State private var showSeriesView = false
+    @State private var isAiConfigured = false
+    @State private var recapText: String?
+    @State private var isLoadingRecap = false
+    @State private var recapError: String?
+    @State private var previousBookCompleted = false
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -76,7 +82,7 @@ struct AudiobookDetailView: View {
                 // Progress Section (if has progress)
                 progressSection
 
-                // Description
+                // Description (with Catch Up button)
                 descriptionSection
 
                 // Title and Metadata
@@ -200,6 +206,8 @@ struct AudiobookDetailView: View {
             await loadRating()
             await loadReviews()
             await loadCollections()
+            await checkAiStatus()
+            await checkPreviousBookStatus()
         }
         .overlay(alignment: .bottom) {
             if let message = toastMessage {
@@ -378,41 +386,70 @@ struct AudiobookDetailView: View {
     private var reviewInputSection: some View {
         if userRating != nil {
             VStack(alignment: .leading, spacing: 10) {
-                TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
-                    .lineLimit(3...6)
-                    .font(.sapphoBody)
-                    .foregroundColor(.sapphoTextHigh)
-                    .padding(12)
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-
-                HStack {
-                    Spacer()
-                    Button {
-                        Task { await submitReview() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            if isSubmittingReview {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(0.8)
-                            }
-                            Text("Submit Review")
-                                .font(.sapphoCaption)
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.sapphoPrimary)
-                        .cornerRadius(8)
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showReviewInput.toggle()
                     }
-                    .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: showReviewInput ? "text.bubble.fill" : "text.bubble")
+                            .font(.sapphoDetail)
+                            .foregroundColor(showReviewInput ? .sapphoPrimary : .sapphoTextMuted)
+                        Text(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Write a review" : "Edit review")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                showReviewInput ? Color.sapphoPrimary.opacity(0.5) : Color.sapphoTextMuted.opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
+                }
+
+                if showReviewInput {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
+                            .lineLimit(3...6)
+                            .font(.sapphoBody)
+                            .foregroundColor(.sapphoTextHigh)
+                            .padding(12)
+                            .background(Color.sapphoSurface)
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+
+                        HStack {
+                            Spacer()
+                            Button {
+                                Task { await submitReview() }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if isSubmittingReview {
+                                        ProgressView()
+                                            .tint(.white)
+                                            .scaleEffect(0.8)
+                                    }
+                                    Text("Submit Review")
+                                        .font(.sapphoCaption)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.sapphoPrimary)
+                                .cornerRadius(8)
+                            }
+                            .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                        }
+                    }
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 24)
@@ -576,7 +613,7 @@ struct AudiobookDetailView: View {
     // MARK: - Progress Section
     @ViewBuilder
     private var progressSection: some View {
-        if let progress = displayBook.progress, let duration = displayBook.duration, duration > 0, progress.position > 0 {
+        if let progress = displayBook.progress, let duration = displayBook.duration, duration > 0, (progress.position > 0 || progress.completed == 1) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Progress")
                     .font(.sapphoSubheadline)
@@ -722,12 +759,30 @@ struct AudiobookDetailView: View {
     // MARK: - Description Section
     @ViewBuilder
     private var descriptionSection: some View {
+        let showCatchUp = catchUpVisible
         if let description = displayBook.description, !description.isEmpty {
             let cleanText = stripHTML(description)
             VStack(alignment: .leading, spacing: 8) {
-                Text("About")
-                    .font(.sapphoHeadline)
-                    .foregroundColor(.sapphoTextHigh)
+                // Header row with About title and Catch Up button (matches Android)
+                HStack {
+                    Text("About")
+                        .font(.sapphoHeadline)
+                        .foregroundColor(.sapphoTextHigh)
+                    Spacer()
+                    if showCatchUp {
+                        Button {
+                            Task { await loadRecap() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 14))
+                                Text("Catch Up")
+                                    .font(.system(size: 14, weight: .medium))
+                            }
+                            .foregroundColor(Color(red: 0.655, green: 0.545, blue: 0.98)) // #A78BFA
+                        }
+                    }
+                }
 
                 Text(cleanText)
                     .font(.sapphoBody)
@@ -745,6 +800,9 @@ struct AudiobookDetailView: View {
                 }
                 .accessibilityLabel(descriptionExpanded ? "Show less of description" : "Show more of description")
                 .accessibilityHint("Double tap to \(descriptionExpanded ? "collapse" : "expand") the description")
+
+                // Recap content (inline below description)
+                catchUpContent
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
@@ -1068,6 +1126,111 @@ struct AudiobookDetailView: View {
         } catch {
             showToast("Failed to clear progress")
         }
+    }
+
+    // MARK: - Catch Up (AI Recap)
+
+    private var catchUpVisible: Bool {
+        let bookProgress = (fullAudiobook ?? audiobook).progress
+        let bookHasProgress = (bookProgress?.position ?? 0 > 0) || (bookProgress?.completed ?? 0 == 1)
+        return isAiConfigured && displayBook.series != nil && (bookHasProgress || previousBookCompleted)
+    }
+
+    @ViewBuilder
+    private var catchUpContent: some View {
+        if isLoadingRecap {
+            VStack(spacing: 8) {
+                ProgressView()
+                    .tint(.sapphoTextMuted)
+                Text("Generating recap...")
+                    .font(.sapphoCaption)
+                    .foregroundColor(.sapphoTextMuted)
+                Text("This may take a moment")
+                    .font(.sapphoCaption)
+                    .foregroundColor(.sapphoTextMuted)
+            }
+            .padding()
+        }
+
+        if let error = recapError {
+            VStack(spacing: 8) {
+                Text(error)
+                    .font(.sapphoCaption)
+                    .foregroundColor(.red)
+                Button("Retry") {
+                    Task { await loadRecap() }
+                }
+                .font(.sapphoCaption)
+                .foregroundColor(.sapphoPrimary)
+            }
+        }
+
+        if let recap = recapText {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(recap)
+                    .font(.sapphoBody)
+                    .foregroundColor(.sapphoTextHigh)
+                    .textSelection(.enabled)
+
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await regenerateRecap() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Regenerate")
+                        }
+                        .font(.sapphoCaption)
+                        .foregroundColor(.sapphoTextMuted)
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color.sapphoSurface)
+            .cornerRadius(12)
+        }
+    }
+
+    private func checkAiStatus() async {
+        do {
+            let status = try await api?.getAiStatus()
+            isAiConfigured = status?.configured ?? false
+        } catch {
+            // AI not available, button stays hidden
+        }
+    }
+
+    private func checkPreviousBookStatus() async {
+        guard displayBook.series != nil else { return }
+        do {
+            let status = try await api?.getPreviousBookStatus(audiobookId: displayBook.id)
+            previousBookCompleted = status?.previousBookCompleted ?? false
+        } catch {
+            // Ignore errors, button visibility falls back to progress check
+        }
+    }
+
+    private func loadRecap() async {
+        isLoadingRecap = true
+        recapError = nil
+        do {
+            let response = try await api?.getAudiobookRecap(audiobookId: displayBook.id)
+            recapText = response?.recap
+        } catch {
+            recapError = "Failed to generate recap. Please try again."
+        }
+        isLoadingRecap = false
+    }
+
+    private func regenerateRecap() async {
+        recapText = nil
+        do {
+            try await api?.clearAudiobookRecap(audiobookId: displayBook.id)
+        } catch {
+            // Ignore clear error, try to regenerate anyway
+        }
+        await loadRecap()
     }
 
     private func showToast(_ message: String) {

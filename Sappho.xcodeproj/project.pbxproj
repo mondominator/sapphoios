@@ -48,6 +48,8 @@
 		TIMEFMT002A0B2C3D4E5F67 /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */; };
 		UPLOAD002A0B2C3D4E5F6789 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */; };
 		NOTIF002A0B2C3D4E5F67890 /* NotificationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */; };
+		LSESS002A0B2C3D4E5F67890 /* ListeningSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = LSESS001A0B2C3D4E5F67890 /* ListeningSession.swift */; };
+		LHIST002A0B2C3D4E5F67890 /* ListeningHistorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = LHIST001A0B2C3D4E5F67890 /* ListeningHistorySheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +116,8 @@
 		TIMEFMT001A0B2C3D4E5F67 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
 		UPLOAD001A0B2C3D4E5F6789 /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		NOTIF001A0B2C3D4E5F67890 /* NotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPanel.swift; sourceTree = "<group>"; };
+		LSESS001A0B2C3D4E5F67890 /* ListeningSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningSession.swift; sourceTree = "<group>"; };
+		LHIST001A0B2C3D4E5F67890 /* ListeningHistorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningHistorySheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -154,6 +158,7 @@
 		19C4657DFEDF79509E63BC77 /* Player */ = {
 			isa = PBXGroup;
 			children = (
+				LHIST001A0B2C3D4E5F67890 /* ListeningHistorySheet.swift */,
 				8B193F831F3EF80C680572FD /* PlayerView.swift */,
 			);
 			path = Player;
@@ -243,6 +248,7 @@
 		7E33F3B9CFB0FA9145931086 /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				LSESS001A0B2C3D4E5F67890 /* ListeningSession.swift */,
 				E22ACA0246E31FF6761AD235 /* Models.swift */,
 			);
 			path = Model;
@@ -514,6 +520,8 @@
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,
 				NOTIF002A0B2C3D4E5F67890 /* NotificationPanel.swift in Sources */,
 				0E910386749D27DA69B74339 /* PlayerView.swift in Sources */,
+				LSESS002A0B2C3D4E5F67890 /* ListeningSession.swift in Sources */,
+				LHIST002A0B2C3D4E5F67890 /* ListeningHistorySheet.swift in Sources */,
 				C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */,
 				454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */,
 				52DB44178852809417DBFFA9 /* RootView.swift in Sources */,

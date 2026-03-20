@@ -611,6 +611,39 @@ struct RecapBookInfo: Codable, Identifiable {
     let position: Float?
 }
 
+// MARK: - Audiobook Recap (Catch Up)
+struct AudiobookRecapResponse: Codable {
+    let recap: String
+    let cached: Bool?
+    let cachedAt: String?
+    let priorBooks: [RecapBookInfo]?
+}
+
+struct AiStatusResponse: Codable {
+    let configured: Bool
+}
+
+struct PreviousBookStatusResponse: Codable {
+    let previousBookCompleted: Bool
+    let previousBook: PreviousBookInfo?
+
+    enum CodingKeys: String, CodingKey {
+        case previousBookCompleted = "previous_book_completed"
+        case previousBook = "previous_book"
+    }
+}
+
+struct PreviousBookInfo: Codable {
+    let id: Int
+    let title: String
+    let seriesPosition: Float?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case seriesPosition = "series_position"
+    }
+}
+
 // MARK: - Rating
 struct UserRating: Codable {
     let id: Int
