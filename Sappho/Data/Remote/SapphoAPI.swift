@@ -456,6 +456,24 @@ class SapphoAPI {
         return try await request("api/series/\(encoded)/recap")
     }
 
+    // MARK: - Audiobook Recap (Catch Up)
+
+    func getAiStatus() async throws -> AiStatusResponse {
+        try await request("api/settings/ai/status")
+    }
+
+    func getAudiobookRecap(audiobookId: Int) async throws -> AudiobookRecapResponse {
+        try await request("api/audiobooks/\(audiobookId)/recap")
+    }
+
+    func clearAudiobookRecap(audiobookId: Int) async throws {
+        try await requestVoid("api/audiobooks/\(audiobookId)/recap", method: "DELETE")
+    }
+
+    func getPreviousBookStatus(audiobookId: Int) async throws -> PreviousBookStatusResponse {
+        try await request("api/audiobooks/\(audiobookId)/previous-book-status")
+    }
+
     // MARK: - Health
 
     func getHealth() async throws -> HealthResponse {

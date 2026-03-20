@@ -38,6 +38,11 @@ struct AudiobookDetailView: View {
     @State private var seriesToNavigate: String = ""
     @State private var showAuthorView = false
     @State private var showSeriesView = false
+    @State private var isAiConfigured = false
+    @State private var recapText: String?
+    @State private var isLoadingRecap = false
+    @State private var recapError: String?
+    @State private var previousBookCompleted = false
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -76,6 +81,9 @@ struct AudiobookDetailView: View {
 
                 // Progress Section (if has progress)
                 progressSection
+
+                // Catch Up (AI Recap)
+                catchUpSection
 
                 // Description
                 descriptionSection
@@ -201,6 +209,8 @@ struct AudiobookDetailView: View {
             await loadRating()
             await loadReviews()
             await loadCollections()
+            await checkAiStatus()
+            await checkPreviousBookStatus()
         }
         .overlay(alignment: .bottom) {
             if let message = toastMessage {
@@ -1098,6 +1108,129 @@ struct AudiobookDetailView: View {
         } catch {
             showToast("Failed to clear progress")
         }
+    }
+
+    // MARK: - Catch Up (AI Recap)
+
+    @ViewBuilder
+    private var catchUpSection: some View {
+        let bookHasProgress = (fullAudiobook ?? audiobook).progress?.position ?? 0 > 0
+        if isAiConfigured && displayBook.series != nil && (bookHasProgress || previousBookCompleted) {
+            VStack(spacing: 12) {
+                Button {
+                    Task { await loadRecap() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.sapphoBody)
+                        Text("Catch Up")
+                            .font(.sapphoBodyMedium)
+                    }
+                    .foregroundColor(.purple)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.purple.opacity(0.5), lineWidth: 1)
+                    )
+                }
+
+                if isLoadingRecap {
+                    VStack(spacing: 8) {
+                        ProgressView()
+                            .tint(.sapphoTextMuted)
+                        Text("Generating recap...")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+                        Text("This may take a moment")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .padding()
+                }
+
+                if let error = recapError {
+                    VStack(spacing: 8) {
+                        Text(error)
+                            .font(.sapphoCaption)
+                            .foregroundColor(.red)
+                        Button("Retry") {
+                            Task { await loadRecap() }
+                        }
+                        .font(.sapphoCaption)
+                        .foregroundColor(.sapphoPrimary)
+                    }
+                }
+
+                if let recap = recapText {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(recap)
+                            .font(.sapphoBody)
+                            .foregroundColor(.sapphoTextHigh)
+                            .textSelection(.enabled)
+
+                        HStack {
+                            Spacer()
+                            Button {
+                                Task { await regenerateRecap() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Regenerate")
+                                }
+                                .font(.sapphoCaption)
+                                .foregroundColor(.sapphoTextMuted)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .background(Color.sapphoSurface)
+                    .cornerRadius(12)
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func checkAiStatus() async {
+        do {
+            let status = try await api?.getAiStatus()
+            isAiConfigured = status?.configured ?? false
+        } catch {
+            // AI not available, button stays hidden
+        }
+    }
+
+    private func checkPreviousBookStatus() async {
+        guard displayBook.series != nil else { return }
+        do {
+            let status = try await api?.getPreviousBookStatus(audiobookId: displayBook.id)
+            previousBookCompleted = status?.previousBookCompleted ?? false
+        } catch {
+            // Ignore errors, button visibility falls back to progress check
+        }
+    }
+
+    private func loadRecap() async {
+        isLoadingRecap = true
+        recapError = nil
+        do {
+            let response = try await api?.getAudiobookRecap(audiobookId: displayBook.id)
+            recapText = response?.recap
+        } catch {
+            recapError = "Failed to generate recap. Please try again."
+        }
+        isLoadingRecap = false
+    }
+
+    private func regenerateRecap() async {
+        recapText = nil
+        do {
+            try await api?.clearAudiobookRecap(audiobookId: displayBook.id)
+        } catch {
+            // Ignore clear error, try to regenerate anyway
+        }
+        await loadRecap()
     }
 
     private func showToast(_ message: String) {
