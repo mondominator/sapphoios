@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ListeningHistorySheet: View {
     let audiobookId: Int
+    let chapters: [Chapter]
     let onSeek: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.sapphoAPI) private var api
@@ -44,8 +45,8 @@ struct ListeningHistorySheet: View {
                                 }
                                 .font(.body)
 
-                                if let device = session.deviceName {
-                                    Text(device)
+                                if let chapterTitle = chapterAt(position: session.startPosition) {
+                                    Text(chapterTitle)
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -72,6 +73,20 @@ struct ListeningHistorySheet: View {
         }
     }
 
+    private func chapterAt(position: Int) -> String? {
+        guard !chapters.isEmpty else { return nil }
+        let posSeconds = Double(position)
+        var matched: Chapter? = nil
+        for chapter in chapters {
+            if chapter.startTime <= posSeconds {
+                matched = chapter
+            } else {
+                break
+            }
+        }
+        return matched?.title
+    }
+
     private func formatPosition(_ totalSeconds: Int) -> String {
         let h = totalSeconds / 3600
         let m = (totalSeconds % 3600) / 60
@@ -88,7 +103,6 @@ struct ListeningHistorySheet: View {
             display.dateFormat = "MMM d, h:mm a"
             return display.string(from: date)
         }
-        // Try without fractional seconds
         let basic = ISO8601DateFormatter()
         if let date = basic.date(from: dateStr) {
             let display = DateFormatter()

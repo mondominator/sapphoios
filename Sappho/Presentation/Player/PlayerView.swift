@@ -445,7 +445,7 @@ struct PlayerView: View {
                 }
             }
             .sheet(isPresented: $showHistory) {
-                ListeningHistorySheet(audiobookId: audiobook.id) { position in
+                ListeningHistorySheet(audiobookId: audiobook.id, chapters: audiobook.chapters ?? []) { position in
                     Task {
                         await audioPlayer.seek(to: Double(position))
                     }

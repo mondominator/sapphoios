@@ -25,6 +25,7 @@ struct AudiobookDetailView: View {
     @State private var userReviewText: String = ""
     @State private var isSubmittingReview = false
     @State private var showRatingPicker = false
+    @State private var showReviewInput = false
     @State private var showCollectionsSheet = false
     @State private var collectionsForBook: [CollectionForBook] = []
     @State private var showShareSheet = false
@@ -378,41 +379,70 @@ struct AudiobookDetailView: View {
     private var reviewInputSection: some View {
         if userRating != nil {
             VStack(alignment: .leading, spacing: 10) {
-                TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
-                    .lineLimit(3...6)
-                    .font(.sapphoBody)
-                    .foregroundColor(.sapphoTextHigh)
-                    .padding(12)
-                    .background(Color.sapphoSurface)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-
-                HStack {
-                    Spacer()
-                    Button {
-                        Task { await submitReview() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            if isSubmittingReview {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(0.8)
-                            }
-                            Text("Submit Review")
-                                .font(.sapphoCaption)
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.sapphoPrimary)
-                        .cornerRadius(8)
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showReviewInput.toggle()
                     }
-                    .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: showReviewInput ? "text.bubble.fill" : "text.bubble")
+                            .font(.sapphoDetail)
+                            .foregroundColor(showReviewInput ? .sapphoPrimary : .sapphoTextMuted)
+                        Text(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Write a review" : "Edit review")
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoTextMuted)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                showReviewInput ? Color.sapphoPrimary.opacity(0.5) : Color.sapphoTextMuted.opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
+                }
+
+                if showReviewInput {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField("Write a review (optional)", text: $userReviewText, axis: .vertical)
+                            .lineLimit(3...6)
+                            .font(.sapphoBody)
+                            .foregroundColor(.sapphoTextHigh)
+                            .padding(12)
+                            .background(Color.sapphoSurface)
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+
+                        HStack {
+                            Spacer()
+                            Button {
+                                Task { await submitReview() }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if isSubmittingReview {
+                                        ProgressView()
+                                            .tint(.white)
+                                            .scaleEffect(0.8)
+                                    }
+                                    Text("Submit Review")
+                                        .font(.sapphoCaption)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.sapphoPrimary)
+                                .cornerRadius(8)
+                            }
+                            .disabled(isSubmittingReview || userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .opacity(userReviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+                        }
+                    }
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 24)
