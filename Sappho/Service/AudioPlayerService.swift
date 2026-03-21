@@ -497,23 +497,32 @@ class AudioPlayerService: NSObject {
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? playbackSpeed : 0
 
-        // Load cover art asynchronously
         if let coverURL = api?.coverURL(for: audiobook.id) {
-            Task {
-                do {
-                    var coverRequest = URLRequest(url: coverURL)
-                    for (field, value) in (api?.authHeaders ?? [:]) {
-                        coverRequest.setValue(value, forHTTPHeaderField: field)
+            let cacheKey = coverURL.absoluteString
+
+            // Check cache synchronously — set artwork immediately if available
+            if let cached = ImageCache.shared.image(for: cacheKey) {
+                let artwork = MPMediaItemArtwork(boundsSize: cached.size) { _ in cached }
+                info[MPMediaItemPropertyArtwork] = artwork
+            } else {
+                // Cache miss — download and update after
+                Task {
+                    do {
+                        var coverRequest = URLRequest(url: coverURL)
+                        for (field, value) in (api?.authHeaders ?? [:]) {
+                            coverRequest.setValue(value, forHTTPHeaderField: field)
+                        }
+                        let (data, _) = try await URLSession.shared.data(for: coverRequest)
+                        if let image = UIImage(data: data) {
+                            ImageCache.shared.setImage(image, for: cacheKey)
+                            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                            var updatedInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                            updatedInfo[MPMediaItemPropertyArtwork] = artwork
+                            MPNowPlayingInfoCenter.default().nowPlayingInfo = updatedInfo
+                        }
+                    } catch {
+                        print("Failed to load cover art: \(error)")
                     }
-                    let (data, _) = try await URLSession.shared.data(for: coverRequest)
-                    if let image = UIImage(data: data) {
-                        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                        var updatedInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                        updatedInfo[MPMediaItemPropertyArtwork] = artwork
-                        MPNowPlayingInfoCenter.default().nowPlayingInfo = updatedInfo
-                    }
-                } catch {
-                    print("Failed to load cover art: \(error)")
                 }
             }
         }
