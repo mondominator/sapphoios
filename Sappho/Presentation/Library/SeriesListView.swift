@@ -138,26 +138,6 @@ struct SeriesCard: View {
 
                 // Stats row
                 HStack(spacing: 12) {
-                    // Book count
-                    HStack(spacing: 4) {
-                        Image(systemName: "book.closed.fill")
-                            .font(.sapphoIconMini)
-                            .foregroundColor(.sapphoPrimary)
-                        Text("\(seriesInfo.bookCount)")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-
-                    // Duration
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.sapphoIconMini)
-                            .foregroundColor(.sapphoPrimary)
-                        Text("\(totalDuration / 3600)h")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoTextMuted)
-                    }
-
                     // Completed
                     if completedCount > 0 {
                         HStack(spacing: 4) {
