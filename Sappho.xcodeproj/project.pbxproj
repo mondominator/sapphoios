@@ -438,15 +438,15 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					B57CFE5E1E5B573FDDD04963 = {
-						DevelopmentTeam = NR8DLKJ7E6;
+						DevelopmentTeam = S6WU9SVVDW;
 						ProvisioningStyle = Automatic;
 					};
 					B6DA1D9C58CEB517033A9FCF = {
-						DevelopmentTeam = NR8DLKJ7E6;
+						DevelopmentTeam = S6WU9SVVDW;
 						ProvisioningStyle = Automatic;
 					};
 					BE189DB207BB8203575B74B0 = {
-						DevelopmentTeam = NR8DLKJ7E6;
+						DevelopmentTeam = S6WU9SVVDW;
 						ProvisioningStyle = Automatic;
 						TestTargetID = B57CFE5E1E5B573FDDD04963;
 					};
@@ -603,7 +603,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -637,7 +637,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -655,7 +655,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -703,7 +703,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -732,14 +732,14 @@
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Sappho/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobooks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobook;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -750,7 +750,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -770,14 +770,14 @@
 				CODE_SIGN_ENTITLEMENTS = Sappho/Resources/Sappho.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Sappho/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobooks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sappho.audiobook;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -788,7 +788,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = NR8DLKJ7E6;
+				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

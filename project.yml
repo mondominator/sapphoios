@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    DEVELOPMENT_TEAM: NR8DLKJ7E6
+    DEVELOPMENT_TEAM: S6WU9SVVDW
 
 targets:
   Sappho:
@@ -19,24 +19,24 @@ targets:
     resources:
       - Sappho/Resources
     attributes:
-      DevelopmentTeam: NR8DLKJ7E6
+      DevelopmentTeam: S6WU9SVVDW
       ProvisioningStyle: Automatic
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sappho.audiobooks
+        PRODUCT_BUNDLE_IDENTIFIER: com.sappho.audiobook
         INFOPLIST_FILE: Sappho/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
-        DEVELOPMENT_TEAM: NR8DLKJ7E6
+        DEVELOPMENT_TEAM: S6WU9SVVDW
         ENABLE_PREVIEWS: YES
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: NR8DLKJ7E6
+          DEVELOPMENT_TEAM: S6WU9SVVDW
         Release:
           CODE_SIGN_IDENTITY: "Apple Development"
-          DEVELOPMENT_TEAM: NR8DLKJ7E6
+          DEVELOPMENT_TEAM: S6WU9SVVDW
     entitlements:
       path: Sappho/Resources/Sappho.entitlements
       properties:
@@ -51,7 +51,7 @@ targets:
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: NR8DLKJ7E6
+        DEVELOPMENT_TEAM: S6WU9SVVDW
     dependencies:
       - target: Sappho
 
@@ -63,7 +63,7 @@ targets:
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: NR8DLKJ7E6
+        DEVELOPMENT_TEAM: S6WU9SVVDW
     dependencies:
       - target: Sappho
 
