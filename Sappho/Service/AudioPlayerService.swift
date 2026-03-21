@@ -615,6 +615,8 @@ class AudioPlayerService: NSObject {
             wasPlayingBeforeInterruption = isPlaying
             player?.pause()
             isPlaying = false
+            syncProgressToServer()
+            savePlaybackState()
             updateNowPlayingInfo()
         case .ended:
             let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
@@ -646,11 +648,12 @@ class AudioPlayerService: NSObject {
 
         switch reason {
         case .oldDeviceUnavailable:
-            // Device disconnected (AirPlay off, headphones unplugged)
-            // Just pause the player, don't sync or save (avoid side effects during route change)
+            // Device disconnected (CarPlay off, headphones unplugged, AirPlay off)
             wasPlayingBeforeRouteChange = isPlaying
             player?.pause()
             isPlaying = false
+            syncProgressToServer()
+            savePlaybackState()
             updateNowPlayingInfo()
         case .newDeviceAvailable:
             // New device connected (CarPlay, Bluetooth, etc.)
