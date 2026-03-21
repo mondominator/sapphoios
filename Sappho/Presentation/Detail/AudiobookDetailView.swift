@@ -197,12 +197,13 @@ struct AudiobookDetailView: View {
             .presentationCornerRadius(24)
         }
         .task {
+            async let aiCheck: Void = checkAiStatus()
+            async let prevCheck: Void = checkPreviousBookStatus()
             await loadFullAudiobook()
             await loadRating()
             await loadReviews()
             await loadCollections()
-            await checkAiStatus()
-            await checkPreviousBookStatus()
+            _ = await (aiCheck, prevCheck)
         }
         .overlay(alignment: .bottom) {
             if let message = toastMessage {
@@ -744,7 +745,6 @@ struct AudiobookDetailView: View {
     // MARK: - Description Section
     @ViewBuilder
     private var descriptionSection: some View {
-        let showCatchUp = catchUpVisible
         if let description = displayBook.description, !description.isEmpty {
             let cleanText = stripHTML(description)
             VStack(alignment: .leading, spacing: 8) {
@@ -754,7 +754,7 @@ struct AudiobookDetailView: View {
                         .font(.sapphoHeadline)
                         .foregroundColor(.sapphoTextHigh)
                     Spacer()
-                    if showCatchUp {
+                    if catchUpVisible {
                         Button {
                             Task { await loadRecap() }
                         } label: {
