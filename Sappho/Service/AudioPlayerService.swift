@@ -192,7 +192,6 @@ class AudioPlayerService: NSObject {
 
                 player = AVPlayer(playerItem: playerItem)
                 player?.allowsExternalPlayback = false
-                player?.rate = playbackSpeed
 
                 if let durationSeconds = audiobook.duration {
                     duration = TimeInterval(durationSeconds)
@@ -201,6 +200,7 @@ class AudioPlayerService: NSObject {
                     await seek(to: savedPosition)
                 }
                 player?.play()
+                player?.rate = playbackSpeed
                 isPlaying = true
                 startTimeObserver()
                 updateNowPlayingInfo()
