@@ -106,7 +106,6 @@ class AudioPlayerService: NSObject {
         // Create player
         player = AVPlayer(playerItem: playerItem)
         player?.allowsExternalPlayback = false // Force local decode + AirPlay audio routing (external playback fails with auth headers)
-        player?.rate = playbackSpeed
 
         // Get duration
         if let durationSeconds = audiobook.duration {
@@ -119,8 +118,10 @@ class AudioPlayerService: NSObject {
             await seek(to: seekPosition)
         }
 
-        // Start playback
+        // Start playback and apply user's speed setting
+        // (play() sets rate to 1.0, so we must set playbackSpeed after)
         player?.play()
+        player?.rate = playbackSpeed
         isPlaying = true
 
         // Start time observer
@@ -392,10 +393,11 @@ class AudioPlayerService: NSObject {
             self.position = time.seconds
             self.updateCurrentChapter()
             self.checkProgressSync()
-            // Save to UserDefaults every ~5 seconds
+            // Save to UserDefaults and refresh Now Playing info every ~5 seconds
             let currentPos = Int(time.seconds)
             if abs(currentPos - self.lastSavePosition) >= 5 {
                 self.savePlaybackState()
+                self.updateNowPlayingInfo()
                 self.lastSavePosition = currentPos
             }
         }
@@ -489,13 +491,35 @@ class AudioPlayerService: NSObject {
     private func updateNowPlayingInfo() {
         guard let audiobook = currentAudiobook else { return }
 
+        let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
+
         var info = [String: Any]()
-        info[MPMediaItemPropertyTitle] = audiobook.title
         info[MPMediaItemPropertyArtist] = audiobook.author ?? "Unknown Author"
         info[MPMediaItemPropertyAlbumTitle] = audiobook.series
-        info[MPMediaItemPropertyPlaybackDuration] = duration
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? playbackSpeed : 0
+
+        if showChapterProgress, let chapter = currentChapter {
+            // Chapter-scoped progress: show chapter title, duration, and position within chapter
+            let chapterStart = chapter.startTime
+            let chapterDuration = chapter.duration ?? (duration - chapterStart)
+            let chapterPosition = max(0, position - chapterStart)
+
+            info[MPMediaItemPropertyTitle] = chapter.title ?? audiobook.title
+            info[MPMediaItemPropertyPlaybackDuration] = chapterDuration
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = chapterPosition
+
+            if let chapters = audiobook.chapters {
+                info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
+                if let idx = chapters.firstIndex(where: { $0.id == chapter.id }) {
+                    info[MPNowPlayingInfoPropertyChapterNumber] = idx + 1
+                }
+            }
+        } else {
+            // Full book progress
+            info[MPMediaItemPropertyTitle] = audiobook.title
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
+        }
 
         if let coverURL = api?.coverURL(for: audiobook.id) {
             let cacheKey = coverURL.absoluteString
@@ -567,9 +591,16 @@ class AudioPlayerService: NSObject {
         }
 
         commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            guard let self = self,
+                  let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
             Task {
-                await self?.seek(to: event.positionTime)
+                if showChapterProgress, let chapter = self.currentChapter {
+                    // Scrubber position is chapter-relative; convert to global
+                    await self.seek(to: chapter.startTime + event.positionTime)
+                } else {
+                    await self.seek(to: event.positionTime)
+                }
             }
             return .success
         }
