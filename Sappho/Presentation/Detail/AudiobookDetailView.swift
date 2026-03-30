@@ -1048,7 +1048,7 @@ struct AudiobookDetailView: View {
                 review: reviewText.isEmpty ? nil : reviewText
             )
             userRating = response?.rating
-            userReviewText = ""
+            userReviewText = response?.review ?? ""
             averageRating = try await api?.getAverageRating(audiobookId: displayBook.id)
             await loadReviews()
             showToast("Review submitted")
