@@ -302,7 +302,7 @@ struct AudiobookDetailView: View {
 
     // MARK: - Rating Section
     private var reviewCount: Int {
-        reviews.count
+        allReviewsWithText.count
     }
 
     private var ratingSection: some View {
