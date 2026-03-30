@@ -534,7 +534,7 @@ class SapphoAPI {
 
         // File part
         body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8) ?? Data())
+        body.append("Content-Disposition: form-data; name=\"audiobook\"; filename=\"\(fileName)\"\r\n".data(using: .utf8) ?? Data())
         body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8) ?? Data())
         body.append(fileData)
         body.append("\r\n".data(using: .utf8) ?? Data())

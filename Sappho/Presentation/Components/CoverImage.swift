@@ -132,7 +132,7 @@ struct CoverImage: View {
     @Environment(\.sapphoAPI) private var api
     let audiobookId: Int
     var cornerRadius: CGFloat = 8
-    var contentMode: ContentMode = .fill
+    var contentMode: ContentMode = .fit
 
     @State private var loader = ImageLoader()
 
