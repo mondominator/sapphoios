@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum PendingSheet {
-    case chapters, collections, share
+    case chapters, collections, share, editChapters, editMetadata
 }
 
 struct AudiobookDetailView: View {
@@ -44,6 +44,13 @@ struct AudiobookDetailView: View {
     @State private var isLoadingRecap = false
     @State private var recapError: String?
     @State private var previousBookCompleted = false
+
+    // Admin features
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirm = false
+    @State private var showChapterEditor = false
+    @State private var isRefreshing = false
+    @State private var isConverting = false
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -105,6 +112,33 @@ struct AudiobookDetailView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: shareItems)
         }
+        .sheet(isPresented: $showEditSheet) {
+            EditMetadataSheet(audiobook: displayBook) { updatedBook in
+                fullAudiobook = updatedBook
+            }
+        }
+        .sheet(isPresented: $showChapterEditor) {
+            EditChaptersSheet(
+                audiobookId: displayBook.id,
+                chapters: chapters
+            ) {
+                // Reload chapters after save
+                Task {
+                    chapters = try await api?.getChapters(audiobookId: displayBook.id) ?? []
+                }
+            }
+        }
+        .alert("Delete Audiobook", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await api?.deleteAudiobook(id: displayBook.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete \"\(displayBook.title)\"? This cannot be undone.")
+        }
         .sheet(isPresented: $showChaptersSheet) {
             ChaptersSheet(
                 chapters: chapters,
@@ -128,6 +162,10 @@ struct AudiobookDetailView: View {
                     showCollectionsSheet = true
                 case .share:
                     showShareSheet = true
+                case .editChapters:
+                    showChapterEditor = true
+                case .editMetadata:
+                    showEditSheet = true
                 }
             }
         }) {
@@ -185,6 +223,55 @@ struct AudiobookDetailView: View {
                         }
                     }
 
+                    // Admin-only features
+                    if authRepository.isAdmin {
+                        Divider().background(Color.sapphoTextMuted.opacity(0.3)).padding(.vertical, 8)
+
+                        moreMenuItem(
+                            icon: "arrow.clockwise",
+                            title: isRefreshing ? "Refreshing..." : "Refresh Metadata",
+                            subtitle: "Re-extract from file tags",
+                            color: .sapphoPrimary
+                        ) {
+                            showMoreMenu = false
+                            Task { await refreshMetadata() }
+                        }
+
+                        moreMenuItem(
+                            icon: "arrow.triangle.swap",
+                            title: isConverting ? "Converting..." : "Convert to M4B",
+                            subtitle: "Merge into single audiobook file",
+                            color: .sapphoPrimary
+                        ) {
+                            showMoreMenu = false
+                            Task { await convertToM4B() }
+                        }
+
+                        if !chapters.isEmpty {
+                            moreMenuItem(
+                                icon: "list.bullet.indent",
+                                title: "Edit Chapters",
+                                subtitle: "Rename chapter titles",
+                                color: .sapphoPrimary
+                            ) {
+                                pendingSheet = .editChapters
+                                showMoreMenu = false
+                            }
+                        }
+
+                        Divider().background(Color.sapphoTextMuted.opacity(0.3)).padding(.vertical, 8)
+
+                        moreMenuItem(
+                            icon: "trash",
+                            title: "Delete Audiobook",
+                            subtitle: "Remove from library",
+                            color: .sapphoError
+                        ) {
+                            showMoreMenu = false
+                            showDeleteConfirm = true
+                        }
+                    }
+
                 }
                 .padding(.horizontal, 16)
 
@@ -192,7 +279,7 @@ struct AudiobookDetailView: View {
             }
             .frame(maxWidth: .infinity)
             .background(Color.sapphoSurface)
-            .presentationDetents([.fraction(chapters.isEmpty ? 0.38 : 0.45)])
+            .presentationDetents([.fraction(authRepository.isAdmin ? 0.75 : (chapters.isEmpty ? 0.38 : 0.45))])
             .presentationDragIndicator(.hidden)
             .presentationCornerRadius(24)
         }
@@ -540,6 +627,29 @@ struct AudiobookDetailView: View {
             }
             .accessibilityLabel(downloadLabel)
             .accessibilityHint(downloadAccessibilityHint)
+
+            // Edit button (admin only)
+            if authRepository.isAdmin {
+                Button {
+                    showEditSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.sapphoDetail)
+                        Text("Edit")
+                            .font(.sapphoCaption)
+                    }
+                    .foregroundColor(.sapphoPrimary)
+                    .frame(height: 60)
+                    .padding(.horizontal, 12)
+                    .background(Color.sapphoSurface.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.sapphoPrimary.opacity(0.3), lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+                }
+            }
 
             // Overflow menu button (icon only, 48x60)
             Button {
@@ -1111,6 +1221,46 @@ struct AudiobookDetailView: View {
             showToast("Progress cleared")
         } catch {
             showToast("Failed to clear progress")
+        }
+    }
+
+    // MARK: - Admin Actions
+
+    private func refreshMetadata() async {
+        isRefreshing = true
+        defer { isRefreshing = false }
+        do {
+            let refreshed = try await api?.refreshMetadata(audiobookId: displayBook.id)
+            if let refreshed = refreshed {
+                fullAudiobook = refreshed
+                chapters = try await api?.getChapters(audiobookId: refreshed.id) ?? []
+            }
+            showToast("Metadata refreshed")
+        } catch {
+            showToast("Failed to refresh metadata")
+        }
+    }
+
+    private func convertToM4B() async {
+        isConverting = true
+        defer { isConverting = false }
+        do {
+            let _ = try await api?.convertToM4B(audiobookId: displayBook.id)
+            // Poll for completion
+            while isConverting {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                let status = try await api?.getConversionStatus(audiobookId: displayBook.id)
+                if status?.status == "completed" {
+                    fullAudiobook = try await api?.getAudiobook(id: displayBook.id)
+                    showToast("Conversion complete")
+                    return
+                } else if status?.status == "failed" {
+                    showToast("Conversion failed: \(status?.error ?? "unknown")")
+                    return
+                }
+            }
+        } catch {
+            showToast("Failed to start conversion")
         }
     }
 

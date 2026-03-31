@@ -510,6 +510,59 @@ class SapphoAPI {
         try await request("api/maintenance/force-rescan", method: "POST")
     }
 
+    // MARK: - Admin Metadata
+
+    func updateAudiobook(id: Int, update: AudiobookUpdateRequest) async throws -> Audiobook {
+        // Server returns { message, audiobook, fileReorganized } — extract the audiobook
+        // Use a wrapper since the response shape differs from a plain Audiobook
+        struct UpdateResponse: Codable { let audiobook: Audiobook? }
+        // Try decoding as wrapper first, fall back to direct Audiobook
+        do {
+            let response: UpdateResponse = try await request("api/audiobooks/\(id)", method: "PUT", body: update)
+            if let book = response.audiobook { return book }
+        } catch {}
+        // PUT might also return just { message, fileReorganized } — re-fetch
+        try await requestVoid("api/audiobooks/\(id)", method: "PUT", body: update)
+        return try await getAudiobook(id: id)
+    }
+
+    func refreshMetadata(audiobookId: Int) async throws -> Audiobook {
+        let response: RefreshMetadataResponse = try await request("api/audiobooks/\(audiobookId)/refresh-metadata", method: "POST")
+        return response.audiobook
+    }
+
+    func searchMetadata(audiobookId: Int, title: String?, author: String?) async throws -> [MetadataSearchResult] {
+        var queryItems: [URLQueryItem] = []
+        if let title = title, !title.isEmpty { queryItems.append(URLQueryItem(name: "title", value: title)) }
+        if let author = author, !author.isEmpty { queryItems.append(URLQueryItem(name: "author", value: author)) }
+        let response: MetadataSearchResponse = try await request("api/audiobooks/\(audiobookId)/search-audnexus", queryItems: queryItems.isEmpty ? nil : queryItems)
+        return response.results
+    }
+
+    func embedMetadata(audiobookId: Int) async throws -> EmbedMetadataResponse {
+        try await request("api/audiobooks/\(audiobookId)/embed-metadata", method: "POST")
+    }
+
+    func fetchChapters(audiobookId: Int, asin: String) async throws -> FetchChaptersResponse {
+        try await request("api/audiobooks/\(audiobookId)/fetch-chapters", method: "POST", body: FetchChaptersRequest(asin: asin))
+    }
+
+    func updateChapters(audiobookId: Int, chapters: [ChapterUpdate]) async throws {
+        try await requestVoid("api/audiobooks/\(audiobookId)/chapters", method: "PUT", body: ChapterUpdateRequest(chapters: chapters))
+    }
+
+    func deleteAudiobook(id: Int) async throws {
+        try await requestVoid("api/audiobooks/\(id)", method: "DELETE")
+    }
+
+    func convertToM4B(audiobookId: Int) async throws -> ConvertResponse {
+        try await request("api/audiobooks/\(audiobookId)/convert-to-m4b", method: "POST")
+    }
+
+    func getConversionStatus(audiobookId: Int) async throws -> ConversionStatusResponse {
+        try await request("api/audiobooks/\(audiobookId)/conversion-status")
+    }
+
     // MARK: - Upload
 
     func uploadAudiobook(fileData: Data, fileName: String, mimeType: String, title: String?, author: String?, narrator: String?, onProgress: @escaping (Double) -> Void) async throws -> UploadResponse {
