@@ -51,6 +51,7 @@ struct AudiobookDetailView: View {
     @State private var showChapterEditor = false
     @State private var isRefreshing = false
     @State private var isConverting = false
+    @State private var coverRefreshTrigger = 0
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
     private var downloadState: DownloadState {
@@ -132,6 +133,15 @@ struct AudiobookDetailView: View {
         .sheet(isPresented: $showEditSheet) {
             EditMetadataSheet(audiobook: displayBook) { updatedBook in
                 fullAudiobook = updatedBook
+                coverRefreshTrigger += 1
+                // Reload all data to reflect changes
+                Task {
+                    if let fresh = try? await api?.getAudiobook(id: updatedBook.id) {
+                        fullAudiobook = fresh
+                    }
+                    chapters = try await api?.getChapters(audiobookId: updatedBook.id) ?? []
+                    await loadRating()
+                }
             }
         }
         .sheet(isPresented: $showChapterEditor) {
@@ -339,7 +349,7 @@ struct AudiobookDetailView: View {
     private var coverSection: some View {
         ZStack {
             // Cover Image
-            CoverImage(audiobookId: displayBook.id, cornerRadius: 0)
+            CoverImage(audiobookId: displayBook.id, cornerRadius: 0, refreshTrigger: coverRefreshTrigger)
                 .frame(width: 320, height: 320)
 
             // Bookmark button (top right)

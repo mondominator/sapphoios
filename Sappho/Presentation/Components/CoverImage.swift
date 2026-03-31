@@ -45,6 +45,12 @@ final class ImageCache: @unchecked Sendable {
         }
     }
 
+    func removeImage(for key: String) {
+        memory.removeObject(forKey: key as NSString)
+        let file = diskURL.appendingPathComponent(diskKey(for: key))
+        try? FileManager.default.removeItem(at: file)
+    }
+
     private func diskKey(for key: String) -> String {
         // SHA256-like hash using built-in — use simple hash for filename safety
         let hash = key.utf8.reduce(into: UInt64(5381)) { result, byte in
@@ -133,6 +139,7 @@ struct CoverImage: View {
     let audiobookId: Int
     var cornerRadius: CGFloat = 8
     var contentMode: ContentMode = .fit
+    var refreshTrigger: Int = 0
 
     @State private var loader = ImageLoader()
 
@@ -170,6 +177,14 @@ struct CoverImage: View {
         }
         .onChange(of: audiobookId) { _, newId in
             loader.load(url: api?.coverURL(for: newId), headers: api?.authHeaders ?? [:])
+        }
+        .onChange(of: refreshTrigger) { _, _ in
+            // Invalidate cache and reload
+            if let url = api?.coverURL(for: audiobookId) {
+                ImageCache.shared.removeImage(for: url.absoluteString)
+            }
+            loader = ImageLoader()
+            loader.load(url: api?.coverURL(for: audiobookId), headers: api?.authHeaders ?? [:])
         }
     }
 
