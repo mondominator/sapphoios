@@ -96,6 +96,23 @@ struct AudiobookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            if authRepository.isAdmin {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 14))
+                            Text("Edit")
+                                .font(.system(size: 14))
+                        }
+                        .foregroundColor(.sapphoPrimary)
+                    }
+                }
+            }
+        }
         .navigationDestination(isPresented: $showAuthorView) {
             FilteredBooksView(title: authorToNavigate, filterType: .author(authorToNavigate))
         }
@@ -627,29 +644,6 @@ struct AudiobookDetailView: View {
             }
             .accessibilityLabel(downloadLabel)
             .accessibilityHint(downloadAccessibilityHint)
-
-            // Edit button (admin only)
-            if authRepository.isAdmin {
-                Button {
-                    showEditSheet = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "pencil")
-                            .font(.sapphoDetail)
-                        Text("Edit")
-                            .font(.sapphoCaption)
-                    }
-                    .foregroundColor(.sapphoPrimary)
-                    .frame(height: 60)
-                    .padding(.horizontal, 12)
-                    .background(Color.sapphoSurface.opacity(0.5))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.sapphoPrimary.opacity(0.3), lineWidth: 1)
-                    )
-                    .cornerRadius(12)
-                }
-            }
 
             // Overflow menu button (icon only, 48x60)
             Button {

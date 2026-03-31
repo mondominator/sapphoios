@@ -881,6 +881,33 @@ struct MetadataSearchResult: Codable, Identifiable {
         case publishedYear = "published_year"
         case hasChapters = "has_chapters"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        author = try container.decodeIfPresent(String.self, forKey: .author)
+        narrator = try container.decodeIfPresent(String.self, forKey: .narrator)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        genre = try container.decodeIfPresent(String.self, forKey: .genre)
+        series = try container.decodeIfPresent(String.self, forKey: .series)
+        publisher = try container.decodeIfPresent(String.self, forKey: .publisher)
+        isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
+        asin = try container.decodeIfPresent(String.self, forKey: .asin)
+        language = try container.decodeIfPresent(String.self, forKey: .language)
+        image = try container.decodeIfPresent(String.self, forKey: .image)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
+        hasChapters = try container.decodeIfPresent(Bool.self, forKey: .hasChapters)
+        publishedYear = try container.decodeIfPresent(Int.self, forKey: .publishedYear)
+        // seriesPosition can be String or Float from server
+        if let floatVal = try? container.decodeIfPresent(Float.self, forKey: .seriesPosition) {
+            seriesPosition = floatVal
+        } else if let strVal = try? container.decodeIfPresent(String.self, forKey: .seriesPosition) {
+            seriesPosition = Float(strVal)
+        } else {
+            seriesPosition = nil
+        }
+    }
 }
 
 struct MetadataSearchResponse: Codable {
