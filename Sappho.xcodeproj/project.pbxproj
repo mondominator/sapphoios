@@ -12,6 +12,7 @@
 		0E910386749D27DA69B74339 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B193F831F3EF80C680572FD /* PlayerView.swift */; };
 		0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E33C4FB6DC3423B9A8C4070 /* Theme.swift */; };
 		147F66D00321150C8B75AEE2 /* AudioPlayerServiceExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F094B80B59D15C75A721622D /* AudioPlayerServiceExtendedTests.swift */; };
+		1AB0EBED08F741E738AC9AEB /* EditChaptersSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC76742B0724C35087E33F /* EditChaptersSheet.swift */; };
 		2C2A6620C1C1838176B31C3F /* CarPlayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC22D60B668E81879EA95D5A /* CarPlayTests.swift */; };
 		30FF8FE931D7A736D125025B /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */; };
 		332D3EC26864E789F81F6063 /* ServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCAD7E06AFF0DAF5F4F6447 /* ServiceLocator.swift */; };
@@ -49,6 +50,7 @@
 		C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C36F9F36890A672725A97E /* ProfileView.swift */; };
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		CA42CA79E15EA0B0C21B489C /* SapphoAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A7B4B85D1B873A962F0E99 /* SapphoAPITests.swift */; };
+		CD2B0C0690AE1B26BE8BF241 /* EditMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD79599B020796E009EBF806 /* EditMetadataSheet.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
 		D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */; };
 		E67D8F015CCE5913381DF6BA /* NotificationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267C796462A9BF3DC8E0BE3E /* NotificationPanel.swift */; };
@@ -86,6 +88,7 @@
 		4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		4C85AAC170684901D9362C63 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		550305815B68B533E1045145 /* SapphoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoUITests.swift; sourceTree = "<group>"; };
+		59BC76742B0724C35087E33F /* EditChaptersSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditChaptersSheet.swift; sourceTree = "<group>"; };
 		5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPIExtendedTests.swift; sourceTree = "<group>"; };
 		5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		5F45DCB33D32E30D66D44B8C /* GenresListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenresListView.swift; sourceTree = "<group>"; };
@@ -109,6 +112,7 @@
 		A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsListView.swift; sourceTree = "<group>"; };
 		AC22D60B668E81879EA95D5A /* CarPlayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayTests.swift; sourceTree = "<group>"; };
 		AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPI.swift; sourceTree = "<group>"; };
+		AD79599B020796E009EBF806 /* EditMetadataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditMetadataSheet.swift; sourceTree = "<group>"; };
 		B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
 		B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
 		C65C26BF1CCFB3F4091E68F8 /* AdditionalModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalModelsTests.swift; sourceTree = "<group>"; };
@@ -228,6 +232,8 @@
 			isa = PBXGroup;
 			children = (
 				875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */,
+				59BC76742B0724C35087E33F /* EditChaptersSheet.swift */,
+				AD79599B020796E009EBF806 /* EditMetadataSheet.swift */,
 			);
 			path = Detail;
 			sourceTree = "<group>";
@@ -527,6 +533,8 @@
 				AA216E7956ED6D234CE5BCF0 /* CollectionsListView.swift in Sources */,
 				334591CA1D141A02616AA9FD /* CoverImage.swift in Sources */,
 				C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */,
+				1AB0EBED08F741E738AC9AEB /* EditChaptersSheet.swift in Sources */,
+				CD2B0C0690AE1B26BE8BF241 /* EditMetadataSheet.swift in Sources */,
 				392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */,
 				BE70E78ECA5538D104C503E1 /* GenresListView.swift in Sources */,
 				9D4B268891CF6DD0EF34DFD2 /* HomeView.swift in Sources */,
