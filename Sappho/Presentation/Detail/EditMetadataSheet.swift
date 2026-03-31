@@ -143,6 +143,21 @@ struct EditMetadataSheet: View {
 
     private func searchResultRow(_ result: MetadataSearchResult) -> some View {
         HStack(spacing: 12) {
+            // Cover art thumbnail
+            if let imageUrl = result.image, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    default:
+                        Color.sapphoSurface
+                    }
+                }
+                .frame(width: 50, height: 50)
+                .cornerRadius(6)
+                .clipped()
+            }
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(result.title ?? "Unknown Title")
                     .font(.sapphoBodyMedium)
@@ -485,26 +500,26 @@ struct EditMetadataSheet: View {
 
         do {
             let update = buildUpdateRequest()
-            let updated = try await api?.updateAudiobook(id: audiobook.id, update: update)
+            let _ = try await api?.updateAudiobook(id: audiobook.id, update: update)
 
             if embed {
                 let embedResponse = try await api?.embedMetadata(audiobookId: audiobook.id)
-                // Embedding succeeded — dismiss after callback
-                if let book = updated {
-                    onSave(book)
+                // Re-fetch fresh data after embed (cover/path may have changed)
+                if let fresh = try? await api?.getAudiobook(id: audiobook.id) {
+                    onSave(fresh)
                 }
                 isSavingAndEmbedding = false
                 showAlertMessage(
                     title: "Embedded",
                     message: embedResponse?.message ?? "Metadata embedded into file."
                 )
-                // Dismiss after a short delay so user sees the alert
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     dismiss()
                 }
             } else {
-                if let book = updated {
-                    onSave(book)
+                // Re-fetch fresh data (cover/path may have changed)
+                if let fresh = try? await api?.getAudiobook(id: audiobook.id) {
+                    onSave(fresh)
                 }
                 isSaving = false
                 dismiss()
