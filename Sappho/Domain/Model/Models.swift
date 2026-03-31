@@ -822,3 +822,113 @@ struct ScanResponse: Codable {
         case totalBooks = "total_books"
     }
 }
+
+// MARK: - Admin Metadata Models
+
+struct AudiobookUpdateRequest: Codable {
+    var title: String?
+    var subtitle: String?
+    var author: String?
+    var narrator: String?
+    var description: String?
+    var genre: String?
+    var tags: String?
+    var series: String?
+    var seriesPosition: Float?
+    var publishedYear: Int?
+    var copyrightYear: Int?
+    var publisher: String?
+    var isbn: String?
+    var asin: String?
+    var language: String?
+    var rating: Float?
+    var abridged: Bool?
+    var coverUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case title, subtitle, author, narrator, description, genre, tags
+        case series, publisher, isbn, asin, language, rating, abridged
+        case seriesPosition = "series_position"
+        case publishedYear = "published_year"
+        case copyrightYear = "copyright_year"
+        case coverUrl = "cover_url"
+    }
+}
+
+struct MetadataSearchResult: Codable, Identifiable {
+    var id: String { asin ?? isbn ?? title ?? UUID().uuidString }
+    let title: String?
+    let subtitle: String?
+    let author: String?
+    let narrator: String?
+    let description: String?
+    let genre: String?
+    let series: String?
+    let seriesPosition: Float?
+    let publishedYear: Int?
+    let publisher: String?
+    let isbn: String?
+    let asin: String?
+    let language: String?
+    let image: String?
+    let source: String?
+    let hasChapters: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case title, subtitle, author, narrator, description, genre
+        case series, publisher, isbn, asin, language, image, source
+        case seriesPosition = "series_position"
+        case publishedYear = "published_year"
+        case hasChapters = "has_chapters"
+    }
+}
+
+struct MetadataSearchResponse: Codable {
+    let results: [MetadataSearchResult]
+}
+
+struct FetchChaptersRequest: Codable {
+    let asin: String
+}
+
+struct FetchChaptersResponse: Codable {
+    let message: String
+    let chapterCount: Int?
+}
+
+struct ChapterUpdate: Codable {
+    let id: Int
+    let title: String
+}
+
+struct ChapterUpdateRequest: Codable {
+    let chapters: [ChapterUpdate]
+}
+
+struct EmbedMetadataResponse: Codable {
+    let message: String
+    let backup: String?
+}
+
+struct RefreshMetadataResponse: Codable {
+    let message: String
+    let audiobook: Audiobook
+}
+
+struct ConvertResponse: Codable {
+    let jobId: String?
+    let status: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case jobId = "jobId"
+        case status, error
+    }
+}
+
+struct ConversionStatusResponse: Codable {
+    let status: String?
+    let progress: Int?
+    let message: String?
+    let error: String?
+}
