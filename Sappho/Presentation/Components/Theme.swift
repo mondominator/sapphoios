@@ -26,6 +26,7 @@ extension Color {
     static let sapphoPrimaryLight = Color(hex: "60A5FA")
     static let sapphoPrimaryLighter = Color(hex: "87BFF8")
     static let sapphoSecondary = Color(hex: "8B5CF6")
+    static let sapphoTeal = Color(hex: "06B6D4")
     static let sapphoPlayingGreen = Color(hex: "34D399")
     static let sapphoSuccessLight = Color(hex: "4CD981")
 

@@ -372,10 +372,10 @@ struct PlayerView: View {
                                 VStack(spacing: 6) {
                                     Image(systemName: "clock.arrow.circlepath")
                                         .font(.sapphoIconSmall)
-                                        .foregroundColor(.sapphoSecondary)
+                                        .foregroundColor(.sapphoTeal)
                                     Text("History")
                                         .font(.sapphoSmall)
-                                        .foregroundColor(.sapphoTextHigh)
+                                        .foregroundColor(.sapphoTeal)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .contentShape(Rectangle())
