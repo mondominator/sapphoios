@@ -4,6 +4,13 @@ import Security
 @Observable
 class AuthRepository {
     private let keychain = KeychainService()
+    private let defaults = UserDefaults.standard
+
+    // UserDefaults keys (survives Keychain corruption)
+    private let kServerURL = "sappho_serverURL"
+    private let kCurrentUser = "sappho_currentUser"
+    private let kCurrentLoginUser = "sappho_currentLoginUser"
+    private let kMigrated = "sappho_migratedToSplitStorage"
 
     private(set) var serverURL: URL?
     private(set) var token: String?
@@ -19,19 +26,49 @@ class AuthRepository {
     }
 
     init() {
-        // Load stored credentials on init
+        migrateIfNeeded()
         loadStoredCredentials()
     }
 
+    /// One-time migration: move server URL and user info from Keychain to UserDefaults.
+    /// Token stays in Keychain (secure). Everything else moves to UserDefaults (resilient).
+    private func migrateIfNeeded() {
+        guard !defaults.bool(forKey: kMigrated) else { return }
+
+        // Migrate server URL
+        if let urlString = keychain.get("serverURL") {
+            defaults.set(urlString, forKey: kServerURL)
+            keychain.delete("serverURL")
+        }
+
+        // Migrate user data
+        if let userData = keychain.getData("currentUser") {
+            defaults.set(userData, forKey: kCurrentUser)
+            keychain.delete("currentUser")
+        }
+
+        if let loginUserData = keychain.getData("currentLoginUser") {
+            defaults.set(loginUserData, forKey: kCurrentLoginUser)
+            keychain.delete("currentLoginUser")
+        }
+
+        defaults.set(true, forKey: kMigrated)
+    }
+
     private func loadStoredCredentials() {
-        if let urlString = keychain.get("serverURL"), let url = URL(string: urlString) {
+        // Server URL from UserDefaults (resilient)
+        if let urlString = defaults.string(forKey: kServerURL), let url = URL(string: urlString) {
             serverURL = url
         }
+
+        // Token from Keychain (secure)
         token = keychain.get("authToken")
-        if let userData = keychain.getData("currentUser") {
+
+        // User info from UserDefaults (resilient)
+        if let userData = defaults.data(forKey: kCurrentUser) {
             currentUser = try? JSONDecoder().decode(User.self, from: userData)
         }
-        if let loginUserData = keychain.getData("currentLoginUser") {
+        if let loginUserData = defaults.data(forKey: kCurrentLoginUser) {
             currentLoginUser = try? JSONDecoder().decode(LoginUser.self, from: loginUserData)
         }
     }
@@ -40,19 +77,22 @@ class AuthRepository {
         self.serverURL = serverURL
         self.token = token
         self.currentLoginUser = user
-        self.currentUser = nil // Will be loaded from profile later
+        self.currentUser = nil
 
-        keychain.set(serverURL.absoluteString, forKey: "serverURL")
+        // Token in Keychain (secure)
         keychain.set(token, forKey: "authToken")
+
+        // Everything else in UserDefaults (survives Keychain issues)
+        defaults.set(serverURL.absoluteString, forKey: kServerURL)
         if let userData = try? JSONEncoder().encode(user) {
-            keychain.setData(userData, forKey: "currentLoginUser")
+            defaults.set(userData, forKey: kCurrentLoginUser)
         }
     }
 
     func updateUser(_ user: User) {
         self.currentUser = user
         if let userData = try? JSONEncoder().encode(user) {
-            keychain.setData(userData, forKey: "currentUser")
+            defaults.set(userData, forKey: kCurrentUser)
         }
     }
 
@@ -62,10 +102,10 @@ class AuthRepository {
         currentUser = nil
         currentLoginUser = nil
 
-        keychain.delete("serverURL")
         keychain.delete("authToken")
-        keychain.delete("currentUser")
-        keychain.delete("currentLoginUser")
+        defaults.removeObject(forKey: kServerURL)
+        defaults.removeObject(forKey: kCurrentUser)
+        defaults.removeObject(forKey: kCurrentLoginUser)
     }
 }
 
