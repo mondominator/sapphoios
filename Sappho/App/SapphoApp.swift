@@ -15,6 +15,17 @@ struct SapphoApp: App {
         _api = State(initialValue: apiInstance)
         _audioPlayer = State(initialValue: playerInstance)
 
+        // Configure the player's API reference eagerly so it's ready
+        // before any caller (including CarPlay's didConnect, which can
+        // fire before the SwiftUI view appears) tries to stream audio.
+        // Previously this lived in the view's .task modifier, which
+        // only runs when the SwiftUI view renders its first frame —
+        // if the phone screen is off and CarPlay is the only active
+        // scene, .task never fires and playBook() silently fails
+        // because audioPlayer.api is nil.
+        playerInstance.configure(api: apiInstance)
+        DownloadManager.shared.configure(api: apiInstance)
+
         // Populate ServiceLocator so non-SwiftUI classes (e.g. CarPlaySceneDelegate) can access services
         ServiceLocator.shared.configure(api: apiInstance, audioPlayer: playerInstance, authRepository: repo)
     }
@@ -29,8 +40,9 @@ struct SapphoApp: App {
                 .environment(\.sapphoAPI, api)
                 .preferredColorScheme(.dark)
                 .task {
-                    audioPlayer.configure(api: api)
-                    DownloadManager.shared.configure(api: api)
+                    // configure(api:) already ran in init() so CarPlay
+                    // has access from the start. Only restoreLastPlayed
+                    // needs to be async and tied to the view lifecycle.
                     if authRepository.isAuthenticated {
                         await audioPlayer.restoreLastPlayed()
                     }
