@@ -87,7 +87,7 @@ class SapphoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
 
@@ -148,7 +148,7 @@ class SapphoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
     }
@@ -182,7 +182,7 @@ class SapphoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
 
@@ -401,7 +401,7 @@ class SapphoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
     }
@@ -619,7 +619,7 @@ class SapphoAPI {
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).message
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
 
@@ -654,6 +654,13 @@ class SapphoAPI {
 private struct ErrorResponse: Codable {
     let message: String?
     let error: String?
+
+    /// The Sappho server inconsistently uses either `error` or `message`
+    /// for the human-readable text depending on the endpoint. This getter
+    /// returns whichever one is populated so callers don't have to guess.
+    var displayMessage: String? {
+        error ?? message
+    }
 }
 
 private struct LoginRequest: Codable {
