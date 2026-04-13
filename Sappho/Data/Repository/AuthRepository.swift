@@ -96,6 +96,16 @@ class AuthRepository {
         }
     }
 
+    /// Clear only the auth token (called on 401 — session expired).
+    /// Preserves server URL and user info so the login screen can
+    /// pre-fill them instead of making the user re-enter everything.
+    func clearToken() {
+        token = nil
+        keychain.delete("authToken")
+    }
+
+    /// Full logout — wipes everything. Called when the user explicitly
+    /// logs out from the settings screen.
     func clear() {
         serverURL = nil
         token = nil

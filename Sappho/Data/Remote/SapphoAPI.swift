@@ -82,7 +82,7 @@ class SapphoAPI {
         }
 
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-            await MainActor.run { authRepository.clear() }
+            await MainActor.run { authRepository.clearToken() }
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
         }
 
@@ -143,7 +143,7 @@ class SapphoAPI {
         }
 
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-            await MainActor.run { authRepository.clear() }
+            await MainActor.run { authRepository.clearToken() }
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
         }
 
