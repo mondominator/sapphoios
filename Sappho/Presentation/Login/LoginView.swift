@@ -135,9 +135,14 @@ struct LoginView: View {
         }
         .background(Color.sapphoBackground)
         .onAppear {
-            // Pre-fill server URL if previously stored
+            // Pre-fill server URL and username from the last session so
+            // a token expiry (401 → clearToken) only requires re-entering
+            // the password, not everything from scratch.
             if let stored = authRepository.serverURL {
                 serverURL = stored.absoluteString
+            }
+            if let user = authRepository.currentLoginUser {
+                username = user.username
             }
         }
     }
