@@ -48,6 +48,7 @@ struct AudiobookDetailView: View {
     // Admin features
     @State private var showEditSheet = false
     @State private var showDeleteConfirm = false
+    @State private var showRemoveDownloadConfirm = false
     @State private var showChapterEditor = false
     @State private var isRefreshing = false
     @State private var isConverting = false
@@ -166,6 +167,14 @@ struct AudiobookDetailView: View {
         } message: {
             Text("Are you sure you want to delete \"\(displayBook.title)\"? This cannot be undone.")
         }
+        .alert("Remove Download", isPresented: $showRemoveDownloadConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) {
+                downloadManager.removeDownload(audiobookId: displayBook.id)
+            }
+        } message: {
+            Text("Remove \"\(displayBook.title)\" from downloads? This will only delete the local file — your listening progress on the server will not be affected.")
+        }
         .sheet(isPresented: $showChaptersSheet) {
             ChaptersSheet(
                 chapters: chapters,
@@ -250,6 +259,18 @@ struct AudiobookDetailView: View {
                         }
                     }
 
+                    if case .downloaded = downloadState {
+                        moreMenuItem(
+                            icon: "trash",
+                            title: "Remove Download",
+                            subtitle: "Delete the local file",
+                            color: .sapphoError
+                        ) {
+                            showMoreMenu = false
+                            showRemoveDownloadConfirm = true
+                        }
+                    }
+
                     // Admin-only features
                     if authRepository.isAdmin {
                         Divider().background(Color.sapphoTextMuted.opacity(0.3)).padding(.vertical, 8)
@@ -306,7 +327,11 @@ struct AudiobookDetailView: View {
             }
             .frame(maxWidth: .infinity)
             .background(Color.sapphoSurface)
-            .presentationDetents([.fraction(authRepository.isAdmin ? 0.75 : (chapters.isEmpty ? 0.38 : 0.45))])
+            .presentationDetents([.fraction({
+                let base = authRepository.isAdmin ? 0.75 : (chapters.isEmpty ? 0.38 : 0.45)
+                let isDownloaded: Bool = { if case .downloaded = downloadState { return true } else { return false } }()
+                return base + (isDownloaded ? 0.05 : 0.0)
+            }())])
             .presentationDragIndicator(.hidden)
             .presentationCornerRadius(24)
         }
