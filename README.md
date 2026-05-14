@@ -34,7 +34,7 @@ Native iOS client for the [Sappho](https://github.com/mondominator/sappho) self-
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/mondominator/sapphoios.git
+git clone https://gitlab.com/bitworx/sapphoios.git
 cd sapphoios
 ```
 
