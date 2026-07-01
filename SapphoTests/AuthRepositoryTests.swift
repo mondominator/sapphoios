@@ -39,7 +39,7 @@ final class AuthRepositoryTests: XCTestCase {
         // Store credentials to make it authenticated
         let url = URL(string: "https://example.com")!
         let user = makeLoginUser(id: 1, username: "test", isAdmin: 0)
-        repo.store(serverURL: url, token: "token123", user: user)
+        repo.store(serverURL: url, token: "token123", refreshToken: nil, user: user)
         XCTAssertTrue(repo.isAuthenticated)
     }
 
@@ -49,7 +49,7 @@ final class AuthRepositoryTests: XCTestCase {
         let url = URL(string: "https://sappho.example.com")!
         let user = makeLoginUser(id: 42, username: "testuser", isAdmin: 0)
 
-        repo.store(serverURL: url, token: "my-token-abc", user: user)
+        repo.store(serverURL: url, token: "my-token-abc", refreshToken: nil, user: user)
 
         XCTAssertEqual(repo.serverURL, url)
         XCTAssertEqual(repo.token, "my-token-abc")
@@ -67,9 +67,51 @@ final class AuthRepositoryTests: XCTestCase {
         // Storing new login credentials should clear currentUser
         let url = URL(string: "https://example.com")!
         let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
-        repo.store(serverURL: url, token: "token", user: loginUser)
+        repo.store(serverURL: url, token: "token", refreshToken: nil, user: loginUser)
 
         XCTAssertNil(repo.currentUser)
+    }
+
+    // MARK: - Refresh Token
+
+    func testStorePersistsRefreshToken() {
+        let url = URL(string: "https://sappho.example.com")!
+        let user = makeLoginUser(id: 1, username: "test", isAdmin: 0)
+
+        repo.store(serverURL: url, token: "access-1", refreshToken: "refresh-1", user: user)
+        XCTAssertEqual(repo.refreshToken, "refresh-1")
+
+        // A fresh repo should load the persisted refresh token from the Keychain.
+        let reloaded = AuthRepository()
+        XCTAssertEqual(reloaded.refreshToken, "refresh-1")
+    }
+
+    func testUpdateTokensRotatesBoth() {
+        let url = URL(string: "https://sappho.example.com")!
+        let user = makeLoginUser(id: 1, username: "test", isAdmin: 0)
+        repo.store(serverURL: url, token: "access-1", refreshToken: "refresh-1", user: user)
+
+        repo.updateTokens(token: "access-2", refreshToken: "refresh-2")
+
+        XCTAssertEqual(repo.token, "access-2")
+        XCTAssertEqual(repo.refreshToken, "refresh-2")
+        // User and URL are untouched by a rotation.
+        XCTAssertEqual(repo.serverURL, url)
+        XCTAssertEqual(repo.currentLoginUser?.id, 1)
+    }
+
+    func testClearTokenClearsRefreshToken() {
+        let url = URL(string: "https://sappho.example.com")!
+        let user = makeLoginUser(id: 1, username: "test", isAdmin: 0)
+        repo.store(serverURL: url, token: "access-1", refreshToken: "refresh-1", user: user)
+
+        repo.clearToken()
+
+        XCTAssertNil(repo.token)
+        XCTAssertNil(repo.refreshToken)
+        // Server URL and user are preserved for login-screen pre-fill.
+        XCTAssertEqual(repo.serverURL, url)
+        XCTAssertEqual(repo.currentLoginUser?.id, 1)
     }
 
     // MARK: - Update User
@@ -90,7 +132,7 @@ final class AuthRepositoryTests: XCTestCase {
         let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
         let fullUser = makeUser(id: 1, username: "test", isAdmin: 0)
 
-        repo.store(serverURL: url, token: "secret-token", user: loginUser)
+        repo.store(serverURL: url, token: "secret-token", refreshToken: nil, user: loginUser)
         repo.updateUser(fullUser)
 
         XCTAssertTrue(repo.isAuthenticated)
@@ -110,7 +152,7 @@ final class AuthRepositoryTests: XCTestCase {
         let url = URL(string: "https://example.com")!
         let adminUser = makeLoginUser(id: 1, username: "admin", isAdmin: 1)
 
-        repo.store(serverURL: url, token: "token", user: adminUser)
+        repo.store(serverURL: url, token: "token", refreshToken: nil, user: adminUser)
 
         XCTAssertTrue(repo.isAdmin)
     }
@@ -118,7 +160,7 @@ final class AuthRepositoryTests: XCTestCase {
     func testIsAdminFromCurrentUser() {
         let url = URL(string: "https://example.com")!
         let loginUser = makeLoginUser(id: 1, username: "user", isAdmin: 0)
-        repo.store(serverURL: url, token: "token", user: loginUser)
+        repo.store(serverURL: url, token: "token", refreshToken: nil, user: loginUser)
 
         // Login user is not admin
         XCTAssertFalse(repo.isAdmin)
@@ -141,7 +183,7 @@ final class AuthRepositoryTests: XCTestCase {
         let url = URL(string: "https://persist.test.com")!
         let loginUser = makeLoginUser(id: 99, username: "persist", isAdmin: 0)
 
-        repo.store(serverURL: url, token: "persist-token", user: loginUser)
+        repo.store(serverURL: url, token: "persist-token", refreshToken: nil, user: loginUser)
 
         // Create a new instance (simulates app restart)
         let freshRepo = AuthRepository()
@@ -159,7 +201,7 @@ final class AuthRepositoryTests: XCTestCase {
         let url = URL(string: "https://example.com")!
         let loginUser = makeLoginUser(id: 1, username: "user", isAdmin: 0)
 
-        repo.store(serverURL: url, token: "token", user: loginUser)
+        repo.store(serverURL: url, token: "token", refreshToken: nil, user: loginUser)
         repo.clear()
 
         let freshRepo = AuthRepository()

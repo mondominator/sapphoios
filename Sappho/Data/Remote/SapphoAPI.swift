@@ -26,16 +26,96 @@ enum APIError: Error, LocalizedError {
     }
 }
 
+/// Serializes token refreshes so that N concurrent 401s trigger only ONE
+/// call to /api/auth/refresh. Late arrivals await the in-flight refresh and
+/// share its result instead of each burning a rotation (which would trip the
+/// backend's reuse detection and kill the whole token family).
+private actor TokenRefreshCoordinator {
+    private var inFlight: Task<String, Error>?
+
+    func refresh(_ operation: @escaping () async throws -> String) async throws -> String {
+        if let inFlight {
+            return try await inFlight.value
+        }
+        let task = Task { try await operation() }
+        inFlight = task
+        defer { inFlight = nil }
+        return try await task.value
+    }
+}
+
 @Observable
 class SapphoAPI {
     private let authRepository: AuthRepository
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let refreshCoordinator = TokenRefreshCoordinator()
 
     init(authRepository: AuthRepository, session: URLSession = .shared) {
         self.authRepository = authRepository
         self.session = session
         self.decoder = JSONDecoder()
+    }
+
+    // MARK: - Token Refresh
+
+    /// Attempt a single-flight token refresh. Returns true if a fresh access
+    /// token was obtained (and stored), false if the refresh failed.
+    private func attemptRefresh() async -> Bool {
+        do {
+            _ = try await refreshCoordinator.refresh { [weak self] in
+                guard let self else { throw APIError.notAuthenticated }
+                return try await self.performRefresh()
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// POST /api/auth/refresh with the stored refresh token. Rotates both
+    /// tokens on success. Deliberately does NOT go through `request()`, so a
+    /// 401 here can never recurse back into the refresh path.
+    private func performRefresh() async throws -> String {
+        guard let baseURL = authRepository.serverURL,
+              let refreshToken = authRepository.refreshToken else {
+            throw APIError.notAuthenticated
+        }
+
+        guard let url = URLComponents(url: baseURL.appendingPathComponent("api/auth/refresh"), resolvingAgainstBaseURL: true)?.url else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(RefreshRequest(refreshToken: refreshToken))
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Refresh failed")
+        }
+
+        let refreshed = try decoder.decode(RefreshResponse.self, from: data)
+        await MainActor.run {
+            authRepository.updateTokens(token: refreshed.token, refreshToken: refreshed.refreshToken)
+        }
+        return refreshed.token
+    }
+
+    private struct RefreshRequest: Encodable {
+        let refreshToken: String
     }
 
     // MARK: - Base Request Methods
@@ -44,7 +124,8 @@ class SapphoAPI {
         _ endpoint: String,
         method: String = "GET",
         body: Encodable? = nil,
-        queryItems: [URLQueryItem]? = nil
+        queryItems: [URLQueryItem]? = nil,
+        isRetry: Bool = false
     ) async throws -> T {
         guard let baseURL = authRepository.serverURL else {
             throw APIError.notAuthenticated
@@ -81,6 +162,17 @@ class SapphoAPI {
             throw APIError.invalidResponse
         }
 
+        // A 401 on an expired access token: try refreshing once, then replay
+        // the original request. Only 401 (not 403) is refreshable, and only if
+        // we actually hold a refresh token and haven't already retried.
+        if httpResponse.statusCode == 401, !isRetry, authRepository.refreshToken != nil {
+            if await attemptRefresh() {
+                return try await self.request(endpoint, method: method, body: body, queryItems: queryItems, isRetry: true)
+            }
+            await MainActor.run { authRepository.clearToken() }
+            throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
+        }
+
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
             await MainActor.run { authRepository.clearToken() }
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
@@ -108,7 +200,8 @@ class SapphoAPI {
     private func requestVoid(
         _ endpoint: String,
         method: String = "GET",
-        body: Encodable? = nil
+        body: Encodable? = nil,
+        isRetry: Bool = false
     ) async throws {
         guard let baseURL = authRepository.serverURL else {
             throw APIError.notAuthenticated
@@ -140,6 +233,15 @@ class SapphoAPI {
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
+        }
+
+        // See request<T>: refresh once on a 401, then replay.
+        if httpResponse.statusCode == 401, !isRetry, authRepository.refreshToken != nil {
+            if await attemptRefresh() {
+                return try await self.requestVoid(endpoint, method: method, body: body, isRetry: true)
+            }
+            await MainActor.run { authRepository.clearToken() }
+            throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
         }
 
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {

@@ -62,9 +62,10 @@ final class SapphoAPITests: XCTestCase {
         authRepo = AuthRepository()
         authRepo.clear()
 
-        // Store credentials so API considers us authenticated
+        // Store credentials so API considers us authenticated.
+        // No refresh token by default — refresh-specific tests set one explicitly.
         let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
-        authRepo.store(serverURL: testServerURL, token: testToken, user: loginUser)
+        authRepo.store(serverURL: testServerURL, token: testToken, refreshToken: nil, user: loginUser)
 
         // Create URLSession with mock protocol
         let config = URLSessionConfiguration.ephemeral
@@ -300,6 +301,121 @@ final class SapphoAPITests: XCTestCase {
             try? await Task.sleep(nanoseconds: 100_000_000)
             XCTAssertFalse(authRepo.isAuthenticated)
         }
+    }
+
+    // MARK: - Token Refresh on 401
+
+    /// Re-store credentials including a refresh token.
+    private func storeWithRefreshToken(_ refresh: String) {
+        let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
+        authRepo.store(serverURL: testServerURL, token: testToken, refreshToken: refresh, user: loginUser)
+    }
+
+    func testLoginDecodesRefreshToken() async throws {
+        let responseJSON = """
+        {
+            "token": "new-token-xyz",
+            "refreshToken": "refresh-xyz",
+            "user": { "id": 5, "username": "mondo", "is_admin": 1 }
+        }
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON)
+        }
+
+        let result = try await api.login(serverURL: testServerURL, username: "u", password: "p")
+        XCTAssertEqual(result.token, "new-token-xyz")
+        XCTAssertEqual(result.refreshToken, "refresh-xyz")
+    }
+
+    func test401WithRefreshTokenRefreshesAndRetries() async throws {
+        storeWithRefreshToken("refresh-original")
+
+        let booksJSON = """
+        [{"id": 1, "title": "Book One"}]
+        """.data(using: .utf8)!
+        let refreshJSON = """
+        {"token": "fresh-access", "refreshToken": "refresh-rotated"}
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("api/auth/refresh") {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, refreshJSON)
+            }
+            // Protected endpoint: 401 with the stale token, 200 once the fresh one arrives.
+            if request.value(forHTTPHeaderField: "Authorization") == "Bearer fresh-access" {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, booksJSON)
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        let books = try await api.getRecentlyAdded()
+        XCTAssertEqual(books.count, 1)
+        XCTAssertEqual(books[0].title, "Book One")
+        // Tokens rotated and persisted.
+        XCTAssertEqual(authRepo.token, "fresh-access")
+        XCTAssertEqual(authRepo.refreshToken, "refresh-rotated")
+        XCTAssertTrue(authRepo.isAuthenticated)
+    }
+
+    func test401RefreshFailureClearsAuth() async {
+        storeWithRefreshToken("refresh-stale")
+
+        // Everything 401 — including the refresh call (refresh token is dead).
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await api.getRecentlyAdded()
+            XCTFail("Should have thrown")
+        } catch {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertFalse(authRepo.isAuthenticated)
+            XCTAssertNil(authRepo.token)
+            XCTAssertNil(authRepo.refreshToken)
+        }
+    }
+
+    func testRefreshRetriesOnlyOnce() async {
+        storeWithRefreshToken("refresh-original")
+
+        let refreshJSON = """
+        {"token": "fresh-access", "refreshToken": "refresh-rotated"}
+        """.data(using: .utf8)!
+
+        // Protected endpoint ALWAYS 401 (even with the fresh token); refresh always
+        // succeeds. The client must refresh once, retry once, then give up — not loop.
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("api/auth/refresh") {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, refreshJSON)
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await api.getRecentlyAdded()
+            XCTFail("Should have thrown")
+        } catch {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertFalse(authRepo.isAuthenticated)
+        }
+
+        // Exactly one refresh, and exactly two protected calls (original + single retry).
+        let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }
+        XCTAssertEqual(refreshCalls.count, 1)
+        let protectedCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("meta/recent") }
+        XCTAssertEqual(protectedCalls.count, 2)
     }
 
     // MARK: - Error Handling: Server Error

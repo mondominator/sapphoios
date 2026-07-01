@@ -175,7 +175,7 @@ struct LoginView: View {
                 return
             }
 
-            authRepository.store(serverURL: url, token: response.token, user: response.user)
+            authRepository.store(serverURL: url, token: response.token, refreshToken: response.refreshToken, user: response.user)
         } catch let error as APIError {
             errorMessage = error.errorDescription
         } catch {
