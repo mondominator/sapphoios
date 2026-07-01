@@ -163,35 +163,55 @@ struct HomeView: View {
     }
 
     private func loadData() async {
-        // Offline: don't spin on requests that will only time out. Show the
-        // downloaded books (and the offline banner) right away.
+        // No network path at all — instant offline, show downloads.
         if !networkMonitor.isConnected {
             isOffline = true
             isLoading = false
             return
         }
 
-        isLoading = errorMessage != nil || continueListening.isEmpty
+        // Only block the screen with a spinner when there is genuinely nothing
+        // cached to show. If downloads (or a previous feed) exist, they render
+        // immediately and the feed refreshes underneath.
+        isLoading = downloadedBooks.isEmpty && continueListening.isEmpty
+            && recentlyAdded.isEmpty && upNext.isEmpty && listenAgain.isEmpty
 
-        // Fetch concurrently so an unreachable/slow server costs a single
-        // timeout rather than four back-to-back.
-        async let inProgress = api?.getInProgress(limit: 10)
-        async let recent = api?.getRecentlyAdded(limit: 10)
-        async let finished = api?.getFinished(limit: 10)
-        async let next = api?.getUpNext(limit: 10)
+        // The device can be online while the SERVER is unreachable (e.g. it's
+        // down or we're off its network). Those requests would otherwise hang
+        // on a socket timeout and leave Home spinning "forever", so cap the
+        // whole feed load: if it doesn't come back in time, treat it as offline
+        // and fall back to the downloaded books.
+        typealias Feed = ([Audiobook], [Audiobook], [Audiobook], [Audiobook])
+        let fetch = Task { () -> Feed? in
+            do {
+                async let inProgress = api?.getInProgress(limit: 10)
+                async let recent = api?.getRecentlyAdded(limit: 10)
+                async let finished = api?.getFinished(limit: 10)
+                async let next = api?.getUpNext(limit: 10)
+                return (try await inProgress ?? [], try await recent ?? [],
+                        try await finished ?? [], try await next ?? [])
+            } catch {
+                return nil // network error, timeout, or cancelled → unreachable
+            }
+        }
+        let timeout = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
+            fetch.cancel()
+        }
+        let feed = await fetch.value
+        timeout.cancel()
 
-        continueListening = (try? await inProgress) ?? []
-        recentlyAdded = (try? await recent) ?? []
-        listenAgain = (try? await finished) ?? []
-        upNext = (try? await next) ?? []
-
-        if !continueListening.isEmpty || !recentlyAdded.isEmpty || !listenAgain.isEmpty || !upNext.isEmpty {
-            errorMessage = nil
+        if let (ip, ra, fin, un) = feed {
+            continueListening = ip
+            recentlyAdded = ra
+            listenAgain = fin
+            upNext = un
             isOffline = false
-        } else if !networkMonitor.isConnected {
+            errorMessage = nil
+        } else {
+            // Couldn't reach the server — surface downloads + the offline banner.
             isOffline = true
         }
-
         isLoading = false
     }
 }
