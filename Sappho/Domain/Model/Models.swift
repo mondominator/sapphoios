@@ -358,17 +358,26 @@ struct User: Codable, Identifiable {
 // MARK: - Auth Response
 struct AuthResponse: Codable {
     let token: String
+    let refreshToken: String?
     let user: LoginUser
     let mustChangePassword: Bool?
     let mfaRequired: Bool?
     let mfaToken: String?
 
     enum CodingKeys: String, CodingKey {
-        case token, user
+        case token, user, refreshToken
         case mustChangePassword = "must_change_password"
         case mfaRequired = "mfa_required"
         case mfaToken = "mfa_token"
     }
+}
+
+// MARK: - Refresh Token Response
+/// Returned by POST /api/auth/refresh. Both tokens rotate on every refresh,
+/// so the new refreshToken must replace the stored one.
+struct RefreshResponse: Codable {
+    let token: String
+    let refreshToken: String
 }
 
 // MARK: - Login User (minimal user info returned from login)

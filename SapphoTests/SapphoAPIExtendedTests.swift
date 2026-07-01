@@ -14,7 +14,7 @@ final class SapphoAPIExtendedTests: XCTestCase {
         authRepo = AuthRepository()
         authRepo.clear()
         let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
-        authRepo.store(serverURL: testServerURL, token: testToken, user: loginUser)
+        authRepo.store(serverURL: testServerURL, token: testToken, refreshToken: nil, user: loginUser)
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
         session = URLSession(configuration: config)
