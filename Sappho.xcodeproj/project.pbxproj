@@ -33,6 +33,7 @@
 		6E81A81A83E4A980DC60FC8D /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C07AF2BCF038C57E042CE9 /* TimeFormatting.swift */; };
 		731015E6B088ED705983ACE5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D48DA2D1495E05D31E31B2 /* LoginView.swift */; };
 		79DD8D3947602DD34D32512E /* AdditionalModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65C26BF1CCFB3F4091E68F8 /* AdditionalModelsTests.swift */; };
+		7EAB29802C0F218AD97F0623 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 272664D5190202CF8168ECD2 /* NetworkMonitor.swift */; };
 		8058DFFACF970A9CDC969555 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9320ADDDF94250E660D31DB /* MainView.swift */; };
 		8138B55F348A0873181075CF /* DownloadManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */; };
 		8B8E0A256739691D43C89701 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F48F2CFDFCC70987046A9B8 /* Assets.xcassets */; };
@@ -81,6 +82,7 @@
 		1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeriesListView.swift; sourceTree = "<group>"; };
 		267C796462A9BF3DC8E0BE3E /* NotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPanel.swift; sourceTree = "<group>"; };
 		2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningSessionTests.swift; sourceTree = "<group>"; };
+		272664D5190202CF8168ECD2 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		28474CB2464BD5FF1D9330CC /* ReadingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListView.swift; sourceTree = "<group>"; };
 		29D15A1E670D995C15F5D203 /* CarPlayContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentProvider.swift; sourceTree = "<group>"; };
 		2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilteredBooksView.swift; sourceTree = "<group>"; };
@@ -251,6 +253,7 @@
 			children = (
 				B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */,
 				8F10CE90321BE63745D3C229 /* DownloadManager.swift */,
+				272664D5190202CF8168ECD2 /* NetworkMonitor.swift */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -544,6 +547,7 @@
 				731015E6B088ED705983ACE5 /* LoginView.swift in Sources */,
 				8058DFFACF970A9CDC969555 /* MainView.swift in Sources */,
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,
+				7EAB29802C0F218AD97F0623 /* NetworkMonitor.swift in Sources */,
 				E67D8F015CCE5913381DF6BA /* NotificationPanel.swift in Sources */,
 				0E910386749D27DA69B74339 /* PlayerView.swift in Sources */,
 				C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */,

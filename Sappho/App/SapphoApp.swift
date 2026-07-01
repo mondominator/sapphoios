@@ -28,6 +28,10 @@ struct SapphoApp: App {
 
         // Populate ServiceLocator so non-SwiftUI classes (e.g. CarPlaySceneDelegate) can access services
         ServiceLocator.shared.configure(api: apiInstance, audioPlayer: playerInstance, authRepository: repo)
+
+        // Start reachability monitoring at launch so the Home screen already
+        // knows the connection state before it decides whether to load the feed.
+        _ = NetworkMonitor.shared
     }
 
     @Environment(\.scenePhase) private var scenePhase

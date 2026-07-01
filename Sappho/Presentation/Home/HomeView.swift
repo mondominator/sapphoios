@@ -15,6 +15,8 @@ struct HomeView: View {
     @State private var errorMessage: String?
     @State private var isOffline = false
 
+    private let networkMonitor = NetworkMonitor.shared
+
     private var downloadedBooks: [Audiobook] {
         DownloadManager.shared.downloadedAudiobooks()
     }
@@ -148,19 +150,46 @@ struct HomeView: View {
                 Task { await loadData() }
             }
         }
+        .onChange(of: networkMonitor.isConnected) { _, connected in
+            if connected {
+                // Connectivity came back — refresh the feed.
+                Task { await loadData() }
+            } else {
+                // Went offline — drop the spinner and surface downloads immediately.
+                isOffline = true
+                isLoading = false
+            }
+        }
     }
 
     private func loadData() async {
+        // Offline: don't spin on requests that will only time out. Show the
+        // downloaded books (and the offline banner) right away.
+        if !networkMonitor.isConnected {
+            isOffline = true
+            isLoading = false
+            return
+        }
+
         isLoading = errorMessage != nil || continueListening.isEmpty
 
-        continueListening = (try? await api?.getInProgress(limit: 10)) ?? []
-        recentlyAdded = (try? await api?.getRecentlyAdded(limit: 10)) ?? []
-        listenAgain = (try? await api?.getFinished(limit: 10)) ?? []
-        upNext = (try? await api?.getUpNext(limit: 10)) ?? []
+        // Fetch concurrently so an unreachable/slow server costs a single
+        // timeout rather than four back-to-back.
+        async let inProgress = api?.getInProgress(limit: 10)
+        async let recent = api?.getRecentlyAdded(limit: 10)
+        async let finished = api?.getFinished(limit: 10)
+        async let next = api?.getUpNext(limit: 10)
+
+        continueListening = (try? await inProgress) ?? []
+        recentlyAdded = (try? await recent) ?? []
+        listenAgain = (try? await finished) ?? []
+        upNext = (try? await next) ?? []
 
         if !continueListening.isEmpty || !recentlyAdded.isEmpty || !listenAgain.isEmpty || !upNext.isEmpty {
             errorMessage = nil
             isOffline = false
+        } else if !networkMonitor.isConnected {
+            isOffline = true
         }
 
         isLoading = false
