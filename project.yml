@@ -51,6 +51,7 @@ targets:
       - SapphoTests
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: S6WU9SVVDW
     dependencies:
@@ -63,6 +64,7 @@ targets:
       - SapphoUITests
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: S6WU9SVVDW
     dependencies:
