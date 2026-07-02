@@ -1,6 +1,7 @@
 import XCTest
 @testable import Sappho
 
+@MainActor
 final class AudioPlayerServiceExtendedTests: XCTestCase {
 
     private var playerService: AudioPlayerService!
@@ -166,6 +167,61 @@ final class AudioPlayerServiceExtendedTests: XCTestCase {
     func testPendingProgressSyncReturnsEmptyWhenNone() {
         let stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int] ?? [:]
         XCTAssertTrue(stored.isEmpty, "Should return empty dict when no pending syncs exist")
+    }
+
+    // MARK: - Pending Sync Queue Semantics (savePendingSync / removePendingSync)
+
+    func testSavePendingSyncRoundTrip() {
+        playerService = AudioPlayerService()
+
+        playerService.savePendingSync(audiobookId: 1, position: 100)
+        playerService.savePendingSync(audiobookId: 2, position: 200)
+
+        var stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int]
+        XCTAssertEqual(stored?["1"], 100)
+        XCTAssertEqual(stored?["2"], 200)
+
+        playerService.removePendingSync(for: 1)
+        stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int]
+        XCTAssertNil(stored?["1"], "Removed entry should be gone")
+        XCTAssertEqual(stored?["2"], 200, "Other entries should survive removal")
+    }
+
+    func testSavePendingSyncOverwritesExistingPosition() {
+        playerService = AudioPlayerService()
+
+        playerService.savePendingSync(audiobookId: 42, position: 100)
+        playerService.savePendingSync(audiobookId: 42, position: 500)
+
+        let stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int]
+        XCTAssertEqual(stored?.count, 1)
+        XCTAssertEqual(stored?["42"], 500, "Newer position should overwrite the old one")
+    }
+
+    func testSequentialRemovalsDoNotResurrectEntries() {
+        // Regression guard for the old per-entry-Task race: two interleaved
+        // read-modify-write removals could resurrect an already-removed entry.
+        // With sequential main-actor removals the queue must end up empty.
+        playerService = AudioPlayerService()
+
+        playerService.savePendingSync(audiobookId: 1, position: 100)
+        playerService.savePendingSync(audiobookId: 2, position: 200)
+
+        playerService.removePendingSync(for: 1)
+        playerService.removePendingSync(for: 2)
+
+        let stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int] ?? [:]
+        XCTAssertTrue(stored.isEmpty, "No entry should be resurrected after sequential removals")
+    }
+
+    func testRemovePendingSyncForUnknownIdIsNoOp() {
+        playerService = AudioPlayerService()
+
+        playerService.savePendingSync(audiobookId: 7, position: 300)
+        playerService.removePendingSync(for: 99)
+
+        let stored = UserDefaults.standard.dictionary(forKey: pendingSyncKey) as? [String: Int]
+        XCTAssertEqual(stored?["7"], 300, "Removing an unknown id must not disturb other entries")
     }
 
     func testSyncPendingProgressDoesNotCrashWithoutAPI() {

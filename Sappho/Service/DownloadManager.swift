@@ -143,6 +143,10 @@ class DownloadManager: NSObject, DownloadManaging {
 
     private var downloadTasks: [Int: URLSessionDownloadTask] = [:]
     private var pendingAudiobooks: [Int: Audiobook] = [:]
+    /// Resume data captured when a download is cancelled, keyed by audiobook id.
+    /// Consumed by the next download(audiobook:) call for the same book so the
+    /// transfer picks up where it left off instead of restarting.
+    private var resumeDataByBook: [Int: Data] = [:]
     private var api: SapphoAPI?
     private var _session: URLSession?
 
@@ -158,7 +162,11 @@ class DownloadManager: NSObject, DownloadManaging {
         return newSession
     }
 
-    private var downloadsDirectory: URL {
+    /// Downloads directory, created (and excluded from backup) exactly once.
+    /// Stored rather than computed because this is on hot paths — localURL(for:)
+    /// runs twice per play() — and the old computed var hit the file system with
+    /// createDirectory + setResourceValues on every access.
+    private let downloadsDirectory: URL = {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         var downloads = appSupport.appendingPathComponent("Downloads", isDirectory: true)
 
@@ -171,7 +179,7 @@ class DownloadManager: NSObject, DownloadManaging {
         try? downloads.setResourceValues(values)
 
         return downloads
-    }
+    }()
 
     private var metadataURL: URL {
         downloadsDirectory.appendingPathComponent("metadata.json")
@@ -198,12 +206,19 @@ class DownloadManager: NSObject, DownloadManaging {
         // Store audiobook so we can save metadata when download completes
         pendingAudiobooks[audiobook.id] = audiobook
 
-        var request = URLRequest(url: url)
-        for (field, value) in (api?.authHeaders ?? [:]) {
-            request.setValue(value, forHTTPHeaderField: field)
+        let task: URLSessionDownloadTask
+        if let resumeData = resumeDataByBook.removeValue(forKey: audiobook.id) {
+            // Resume a previously cancelled download instead of restarting.
+            // If the embedded request's auth token has since expired, the task
+            // fails and a subsequent retry falls back to a fresh download.
+            task = session.downloadTask(withResumeData: resumeData)
+        } else {
+            var request = URLRequest(url: url)
+            for (field, value) in (api?.authHeaders ?? [:]) {
+                request.setValue(value, forHTTPHeaderField: field)
+            }
+            task = session.downloadTask(with: request)
         }
-
-        let task = session.downloadTask(with: request)
         task.taskDescription = String(audiobook.id)
         downloadTasks[audiobook.id] = task
         downloads[audiobook.id] = .downloading(progress: 0)
@@ -211,7 +226,14 @@ class DownloadManager: NSObject, DownloadManaging {
     }
 
     func cancelDownload(audiobookId: Int) {
-        downloadTasks[audiobookId]?.cancel()
+        // Cancel while producing resume data so a retried download can pick up
+        // where it left off rather than starting over.
+        downloadTasks[audiobookId]?.cancel { [weak self] resumeData in
+            guard let resumeData else { return }
+            DispatchQueue.main.async {
+                self?.resumeDataByBook[audiobookId] = resumeData
+            }
+        }
         downloadTasks.removeValue(forKey: audiobookId)
         pendingAudiobooks.removeValue(forKey: audiobookId)
         downloads[audiobookId] = .notDownloaded
@@ -223,6 +245,7 @@ class DownloadManager: NSObject, DownloadManaging {
         }
         downloads[audiobookId] = .notDownloaded
         cachedMeta.removeValue(forKey: audiobookId)
+        resumeDataByBook.removeValue(forKey: audiobookId)
         saveMetadata()
     }
 
@@ -299,6 +322,7 @@ class DownloadManager: NSObject, DownloadManaging {
 
         downloads.removeAll()
         cachedMeta.removeAll()
+        resumeDataByBook.removeAll()
         saveMetadata()
         loadDownloadedFiles()
     }
@@ -402,6 +426,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
               let downloadTask = task as? URLSessionDownloadTask,
               let audiobookIdString = downloadTask.taskDescription,
               let audiobookId = Int(audiobookIdString) else {
+            return
+        }
+
+        // User-initiated cancellation (cancelDownload) already reset the state to
+        // .notDownloaded — don't overwrite it with .failed.
+        if (error as NSError).code == NSURLErrorCancelled {
             return
         }
 
