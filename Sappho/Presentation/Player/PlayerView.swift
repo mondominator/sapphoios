@@ -201,16 +201,17 @@ struct PlayerView: View {
 
                             Spacer()
 
-                            // Skip backward (Replay 10)
+                            // Skip backward (uses the user's configured interval,
+                            // matching the lock-screen remote commands)
                             Button {
-                                audioPlayer.skipBackward(seconds: 10)
+                                audioPlayer.skipBackward(seconds: TimeInterval(skipBackwardSeconds))
                             } label: {
-                                Image(systemName: "gobackward.10")
+                                Image(systemName: skipBackwardIcon)
                                     .font(.sapphoIconLarge)
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
-                            .accessibilityLabel("Skip back 10 seconds")
+                            .accessibilityLabel("Skip back \(skipBackwardSeconds) seconds")
 
                             Spacer()
 
@@ -254,16 +255,17 @@ struct PlayerView: View {
 
                             Spacer()
 
-                            // Skip forward (Forward 10)
+                            // Skip forward (uses the user's configured interval,
+                            // matching the lock-screen remote commands)
                             Button {
-                                audioPlayer.skipForward(seconds: 10)
+                                audioPlayer.skipForward(seconds: TimeInterval(skipForwardSeconds))
                             } label: {
-                                Image(systemName: "goforward.10")
+                                Image(systemName: skipForwardIcon)
                                     .font(.sapphoIconLarge)
                                     .foregroundColor(.sapphoTextHigh)
                             }
                             .frame(width: 52)
-                            .accessibilityLabel("Skip forward 10 seconds")
+                            .accessibilityLabel("Skip forward \(skipForwardSeconds) seconds")
 
                             Spacer()
 
