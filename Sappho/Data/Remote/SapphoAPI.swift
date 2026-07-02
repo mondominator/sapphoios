@@ -207,9 +207,10 @@ class SapphoAPI {
             throw APIError.notAuthenticated
         }
 
-        guard let url = URL(string: endpoint, relativeTo: baseURL) else {
-            throw APIError.invalidURL
-        }
+        // Match request<T>: appendingPathComponent preserves any subpath in the
+        // server URL (e.g. https://host/sappho), whereas URL(string:relativeTo:)
+        // resolves relative to the host root and drops it (RFC 3986).
+        let url = baseURL.appendingPathComponent(endpoint)
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -474,9 +475,9 @@ class SapphoAPI {
             throw APIError.notAuthenticated
         }
 
-        guard let url = URL(string: "api/profile/avatar", relativeTo: baseURL) else {
-            throw APIError.invalidURL
-        }
+        // appendingPathComponent preserves any subpath in the server URL
+        // (URL(string:relativeTo:) would drop it — see requestVoid).
+        let url = baseURL.appendingPathComponent("api/profile/avatar")
 
         let boundary = UUID().uuidString
         var request = URLRequest(url: url)
@@ -672,9 +673,9 @@ class SapphoAPI {
             throw APIError.notAuthenticated
         }
 
-        guard let url = URL(string: "api/upload", relativeTo: baseURL) else {
-            throw APIError.invalidURL
-        }
+        // appendingPathComponent preserves any subpath in the server URL
+        // (URL(string:relativeTo:) would drop it — see requestVoid).
+        let url = baseURL.appendingPathComponent("api/upload")
 
         let boundary = UUID().uuidString
         var request = URLRequest(url: url)

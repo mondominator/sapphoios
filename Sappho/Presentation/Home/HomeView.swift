@@ -21,6 +21,11 @@ struct HomeView: View {
         DownloadManager.shared.downloadedAudiobooks()
     }
 
+    private var feedIsEmpty: Bool {
+        continueListening.isEmpty && recentlyAdded.isEmpty
+            && listenAgain.isEmpty && upNext.isEmpty
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
@@ -52,7 +57,7 @@ struct HomeView: View {
 
                 if isLoading {
                     LoadingView(message: "Loading your library...")
-                } else if let error = errorMessage, downloadedBooks.isEmpty {
+                } else if let error = errorMessage, downloadedBooks.isEmpty, feedIsEmpty {
                     ErrorView(message: error) {
                         Task { await loadData() }
                     }
@@ -182,37 +187,54 @@ struct HomeView: View {
         // whole feed load: if it doesn't come back in time, treat it as offline
         // and fall back to the downloaded books.
         typealias Feed = ([Audiobook], [Audiobook], [Audiobook], [Audiobook])
-        let fetch = Task { () -> Feed? in
+        let fetch = Task { () -> Result<Feed, Error> in
             do {
                 async let inProgress = api?.getInProgress(limit: 10)
                 async let recent = api?.getRecentlyAdded(limit: 10)
                 async let finished = api?.getFinished(limit: 10)
                 async let next = api?.getUpNext(limit: 10)
-                return (try await inProgress ?? [], try await recent ?? [],
-                        try await finished ?? [], try await next ?? [])
+                return .success((try await inProgress ?? [], try await recent ?? [],
+                                 try await finished ?? [], try await next ?? []))
             } catch {
-                return nil // network error, timeout, or cancelled → unreachable
+                return .failure(error)
             }
         }
         let timeout = Task {
             try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
             fetch.cancel()
         }
-        let feed = await fetch.value
+        let result = await fetch.value
         timeout.cancel()
 
-        if let (ip, ra, fin, un) = feed {
+        switch result {
+        case .success(let (ip, ra, fin, un)):
             continueListening = ip
             recentlyAdded = ra
             listenAgain = fin
             upNext = un
             isOffline = false
             errorMessage = nil
-        } else {
+        case .failure(let error) where Self.isUnreachableError(error):
             // Couldn't reach the server — surface downloads + the offline banner.
             isOffline = true
+            errorMessage = nil
+        case .failure(let error):
+            // The server responded but with an error (HTTP failure, decoding,
+            // auth, ...) — that's not "offline", so show a real error instead
+            // of misreporting the connection state.
+            isOffline = false
+            errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// True for errors meaning the server couldn't be reached at all (no
+    /// connectivity, socket timeout, or our 10s cap cancelling the fetch) —
+    /// as opposed to the server responding with an error.
+    private static func isUnreachableError(_ error: Error) -> Bool {
+        if error is URLError || error is CancellationError { return true }
+        if case APIError.networkError = error { return true }
+        return false
     }
 }
 

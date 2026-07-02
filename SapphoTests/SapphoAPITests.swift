@@ -589,6 +589,77 @@ final class SapphoAPITests: XCTestCase {
         }
     }
 
+    // MARK: - Server URL With Subpath (C2 regression)
+    // A server behind a reverse proxy can live at a subpath, e.g.
+    // https://host/sappho. URL(string:relativeTo:) resolves relative to the
+    // host root and silently drops that subpath (RFC 3986); these tests pin
+    // requestVoid and the multipart uploads to appendingPathComponent behavior.
+
+    /// Re-store credentials with a server URL that includes a subpath.
+    private func storeWithSubpathServerURL() {
+        let loginUser = makeLoginUser(id: 1, username: "test", isAdmin: 0)
+        let subpathURL = URL(string: "https://sappho.test.com/sappho")!
+        authRepo.store(serverURL: subpathURL, token: testToken, refreshToken: nil, user: loginUser)
+    }
+
+    func testRequestVoidPreservesServerSubpath() async throws {
+        storeWithSubpathServerURL()
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/sappho/api/audiobooks/42/progress")
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        try await api.updateProgress(audiobookId: 42, position: 1500, state: "playing")
+
+        let paths = MockURLProtocol.capturedRequests.compactMap { $0.url?.path }
+        XCTAssertEqual(paths, ["/sappho/api/audiobooks/42/progress"])
+    }
+
+    func testUploadAvatarPreservesServerSubpath() async throws {
+        storeWithSubpathServerURL()
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/sappho/api/profile/avatar")
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        try await api.uploadAvatar(imageData: Data([0xFF, 0xD8]))
+
+        let paths = MockURLProtocol.capturedRequests.compactMap { $0.url?.path }
+        XCTAssertEqual(paths, ["/sappho/api/profile/avatar"])
+    }
+
+    func testUploadAudiobookPreservesServerSubpath() async throws {
+        storeWithSubpathServerURL()
+
+        let responseJSON = """
+        {"message": "ok", "audiobook": {"id": 7, "title": "Uploaded"}}
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.url?.path, "/sappho/api/upload")
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON)
+        }
+
+        let result = try await api.uploadAudiobook(
+            fileData: Data([0x00]),
+            fileName: "book.m4b",
+            mimeType: "audio/mp4",
+            title: nil,
+            author: nil,
+            narrator: nil,
+            onProgress: { _ in }
+        )
+        XCTAssertEqual(result.audiobook?.id, 7)
+
+        let paths = MockURLProtocol.capturedRequests.compactMap { $0.url?.path }
+        XCTAssertEqual(paths, ["/sappho/api/upload"])
+    }
+
     // MARK: - Helpers
 
     private func makeLoginUser(id: Int, username: String, isAdmin: Int) -> LoginUser {

@@ -52,6 +52,7 @@ struct AudiobookDetailView: View {
     @State private var showChapterEditor = false
     @State private var isRefreshing = false
     @State private var isConverting = false
+    @State private var convertTask: Task<Void, Never>?
     @State private var coverRefreshTrigger = 0
 
     private var downloadManager: DownloadManager { DownloadManager.shared }
@@ -292,7 +293,10 @@ struct AudiobookDetailView: View {
                             color: .sapphoPrimary
                         ) {
                             showMoreMenu = false
-                            Task { await convertToM4B() }
+                            // Keep a handle on the polling task so it can be
+                            // cancelled if the view goes away mid-conversion.
+                            convertTask?.cancel()
+                            convertTask = Task { await convertToM4B() }
                         }
 
                         if !chapters.isEmpty {
@@ -343,6 +347,12 @@ struct AudiobookDetailView: View {
             await loadReviews()
             await loadCollections()
             _ = await (aiCheck, prevCheck)
+        }
+        .onDisappear {
+            // The conversion poller is an unstructured Task; without this it
+            // would keep polling the server after the view is dismissed.
+            convertTask?.cancel()
+            convertTask = nil
         }
         .overlay(alignment: .bottom) {
             if let message = toastMessage {
@@ -1003,28 +1013,45 @@ struct AudiobookDetailView: View {
     private var downloadButtonLabel: some View {
         switch downloadState {
         case .downloading(let progress):
-            // Expanded button with progress bar
+            // Expanded button with progress bar. A negative progress is the
+            // DownloadManager sentinel for "size unknown" — render an
+            // indeterminate state instead of a bogus percentage.
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.sapphoTextMuted)
-                    Text("\(Int(progress * 100))%")
-                        .font(.sapphoDetailSemibold)
-                        .foregroundColor(.sapphoTextHigh)
-                        .contentTransition(.numericText())
-                }
-
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.1))
-                        Capsule()
-                            .fill(Color.sapphoPrimary)
-                            .frame(width: geo.size.width * progress)
+                    if progress >= 0 {
+                        Text("\(Int(progress * 100))%")
+                            .font(.sapphoDetailSemibold)
+                            .foregroundColor(.sapphoTextHigh)
+                            .contentTransition(.numericText())
+                    } else {
+                        Text("Downloading…")
+                            .font(.sapphoDetailSemibold)
+                            .foregroundColor(.sapphoTextHigh)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                 }
-                .frame(height: 4)
+
+                if progress >= 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.1))
+                            Capsule()
+                                .fill(Color.sapphoPrimary)
+                                .frame(width: geo.size.width * progress)
+                        }
+                    }
+                    .frame(height: 4)
+                } else {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(.sapphoPrimary)
+                        .frame(height: 4)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -1072,7 +1099,8 @@ struct AudiobookDetailView: View {
         case .notDownloaded:
             return "Download"
         case .downloading(let progress):
-            return "Downloading, \(Int(progress * 100)) percent"
+            // Negative progress = size unknown (DownloadManager sentinel).
+            return progress >= 0 ? "Downloading, \(Int(progress * 100)) percent" : "Downloading"
         case .downloaded:
             return "Downloaded"
         case .failed:
@@ -1275,9 +1303,10 @@ struct AudiobookDetailView: View {
         defer { isConverting = false }
         do {
             let _ = try await api?.convertToM4B(audiobookId: displayBook.id)
-            // Poll for completion
-            while isConverting {
-                try await Task.sleep(nanoseconds: 2_000_000_000)
+            // Poll for completion. Bounded so a nil api or an unknown status
+            // value can't leave us polling forever (150 × 2s ≈ 5 minutes).
+            for _ in 0..<150 {
+                try Task.checkCancellation()
                 let status = try await api?.getConversionStatus(audiobookId: displayBook.id)
                 if status?.status == "completed" {
                     fullAudiobook = try await api?.getAudiobook(id: displayBook.id)
@@ -1287,7 +1316,11 @@ struct AudiobookDetailView: View {
                     showToast("Conversion failed: \(status?.error ?? "unknown")")
                     return
                 }
+                try await Task.sleep(nanoseconds: 2_000_000_000)
             }
+            showToast("Conversion timed out — check back later")
+        } catch is CancellationError {
+            // View dismissed — stop polling quietly.
         } catch {
             showToast("Failed to start conversion")
         }
