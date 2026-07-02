@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import os
 
 @Observable
 class AuthRepository {
@@ -103,8 +104,16 @@ class AuthRepository {
     func updateTokens(token: String, refreshToken: String) {
         self.token = token
         self.refreshToken = refreshToken
-        keychain.set(token, forKey: "authToken")
-        keychain.set(refreshToken, forKey: "refreshToken")
+        if !keychain.set(token, forKey: "authToken") {
+            KeychainService.logger.error("Failed to persist rotated auth token to Keychain")
+        }
+        if !keychain.set(refreshToken, forKey: "refreshToken") {
+            // Losing the rotated refresh token is fatal for the session: the old
+            // refresh token was already consumed server-side, so the next refresh
+            // attempt will trip the backend's reuse detection and revoke the
+            // whole token family, forcing a re-login.
+            KeychainService.logger.fault("CRITICAL: failed to persist rotated refresh token to Keychain — session will not survive token expiry")
+        }
     }
 
     func updateUser(_ user: User) {
@@ -145,12 +154,23 @@ class AuthRepository {
 class KeychainService {
     private let service = "com.sappho.audiobooks"
 
-    func set(_ value: String, forKey key: String) {
-        guard let data = value.data(using: .utf8) else { return }
-        setData(data, forKey: key)
+    /// Logs key names and OSStatus codes only — never token/data contents.
+    static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.sappho.audiobooks",
+        category: "Keychain"
+    )
+
+    @discardableResult
+    func set(_ value: String, forKey key: String) -> Bool {
+        guard let data = value.data(using: .utf8) else {
+            Self.logger.error("Keychain set failed for key '\(key, privacy: .public)': value not UTF-8 encodable")
+            return false
+        }
+        return setData(data, forKey: key)
     }
 
-    func setData(_ data: Data, forKey key: String) {
+    @discardableResult
+    func setData(_ data: Data, forKey key: String) -> Bool {
         // Delete existing item first
         delete(key)
 
@@ -162,7 +182,12 @@ class KeychainService {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
         ]
 
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            Self.logger.error("Keychain write failed for key '\(key, privacy: .public)': OSStatus \(status)")
+            return false
+        }
+        return true
     }
 
     func get(_ key: String) -> String? {
@@ -182,17 +207,28 @@ class KeychainService {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        guard status == errSecSuccess else { return nil }
+        guard status == errSecSuccess else {
+            if status != errSecItemNotFound {
+                Self.logger.error("Keychain read failed for key '\(key, privacy: .public)': OSStatus \(status)")
+            }
+            return nil
+        }
         return result as? Data
     }
 
-    func delete(_ key: String) {
+    @discardableResult
+    func delete(_ key: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key
         ]
 
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            Self.logger.error("Keychain delete failed for key '\(key, privacy: .public)': OSStatus \(status)")
+            return false
+        }
+        return true
     }
 }

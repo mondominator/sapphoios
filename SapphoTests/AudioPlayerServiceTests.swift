@@ -1,6 +1,7 @@
 import XCTest
 @testable import Sappho
 
+@MainActor
 final class AudioPlayerServiceTests: XCTestCase {
 
     private var playerService: AudioPlayerService!

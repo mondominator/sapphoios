@@ -41,6 +41,7 @@ final class CarPlayFormatDurationTests: XCTestCase {
 
 // MARK: - ServiceLocator Tests
 
+@MainActor
 final class ServiceLocatorTests: XCTestCase {
 
     func testSharedInstanceIsSingleton() {

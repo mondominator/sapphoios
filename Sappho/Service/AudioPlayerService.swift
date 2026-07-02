@@ -2,6 +2,24 @@ import Foundation
 import AVFoundation
 import MediaPlayer
 
+/// Holds NotificationCenter observer tokens and removes them when deallocated.
+/// Lives outside the @MainActor service so its (nonisolated) deinit can run
+/// the cleanup without touching main-actor-isolated state.
+private final class NotificationTokenBag {
+    private var tokens: [NSObjectProtocol] = []
+
+    func add(_ token: NSObjectProtocol) {
+        tokens.append(token)
+    }
+
+    deinit {
+        for token in tokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+}
+
+@MainActor
 @Observable
 class AudioPlayerService: NSObject {
     // MARK: - Public State
@@ -21,9 +39,9 @@ class AudioPlayerService: NSObject {
     private var timeObserver: Any?
     private var sleepTimer: Timer?
     private var isObservingPlayerItem = false
-    private var interruptionObserver: Any?
-    private var routeChangeObserver: Any?
-    private var playbackEndObserver: Any?
+    /// Notification observer tokens; removed automatically when the bag deallocates,
+    /// so no main-actor-isolated cleanup is needed in deinit.
+    private let notificationTokens = NotificationTokenBag()
 
     private var api: SapphoAPI?
     private var lastSyncPosition: Int = 0
@@ -69,12 +87,10 @@ class AudioPlayerService: NSObject {
 
     // MARK: - Playback Controls
 
-    func play(audiobook: Audiobook, startPosition: TimeInterval? = nil) async {
-        // Stop current playback
-        stop()
-
-        currentAudiobook = audiobook
-
+    /// Creates the player item (with auth headers for remote streams), registers
+    /// buffering KVO, and creates the AVPlayer. Shared by play() and resume().
+    /// Returns false if no stream URL could be determined.
+    private func setUpPlayer(for audiobook: Audiobook) -> Bool {
         // Check for offline download first
         let url: URL?
         if let localURL = DownloadManager.shared.localURL(for: audiobook.id) {
@@ -83,10 +99,7 @@ class AudioPlayerService: NSObject {
             url = api?.streamURL(for: audiobook.id)
         }
 
-        guard let streamURL = url else {
-            print("Failed to get stream URL for audiobook \(audiobook.id)")
-            return
-        }
+        guard let streamURL = url else { return false }
 
         // Create player item — use auth headers for remote streams
         let asset: AVURLAsset
@@ -106,6 +119,20 @@ class AudioPlayerService: NSObject {
         // Create player
         player = AVPlayer(playerItem: playerItem)
         player?.allowsExternalPlayback = false // Force local decode + AirPlay audio routing (external playback fails with auth headers)
+
+        return true
+    }
+
+    func play(audiobook: Audiobook, startPosition: TimeInterval? = nil) async {
+        // Stop current playback
+        stop()
+
+        currentAudiobook = audiobook
+
+        guard setUpPlayer(for: audiobook) else {
+            print("Failed to get stream URL for audiobook \(audiobook.id)")
+            return
+        }
 
         // Get duration
         if let durationSeconds = audiobook.duration {
@@ -135,12 +162,13 @@ class AudioPlayerService: NSObject {
             Task {
                 do {
                     let chapters = try await api?.getChapters(audiobookId: audiobook.id)
-                    await MainActor.run {
-                        self.currentAudiobook = audiobook.withChapters(chapters)
-                        // Cache chapters for offline playback
-                        if let chapters = chapters {
-                            DownloadManager.shared.cacheChapters(audiobookId: audiobook.id, chapters: chapters)
-                        }
+                    // The fetch may complete after stop() or after another book
+                    // started — don't resurrect a cleared/replaced book.
+                    guard currentAudiobook?.id == audiobook.id else { return }
+                    currentAudiobook = audiobook.withChapters(chapters)
+                    // Cache chapters for offline playback
+                    if let chapters = chapters {
+                        DownloadManager.shared.cacheChapters(audiobookId: audiobook.id, chapters: chapters)
                     }
                 } catch {
                     print("Failed to load chapters: \(error)")
@@ -169,29 +197,12 @@ class AudioPlayerService: NSObject {
         if player == nil, let audiobook = currentAudiobook {
             let savedPosition = position
             Task {
+                // Re-check inside the task: a rapid second resume() call spawns
+                // its own task before this one runs, and setting up twice would
+                // leak the first player and its KVO registrations.
+                guard player == nil else { return }
                 // Re-create player without calling stop() to avoid clearing currentAudiobook
-                let url: URL?
-                if let localURL = DownloadManager.shared.localURL(for: audiobook.id) {
-                    url = localURL
-                } else {
-                    url = api?.streamURL(for: audiobook.id)
-                }
-                guard let streamURL = url else { return }
-
-                let asset: AVURLAsset
-                if DownloadManager.shared.localURL(for: audiobook.id) != nil {
-                    asset = AVURLAsset(url: streamURL)
-                } else {
-                    let headers = api?.authHeaders ?? [:]
-                    asset = AVURLAsset(url: streamURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
-                }
-                playerItem = AVPlayerItem(asset: asset)
-                playerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: .new, context: nil)
-                playerItem?.addObserver(self, forKeyPath: "playbackLikelyToKeepUp", options: .new, context: nil)
-                isObservingPlayerItem = true
-
-                player = AVPlayer(playerItem: playerItem)
-                player?.allowsExternalPlayback = false
+                guard setUpPlayer(for: audiobook) else { return }
 
                 if let durationSeconds = audiobook.duration {
                     duration = TimeInterval(durationSeconds)
@@ -309,13 +320,16 @@ class AudioPlayerService: NSObject {
         sleepTimerRemaining = TimeInterval(minutes * 60)
 
         sleepTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if let remaining = self.sleepTimerRemaining {
-                if remaining <= 1 {
-                    self.pause()
-                    self.cancelSleepTimer()
-                } else {
-                    self.sleepTimerRemaining = remaining - 1
+            // Timer is scheduled from the main actor, so it fires on the main run loop.
+            MainActor.assumeIsolated {
+                guard let self = self else { return }
+                if let remaining = self.sleepTimerRemaining {
+                    if remaining <= 1 {
+                        self.pause()
+                        self.cancelSleepTimer()
+                    } else {
+                        self.sleepTimerRemaining = remaining - 1
+                    }
                 }
             }
         }
@@ -389,16 +403,19 @@ class AudioPlayerService: NSObject {
         let currentItem = playerItem
         let interval = CMTime(seconds: 0.5, preferredTimescale: 1000)
         timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self, self.playerItem === currentItem else { return }
-            self.position = time.seconds
-            self.updateCurrentChapter()
-            self.checkProgressSync()
-            // Save to UserDefaults and refresh Now Playing info every ~5 seconds
-            let currentPos = Int(time.seconds)
-            if abs(currentPos - self.lastSavePosition) >= 5 {
-                self.savePlaybackState()
-                self.updateNowPlayingInfo()
-                self.lastSavePosition = currentPos
+            // Callback queue is explicitly .main, so it's safe to assume main-actor isolation.
+            MainActor.assumeIsolated {
+                guard let self = self, self.playerItem === currentItem else { return }
+                self.position = time.seconds
+                self.updateCurrentChapter()
+                self.checkProgressSync()
+                // Save to UserDefaults and refresh Now Playing info every ~5 seconds
+                let currentPos = Int(time.seconds)
+                if abs(currentPos - self.lastSavePosition) >= 5 {
+                    self.savePlaybackState()
+                    self.updateNowPlayingInfo()
+                    self.lastSavePosition = currentPos
+                }
             }
         }
     }
@@ -454,27 +471,33 @@ class AudioPlayerService: NSObject {
 
     // MARK: - Pending Sync Queue
 
-    private func savePendingSync(audiobookId: Int, position: Int) {
+    // These read-modify-write operations on the shared UserDefaults dictionary are
+    // safe because they run on the main actor (the class is @MainActor) and contain
+    // no suspension points. Internal (not private) so unit tests can exercise them.
+
+    func savePendingSync(audiobookId: Int, position: Int) {
         var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
         pending[String(audiobookId)] = position
         UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
     }
 
-    private func removePendingSync(for audiobookId: Int) {
+    func removePendingSync(for audiobookId: Int) {
         var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
         pending.removeValue(forKey: String(audiobookId))
         UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
     }
 
     /// Flush any progress updates that failed to sync while offline.
+    /// Entries are synced sequentially in a single task so the queue's
+    /// read-modify-write updates never interleave and resurrect removed entries.
     func syncPendingProgress() {
         guard let api = api else { return }
         let pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
         guard !pending.isEmpty else { return }
 
-        for (idString, position) in pending {
-            guard let audiobookId = Int(idString) else { continue }
-            Task {
+        Task {
+            for (idString, position) in pending {
+                guard let audiobookId = Int(idString) else { continue }
                 do {
                     try await api.updateProgress(audiobookId: audiobookId, position: position, state: "paused")
                     removePendingSync(for: audiobookId)
@@ -559,18 +582,26 @@ class AudioPlayerService: NSObject {
     private func setupRemoteCommands() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
+        // Remote command handlers are nonisolated entry points — hop onto the
+        // main actor before touching player state.
         commandCenter.playCommand.addTarget { [weak self] _ in
-            self?.resume()
+            Task { @MainActor in
+                self?.resume()
+            }
             return .success
         }
 
         commandCenter.pauseCommand.addTarget { [weak self] _ in
-            self?.pause()
+            Task { @MainActor in
+                self?.pause()
+            }
             return .success
         }
 
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.togglePlayPause()
+            Task { @MainActor in
+                self?.togglePlayPause()
+            }
             return .success
         }
 
@@ -579,27 +610,32 @@ class AudioPlayerService: NSObject {
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: skipForward > 0 ? skipForward : 30)]
         commandCenter.skipForwardCommand.addTarget { [weak self] _ in
             let seconds = UserDefaults.standard.integer(forKey: "skipForwardSeconds")
-            self?.skipForward(seconds: TimeInterval(seconds > 0 ? seconds : 30))
+            Task { @MainActor in
+                self?.skipForward(seconds: TimeInterval(seconds > 0 ? seconds : 30))
+            }
             return .success
         }
 
         commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: skipBackward > 0 ? skipBackward : 15)]
         commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
             let seconds = UserDefaults.standard.integer(forKey: "skipBackwardSeconds")
-            self?.skipBackward(seconds: TimeInterval(seconds > 0 ? seconds : 15))
+            Task { @MainActor in
+                self?.skipBackward(seconds: TimeInterval(seconds > 0 ? seconds : 15))
+            }
             return .success
         }
 
         commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self = self,
-                  let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
-            Task {
+            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let positionTime = event.positionTime
+            Task { @MainActor in
+                guard let self = self else { return }
+                let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
                 if showChapterProgress, let chapter = self.currentChapter {
                     // Scrubber position is chapter-relative; convert to global
-                    await self.seek(to: chapter.startTime + event.positionTime)
+                    await self.seek(to: chapter.startTime + positionTime)
                 } else {
-                    await self.seek(to: event.positionTime)
+                    await self.seek(to: positionTime)
                 }
             }
             return .success
@@ -611,27 +647,35 @@ class AudioPlayerService: NSObject {
     private var wasPlayingBeforeInterruption = false
 
     private func setupInterruptionHandling() {
-        interruptionObserver = NotificationCenter.default.addObserver(
+        // All observers are delivered on the explicit .main queue, so it's safe
+        // to assume main-actor isolation inside the handlers.
+        notificationTokens.add(NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            self?.handleInterruption(notification: notification)
-        }
-        routeChangeObserver = NotificationCenter.default.addObserver(
+            MainActor.assumeIsolated {
+                self?.handleInterruption(notification: notification)
+            }
+        })
+        notificationTokens.add(NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            self?.handleRouteChange(notification: notification)
-        }
-        playbackEndObserver = NotificationCenter.default.addObserver(
+            MainActor.assumeIsolated {
+                self?.handleRouteChange(notification: notification)
+            }
+        })
+        notificationTokens.add(NotificationCenter.default.addObserver(
             forName: AVPlayerItem.didPlayToEndTimeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handlePlaybackEnd()
-        }
+            MainActor.assumeIsolated {
+                self?.handlePlaybackEnd()
+            }
+        })
     }
 
     private func handleInterruption(notification: Notification) {
@@ -746,21 +790,21 @@ class AudioPlayerService: NSObject {
 
     // MARK: - KVO
 
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        DispatchQueue.main.async { [weak self] in
+    // KVO callbacks can arrive on any thread; this override stays nonisolated
+    // and hops onto the main actor before touching observable state.
+    nonisolated override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        let observedKeyPath = keyPath
+        Task { @MainActor [weak self] in
             guard let self else { return }
-            if keyPath == "playbackBufferEmpty" {
+            if observedKeyPath == "playbackBufferEmpty" {
                 self.isBuffering = true
-            } else if keyPath == "playbackLikelyToKeepUp" {
+            } else if observedKeyPath == "playbackLikelyToKeepUp" {
                 self.isBuffering = false
             }
         }
     }
 
-    deinit {
-        if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs) }
-        if let obs = routeChangeObserver { NotificationCenter.default.removeObserver(obs) }
-        if let obs = playbackEndObserver { NotificationCenter.default.removeObserver(obs) }
-    }
+    // No deinit: notification observers are removed by NotificationTokenBag's own
+    // deinit, so this @MainActor class never needs to touch isolated state there.
 }
 
