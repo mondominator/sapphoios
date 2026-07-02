@@ -256,6 +256,100 @@ class SapphoAPI {
         }
     }
 
+    /// Reports byte-level upload progress for a single URLSession task.
+    /// Attached per-task via `URLSession.upload(for:from:delegate:)` so the
+    /// shared session's configuration (and MockURLProtocol in tests) is reused.
+    private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate {
+        private let onProgress: @MainActor (Double) -> Void
+
+        init(onProgress: @escaping @MainActor (Double) -> Void) {
+            self.onProgress = onProgress
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            didSendBodyData bytesSent: Int64,
+            totalBytesSent: Int64,
+            totalBytesExpectedToSend: Int64
+        ) {
+            guard totalBytesExpectedToSend > 0 else { return }
+            let fraction = min(1.0, Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+            Task { @MainActor [onProgress] in
+                onProgress(fraction)
+            }
+        }
+    }
+
+    /// Shared primitive for authorized multipart uploads. Mirrors `request<T>`
+    /// semantics exactly: a 401 (never 403) triggers a single-flight token
+    /// refresh and replays the upload once at most. Reports real byte-level
+    /// progress via a task-specific delegate when `onProgress` is provided.
+    private func authorizedUpload(
+        endpoint: String,
+        contentType: String,
+        body: Data,
+        onProgress: (@MainActor (Double) -> Void)? = nil,
+        isRetry: Bool = false
+    ) async throws -> Data {
+        guard let baseURL = authRepository.serverURL else {
+            throw APIError.notAuthenticated
+        }
+
+        // appendingPathComponent preserves any subpath in the server URL
+        // (URL(string:relativeTo:) would drop it — see requestVoid).
+        let url = baseURL.appendingPathComponent(endpoint)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+
+        if let token = authRepository.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let delegate = onProgress.map { UploadProgressDelegate(onProgress: $0) }
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(for: request, from: body, delegate: delegate)
+        } catch {
+            throw APIError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        // See request<T>: refresh once on a 401, then replay.
+        if httpResponse.statusCode == 401, !isRetry, authRepository.refreshToken != nil {
+            if await attemptRefresh() {
+                return try await authorizedUpload(
+                    endpoint: endpoint,
+                    contentType: contentType,
+                    body: body,
+                    onProgress: onProgress,
+                    isRetry: true
+                )
+            }
+            await MainActor.run { authRepository.clearToken() }
+            throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
+        }
+
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            await MainActor.run { authRepository.clearToken() }
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
+            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        }
+
+        return data
+    }
+
     // MARK: - Authentication
 
     func login(serverURL: URL, username: String, password: String) async throws -> AuthResponse {
@@ -364,10 +458,6 @@ class SapphoAPI {
 
     // MARK: - Progress
 
-    func getProgress(audiobookId: Int) async throws -> Progress {
-        try await request("api/audiobooks/\(audiobookId)/progress")
-    }
-
     func updateProgress(audiobookId: Int, position: Int, completed: Int = 0, state: String = "playing") async throws {
         let body = ProgressUpdateRequest(position: position, completed: completed, state: state)
         try await requestVoid("api/audiobooks/\(audiobookId)/progress", method: "POST", body: body)
@@ -471,22 +561,7 @@ class SapphoAPI {
     }
 
     func uploadAvatar(imageData: Data) async throws {
-        guard let baseURL = authRepository.serverURL else {
-            throw APIError.notAuthenticated
-        }
-
-        // appendingPathComponent preserves any subpath in the server URL
-        // (URL(string:relativeTo:) would drop it — see requestVoid).
-        let url = baseURL.appendingPathComponent("api/profile/avatar")
-
         let boundary = UUID().uuidString
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
-        if let token = authRepository.token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
 
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
@@ -495,18 +570,11 @@ class SapphoAPI {
         body.append(imageData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8) ?? Data())
 
-        request.httpBody = body
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
-        }
+        _ = try await authorizedUpload(
+            endpoint: "api/profile/avatar",
+            contentType: "multipart/form-data; boundary=\(boundary)",
+            body: body
+        )
     }
 
     func deleteAvatar() async throws {
@@ -598,11 +666,6 @@ class SapphoAPI {
         try await requestVoid("api/users/\(id)", method: "DELETE")
     }
 
-    func toggleUserAdmin(id: Int, isAdmin: Bool) async throws {
-        let body = UpdateUserRequest(isAdmin: isAdmin)
-        try await requestVoid("api/users/\(id)", method: "PUT", body: body)
-    }
-
     // MARK: - Admin: Maintenance
 
     func scanLibrary() async throws -> ScanResponse {
@@ -668,23 +731,8 @@ class SapphoAPI {
 
     // MARK: - Upload
 
-    func uploadAudiobook(fileData: Data, fileName: String, mimeType: String, title: String?, author: String?, narrator: String?, onProgress: @escaping (Double) -> Void) async throws -> UploadResponse {
-        guard let baseURL = authRepository.serverURL else {
-            throw APIError.notAuthenticated
-        }
-
-        // appendingPathComponent preserves any subpath in the server URL
-        // (URL(string:relativeTo:) would drop it — see requestVoid).
-        let url = baseURL.appendingPathComponent("api/upload")
-
+    func uploadAudiobook(fileData: Data, fileName: String, mimeType: String, title: String?, author: String?, narrator: String?, onProgress: @escaping @MainActor (Double) -> Void) async throws -> UploadResponse {
         let boundary = UUID().uuidString
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
-        if let token = authRepository.token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
 
         var body = Data()
 
@@ -713,18 +761,13 @@ class SapphoAPI {
         }
 
         body.append("--\(boundary)--\r\n".data(using: .utf8) ?? Data())
-        request.httpBody = body
 
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
-        }
+        let data = try await authorizedUpload(
+            endpoint: "api/upload",
+            contentType: "multipart/form-data; boundary=\(boundary)",
+            body: body,
+            onProgress: onProgress
+        )
 
         return try decoder.decode(UploadResponse.self, from: data)
     }
@@ -818,14 +861,6 @@ private struct CreateUserRequest: Codable {
 
     enum CodingKeys: String, CodingKey {
         case username, password
-        case isAdmin = "is_admin"
-    }
-}
-
-private struct UpdateUserRequest: Codable {
-    let isAdmin: Bool
-
-    enum CodingKeys: String, CodingKey {
         case isAdmin = "is_admin"
     }
 }

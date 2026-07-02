@@ -11,7 +11,7 @@ Sappho iOS is a native Swift/SwiftUI iOS app for the Sappho audiobook server. It
 - Audio playback with background audio support
 - Progress sync with server
 - Offline downloads
-- Chromecast and AirPlay support
+- AirPlay and CarPlay support
 - Sleep timer, playback speed control
 - Lock screen / Now Playing controls
 
@@ -19,9 +19,8 @@ Sappho iOS is a native Swift/SwiftUI iOS app for the Sappho audiobook server. It
 - Swift 5.9+ / SwiftUI
 - iOS 17.0+ minimum
 - AVFoundation for audio playback
-- Google Cast SDK for Chromecast
 - URLSession for networking
-- Keychain for secure storage
+- Keychain for token storage (server URL and user info live in UserDefaults by design)
 
 ## Build Commands
 
@@ -36,7 +35,7 @@ xcodegen generate
 
 ```bash
 # Build for simulator
-xcodebuild -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 15' build
+xcodebuild -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 # Build for device (requires signing)
 xcodebuild -scheme Sappho -destination 'generic/platform=iOS' build
@@ -48,17 +47,20 @@ Open `Sappho.xcodeproj` in Xcode and press Run, or:
 
 ```bash
 # Run on simulator
-xcodebuild -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 15' build
-xcrun simctl boot "iPhone 15"
+xcodebuild -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcrun simctl boot "iPhone 17"
 xcrun simctl install booted build/Debug-iphonesimulator/Sappho.app
-xcrun simctl launch booted com.sappho.audiobooks
+xcrun simctl launch booted com.sappho.audiobook
 ```
+
+Note: the bundle id is `com.sappho.audiobook` (singular) — it is the shipped
+App Store id and immutable.
 
 ### Testing
 
 ```bash
 # Run unit tests
-xcodebuild test -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 ## Architecture Overview
@@ -67,10 +69,11 @@ xcodebuild test -scheme Sappho -destination 'platform=iOS Simulator,name=iPhone 
 
 ```
 Sappho/
-├── App/                    # App entry point, AppDelegate
+├── App/                    # App entry point, AppDelegate, RootView, ServiceLocator
+├── CarPlay/               # CarPlay scene delegate, content provider
 ├── Data/
 │   ├── Remote/            # SapphoAPI (URLSession)
-│   └── Repository/        # AuthRepository (Keychain)
+│   └── Repository/        # AuthRepository (Keychain + UserDefaults)
 ├── Domain/Model/          # Data models (Audiobook, User, etc.)
 ├── Presentation/
 │   ├── Login/
@@ -80,19 +83,20 @@ Sappho/
 │   ├── Player/
 │   ├── Search/
 │   ├── Profile/
-│   └── Components/        # Shared UI, Theme
-├── Service/
-│   ├── AudioPlayerService.swift
-│   └── DownloadManager.swift
-└── Cast/                  # Chromecast integration
+│   ├── Notifications/
+│   └── Components/        # Shared UI, Theme, TimeFormatting
+└── Service/
+    ├── AudioPlayerService.swift
+    ├── DownloadManager.swift
+    └── NetworkMonitor.swift
 ```
 
 ### Key Components
 
-**AuthRepository** - Stores credentials in Keychain:
-- Server URL (dynamically configured at login)
-- Auth token (JWT)
-- Current user info
+**AuthRepository** - Stores credentials:
+- Access + refresh tokens (JWT) in Keychain (secure)
+- Server URL and user info in UserDefaults — this is BY DESIGN, so login
+  state survives Keychain corruption; do not "fix" it by moving to Keychain
 
 **SapphoAPI** - URLSession-based API client:
 - All endpoints match the Android app's SapphoApi.kt
@@ -170,13 +174,18 @@ struct Audiobook: Codable {
 
 ### Media URL Authentication
 
-Cover images and streams require token via query string:
+Cover images and streams authenticate via the `Authorization` header (never a
+query-string token). `SapphoAPI` exposes plain URLs plus headers to attach:
 
 ```swift
 func coverURL(for audiobookId: Int) -> URL? {
-    var components = URLComponents(...)
-    components.queryItems = [URLQueryItem(name: "token", value: token)]
-    return components.url
+    guard let baseURL = authRepository.serverURL else { return nil }
+    return baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/cover")
+}
+
+var authHeaders: [String: String] {
+    guard let token = authRepository.token else { return [:] }
+    return ["Authorization": "Bearer \(token)"]
 }
 ```
 
@@ -184,7 +193,7 @@ func coverURL(for audiobookId: Int) -> URL? {
 
 Configured in AppDelegate and Info.plist:
 - `AVAudioSession.Category.playback`
-- `UIBackgroundModes: audio, fetch`
+- `UIBackgroundModes: audio`
 
 ### Regenerating Project
 
@@ -220,7 +229,6 @@ No build-time env vars required. Server URL is configured at runtime via login s
 
 ## Dependencies
 
-**Swift Package Manager:**
-- google-cast-sdk (Chromecast)
-
-Everything else uses native iOS frameworks.
+None. The app has no Swift Package Manager (or other third-party) dependencies —
+everything uses native iOS frameworks (SwiftUI, AVFoundation, CarPlay, MediaPlayer,
+Network, Security).

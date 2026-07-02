@@ -234,20 +234,6 @@ final class CarPlayContentProvider {
         return CPListTemplate(title: "All Books", sections: [CPListSection(items: items)])
     }
 
-    // MARK: - Reading List
-
-    func readingListTemplate(onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let books = try? await api.getFavorites(sort: "custom") {
-            items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-        }
-
-        return CPListTemplate(title: "Reading List", sections: [CPListSection(items: items)])
-    }
-
     // MARK: - Helpers
 
     private func listItem(for book: Audiobook, onSelect: @escaping (Audiobook) -> Void) -> CPListItem {

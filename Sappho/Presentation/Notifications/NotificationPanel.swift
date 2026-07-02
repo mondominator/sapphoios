@@ -223,11 +223,9 @@ struct NotificationPanel: View {
         guard notification.isUnread else { return }
         do {
             try await api?.markNotificationRead(id: notification.id)
+            // Flip the local flag instead of re-fetching the whole list.
             if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
-                // Reload to get updated state
-                if let updated = try? await api?.getNotifications() {
-                    notifications = updated
-                }
+                notifications[index].isRead = 1
             }
             onMarkedRead()
         } catch {

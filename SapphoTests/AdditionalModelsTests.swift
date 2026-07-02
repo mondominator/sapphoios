@@ -545,4 +545,43 @@ final class AdditionalModelsTests: XCTestCase {
         let progress = Progress(position: 0, completed: 1)
         XCTAssertTrue(progress.isCompleted)
     }
+
+    // MARK: - MetadataSearchResult Identity (L3)
+
+    func testMetadataSearchResultIdUsesAsin() throws {
+        let json = """
+        {"title": "Book", "isbn": "978-123", "asin": "B00ASIN"}
+        """.data(using: .utf8)!
+
+        let result = try decoder.decode(MetadataSearchResult.self, from: json)
+        XCTAssertEqual(result.id, "B00ASIN")
+    }
+
+    func testMetadataSearchResultIdFallsBackToIsbnThenTitle() throws {
+        let isbnJSON = """
+        {"title": "Book", "isbn": "978-123"}
+        """.data(using: .utf8)!
+        let titleJSON = """
+        {"title": "Book Only"}
+        """.data(using: .utf8)!
+
+        let isbnResult = try decoder.decode(MetadataSearchResult.self, from: isbnJSON)
+        XCTAssertEqual(isbnResult.id, "978-123")
+
+        let titleResult = try decoder.decode(MetadataSearchResult.self, from: titleJSON)
+        XCTAssertEqual(titleResult.id, "Book Only")
+    }
+
+    func testMetadataSearchResultIdStableAcrossAccesses() throws {
+        // All of asin/isbn/title missing: the UUID fallback must be minted
+        // once at decode, not on every access (stable Identifiable).
+        let json = """
+        {"author": "Anonymous"}
+        """.data(using: .utf8)!
+
+        let result = try decoder.decode(MetadataSearchResult.self, from: json)
+        let first = result.id
+        let second = result.id
+        XCTAssertEqual(first, second)
+    }
 }
