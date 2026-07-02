@@ -780,13 +780,6 @@ struct SleepTimerSheet: View {
         }
         .background(Color.sapphoBackground)
     }
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        let totalSeconds = Int(seconds)
-        let m = totalSeconds / 60
-        let s = totalSeconds % 60
-        return String(format: "%d:%02d", m, s)
-    }
 }
 
 // MARK: - Chapters Sheet

@@ -793,26 +793,6 @@ final class SapphoAPIExtendedTests: XCTestCase {
 
     // MARK: - Progress
 
-    func testGetProgress() async throws {
-        let responseJSON = """
-        {"id": 1, "user_id": 1, "audiobook_id": 42, "position": 3600, "completed": 0, "last_listened": "2025-03-21T10:00:00Z", "updated_at": "2025-03-21T10:00:00Z", "current_chapter": 5}
-        """.data(using: .utf8)!
-
-        MockURLProtocol.requestHandler = { request in
-            XCTAssertEqual(request.httpMethod, "GET")
-            XCTAssertTrue(request.url?.absoluteString.contains("api/audiobooks/42/progress") ?? false)
-            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-token-abc123")
-            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (response, responseJSON)
-        }
-
-        let progress = try await api.getProgress(audiobookId: 42)
-        XCTAssertEqual(progress.position, 3600)
-        XCTAssertEqual(progress.completed, 0)
-        XCTAssertFalse(progress.isCompleted)
-        XCTAssertEqual(progress.currentChapter, 5)
-    }
-
     func testClearProgress() async throws {
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "DELETE")

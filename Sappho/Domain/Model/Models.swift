@@ -797,7 +797,9 @@ struct NotificationItem: Codable, Identifiable {
     let message: String
     let metadata: String?
     let createdAt: String
-    let isRead: Int
+    /// Mutable so the UI can flip a notification to read locally without
+    /// re-fetching the whole list.
+    var isRead: Int
 
     enum CodingKeys: String, CodingKey {
         case id, type, title, message, metadata
@@ -865,7 +867,10 @@ struct AudiobookUpdateRequest: Codable {
 }
 
 struct MetadataSearchResult: Codable, Identifiable {
-    var id: String { asin ?? isbn ?? title ?? UUID().uuidString }
+    /// Stable identity assigned once at decode: asin → isbn → title fallback
+    /// chain, with a one-time UUID only when all three are missing. Not in
+    /// CodingKeys, so it is never encoded or expected in server JSON.
+    let id: String
     let title: String?
     let subtitle: String?
     let author: String?
@@ -916,6 +921,7 @@ struct MetadataSearchResult: Codable, Identifiable {
         } else {
             seriesPosition = nil
         }
+        id = asin ?? isbn ?? title ?? UUID().uuidString
     }
 }
 

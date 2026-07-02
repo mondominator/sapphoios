@@ -54,7 +54,6 @@ struct LibraryView: View {
     @State private var collectionsCount = 0
     @State private var readingListCount = 0
     @State private var totalBooks = 0
-    @State private var isLoading = true
     @State private var showUpload = false
 
     var body: some View {
@@ -239,8 +238,6 @@ struct LibraryView: View {
                 }
             }
         }
-
-        isLoading = false
     }
 }
 

@@ -178,7 +178,13 @@ struct UploadView: View {
             defer { fileURL.stopAccessingSecurityScopedResource() }
 
             do {
-                let fileData = try Data(contentsOf: fileURL)
+                // Read off the main actor — M4B files can be hundreds of MB and
+                // a synchronous read here would freeze the UI. The security-scoped
+                // access above stays open until the loop iteration's defer runs,
+                // which is after this await completes.
+                let fileData = try await Task.detached(priority: .userInitiated) {
+                    try Data(contentsOf: fileURL)
+                }.value
                 let mimeType = mimeTypeForPath(fileURL.pathExtension)
 
                 _ = try await api?.uploadAudiobook(
@@ -189,8 +195,9 @@ struct UploadView: View {
                     author: author.isEmpty ? nil : author,
                     narrator: narrator.isEmpty ? nil : narrator,
                     onProgress: { progress in
-                        let fileProgress = (Double(index) + progress) / Double(totalFiles)
-                        Task { @MainActor in uploadProgress = fileProgress }
+                        // Real byte-level progress for the current file, scaled
+                        // across the batch. Already delivered on the main actor.
+                        uploadProgress = (Double(index) + progress) / Double(totalFiles)
                     }
                 )
                 successCount += 1

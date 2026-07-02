@@ -660,6 +660,148 @@ final class SapphoAPITests: XCTestCase {
         XCTAssertEqual(paths, ["/sappho/api/upload"])
     }
 
+    // MARK: - Upload 401 Refresh (M2)
+
+    func testUploadAudiobook401RefreshesAndRetries() async throws {
+        storeWithRefreshToken("refresh-original")
+
+        let refreshJSON = """
+        {"token": "fresh-access", "refreshToken": "refresh-rotated"}
+        """.data(using: .utf8)!
+        let uploadJSON = """
+        {"message": "ok", "audiobook": {"id": 7, "title": "Uploaded"}}
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("api/auth/refresh") {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, refreshJSON)
+            }
+            // Upload endpoint: 401 with the stale token, 200 once the fresh one arrives.
+            if request.value(forHTTPHeaderField: "Authorization") == "Bearer fresh-access" {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, uploadJSON)
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        let result = try await api.uploadAudiobook(
+            fileData: Data([0x00, 0x01]),
+            fileName: "book.m4b",
+            mimeType: "audio/mp4",
+            title: nil,
+            author: nil,
+            narrator: nil,
+            onProgress: { _ in }
+        )
+        XCTAssertEqual(result.audiobook?.id, 7)
+
+        // Tokens rotated and persisted.
+        XCTAssertEqual(authRepo.token, "fresh-access")
+        XCTAssertEqual(authRepo.refreshToken, "refresh-rotated")
+        XCTAssertTrue(authRepo.isAuthenticated)
+
+        // Exactly one refresh and exactly two upload attempts (original + replay).
+        let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }
+        XCTAssertEqual(refreshCalls.count, 1)
+        let uploadCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/upload") }
+        XCTAssertEqual(uploadCalls.count, 2)
+    }
+
+    func testUploadAudiobookRetriesOnlyOnce() async {
+        storeWithRefreshToken("refresh-original")
+
+        let refreshJSON = """
+        {"token": "fresh-access", "refreshToken": "refresh-rotated"}
+        """.data(using: .utf8)!
+
+        // Upload ALWAYS 401 (even with the fresh token); refresh always succeeds.
+        // The client must refresh once, replay once, then give up — not loop.
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("api/auth/refresh") {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, refreshJSON)
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await api.uploadAudiobook(
+                fileData: Data([0x00]),
+                fileName: "book.m4b",
+                mimeType: "audio/mp4",
+                title: nil,
+                author: nil,
+                narrator: nil,
+                onProgress: { _ in }
+            )
+            XCTFail("Should have thrown")
+        } catch {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertFalse(authRepo.isAuthenticated)
+        }
+
+        let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }
+        XCTAssertEqual(refreshCalls.count, 1)
+        let uploadCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/upload") }
+        XCTAssertEqual(uploadCalls.count, 2)
+    }
+
+    func testUploadAvatar401RefreshesAndRetries() async throws {
+        storeWithRefreshToken("refresh-original")
+
+        let refreshJSON = """
+        {"token": "fresh-access", "refreshToken": "refresh-rotated"}
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("api/auth/refresh") {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, refreshJSON)
+            }
+            if request.value(forHTTPHeaderField: "Authorization") == "Bearer fresh-access" {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, Data())
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        try await api.uploadAvatar(imageData: Data([0xFF, 0xD8]))
+
+        XCTAssertEqual(authRepo.token, "fresh-access")
+        let avatarCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/profile/avatar") }
+        XCTAssertEqual(avatarCalls.count, 2)
+    }
+
+    func testUpload403DoesNotRefresh() async {
+        storeWithRefreshToken("refresh-original")
+
+        // 403 must NOT trigger a refresh — it clears auth and throws immediately.
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            try await api.uploadAvatar(imageData: Data([0xFF, 0xD8]))
+            XCTFail("Should have thrown")
+        } catch {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertFalse(authRepo.isAuthenticated)
+        }
+
+        let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }
+        XCTAssertEqual(refreshCalls.count, 0)
+        let avatarCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/profile/avatar") }
+        XCTAssertEqual(avatarCalls.count, 1)
+    }
+
     // MARK: - Helpers
 
     private func makeLoginUser(id: Int, username: String, isAdmin: Int) -> LoginUser {

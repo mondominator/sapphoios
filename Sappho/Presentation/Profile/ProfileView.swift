@@ -6,7 +6,6 @@ struct ProfileView: View {
     @Environment(\.sapphoAPI) private var api
 
     @State private var stats: UserStats?
-    @State private var isLoading = true
     @State private var serverVersion: String?
     @State private var showLogoutConfirmation = false
 
@@ -75,6 +74,9 @@ struct ProfileView: View {
 
                     // SECTION 6: PLAYER
                     playerSection()
+
+                    // SECTION 7: ABOUT (versions + logout)
+                    aboutSection()
 
                     Spacer().frame(height: 100)
                 }
@@ -666,7 +668,6 @@ struct ProfileView: View {
         } catch {
             print("Failed to load server version: \(error)")
         }
-        isLoading = false
     }
 
     private func saveProfile() async {
@@ -1045,10 +1046,19 @@ struct AdminView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(isPresented: $showCreateUserSheet) {
             CreateUserSheet(onCreate: { username, password, isAdmin in
-                Task {
-                    await createUser(username: username, password: password, isAdmin: isAdmin)
-                }
+                await createUser(username: username, password: password, isAdmin: isAdmin)
             })
+        }
+        .alert(
+            "Error",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .task {
             await loadUsers()
@@ -1065,13 +1075,15 @@ struct AdminView: View {
         isLoading = false
     }
 
-    private func createUser(username: String, password: String, isAdmin: Bool) async {
+    /// Returns an error message on failure (nil on success) so CreateUserSheet
+    /// can stay open and show the error inline.
+    private func createUser(username: String, password: String, isAdmin: Bool) async -> String? {
         do {
             let _ = try await api?.createUser(username: username, password: password, isAdmin: isAdmin)
             await loadUsers()
-            showCreateUserSheet = false
+            return nil
         } catch {
-            errorMessage = error.localizedDescription
+            return error.localizedDescription
         }
     }
 
@@ -1166,7 +1178,10 @@ struct CreateUserSheet: View {
     @State private var username = ""
     @State private var password = ""
     @State private var isAdmin = false
-    let onCreate: (String, String, Bool) -> Void
+    @State private var errorMessage: String?
+    @State private var isSubmitting = false
+    /// Returns an error message on failure, nil on success.
+    let onCreate: (String, String, Bool) async -> String?
 
     var body: some View {
         NavigationStack {
@@ -1183,6 +1198,14 @@ struct CreateUserSheet: View {
                 Section {
                     Toggle("Administrator", isOn: $isAdmin)
                 }
+
+                if let errorMessage {
+                    Section {
+                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
+                            .font(.sapphoDetail)
+                            .foregroundColor(.sapphoError)
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Color.sapphoBackground)
@@ -1197,10 +1220,17 @@ struct CreateUserSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        onCreate(username, password, isAdmin)
+                    Button(isSubmitting ? "Creating..." : "Create") {
+                        Task {
+                            isSubmitting = true
+                            errorMessage = await onCreate(username, password, isAdmin)
+                            isSubmitting = false
+                            if errorMessage == nil {
+                                dismiss()
+                            }
+                        }
                     }
-                    .disabled(username.isEmpty || password.isEmpty)
+                    .disabled(username.isEmpty || password.isEmpty || isSubmitting)
                 }
             }
         }
