@@ -502,6 +502,25 @@ class AudioPlayerService: NSObject {
                     try await api.updateProgress(audiobookId: audiobookId, position: position, state: "paused")
                     removePendingSync(for: audiobookId)
                     print("Synced pending progress for audiobook \(audiobookId) at \(position)s")
+                } catch let error as APIError {
+                    // Distinguish "cannot reach the server yet" from "the server
+                    // answered, and the answer will never change".
+                    //
+                    // Every error used to be treated as still-offline, so an
+                    // entry for a book the server no longer has retried forever
+                    // and silently never synced. That is not hypothetical: a
+                    // book was removed and re-added under a new id, and the
+                    // phone kept posting to the dead id — the position never
+                    // reached the server, and nothing surfaced to the user.
+                    //
+                    // 404/410 mean the book is gone, so the entry can never
+                    // succeed; drop it rather than retry it forever. Anything
+                    // else (including 401, which the API layer refreshes) stays
+                    // queued for the next attempt.
+                    if case let .httpError(statusCode, _) = error, statusCode == 404 || statusCode == 410 {
+                        removePendingSync(for: audiobookId)
+                        print("Dropped pending progress for audiobook \(audiobookId): server returned \(statusCode)")
+                    }
                 } catch {
                     // Still offline — will retry next time
                 }
