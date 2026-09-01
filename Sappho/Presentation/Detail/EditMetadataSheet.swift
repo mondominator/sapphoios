@@ -554,6 +554,12 @@ struct EditMetadataSheet: View {
         update.abridged = abridged
         update.coverUrl = coverUrl.trimmingCharacters(in: .whitespaces).isEmpty ? nil : coverUrl.trimmingCharacters(in: .whitespaces)
 
+        // Carry the existing rating through. This sheet has no rating editor,
+        // but the server's update writes every column it is given — so leaving
+        // this unset made any save from here silently erase the book's rating.
+        // Nothing in this sheet can change it, so send back what we loaded.
+        update.rating = audiobook.rating
+
         return update
     }
 
