@@ -418,9 +418,13 @@ class SapphoAPI {
         try await request("api/audiobooks/meta/finished", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
     }
 
-    func getUpNext(limit: Int = 10) async throws -> [Audiobook] {
+    /// Omitting `limit` lets the server apply the user's own Up Next setting,
+    /// which is what the web client does. Passing one overrides it -- only do
+    /// that where a fixed count is genuinely required.
+    func getUpNext(limit: Int? = nil) async throws -> [Audiobook] {
         // Returns array directly, not wrapped in { audiobooks: [...] }
-        try await request("api/audiobooks/meta/up-next", queryItems: [URLQueryItem(name: "limit", value: String(limit))])
+        let queryItems = limit.map { [URLQueryItem(name: "limit", value: String($0))] } ?? []
+        return try await request("api/audiobooks/meta/up-next", queryItems: queryItems)
     }
 
     func getGenres() async throws -> [GenreInfo] {
