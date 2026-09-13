@@ -192,7 +192,7 @@ struct HomeView: View {
                 async let inProgress = api?.getInProgress(limit: 10)
                 async let recent = api?.getRecentlyAdded(limit: 10)
                 async let finished = api?.getFinished(limit: 10)
-                async let next = api?.getUpNext(limit: 10)
+                async let next = api?.getUpNext()
                 return .success((try await inProgress ?? [], try await recent ?? [],
                                  try await finished ?? [], try await next ?? []))
             } catch {

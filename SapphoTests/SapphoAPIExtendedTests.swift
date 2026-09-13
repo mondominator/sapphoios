@@ -867,7 +867,7 @@ final class SapphoAPIExtendedTests: XCTestCase {
             return (response, responseJSON)
         }
 
-        let books = try await api.getUpNext()
+        let books = try await api.getUpNext(limit: 10)
         XCTAssertEqual(books.count, 1)
         XCTAssertEqual(books[0].title, "Up Next Book")
     }

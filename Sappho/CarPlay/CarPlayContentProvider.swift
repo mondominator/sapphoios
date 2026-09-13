@@ -25,7 +25,7 @@ final class CarPlayContentProvider {
         }
 
         // Up Next
-        if let books = try? await api.getUpNext(limit: 10), !books.isEmpty {
+        if let books = try? await api.getUpNext(), !books.isEmpty {
             let items = books.prefix(100).map { book in
                 listItem(for: book, onSelect: onSelect)
             }
