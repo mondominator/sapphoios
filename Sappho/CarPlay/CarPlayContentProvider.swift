@@ -277,9 +277,9 @@ final class CarPlayContentProvider {
             // "4h 12m left" is what a driver can act on at a glance; a bare
             // percentage makes them do the arithmetic.
             let remaining = max(0, duration - progress.position)
-            detailParts.append("\(Self.formatDuration(remaining)) left")
+            detailParts.append("\(formatDuration(remaining)) left")
         } else if let duration = book.duration {
-            detailParts.append(Self.formatDuration(duration))
+            detailParts.append(formatDuration(duration))
         }
 
         let detail = detailParts.joined(separator: " · ")
@@ -294,15 +294,6 @@ final class CarPlayContentProvider {
         loadThumbnail(for: book.id, into: item)
 
         return item
-    }
-
-    static func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        }
-        return "\(minutes)m"
     }
 
     private func loadThumbnail(for bookId: Int, into item: CPListItem) {
