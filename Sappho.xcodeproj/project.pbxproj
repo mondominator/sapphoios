@@ -13,7 +13,6 @@
 		0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E33C4FB6DC3423B9A8C4070 /* Theme.swift */; };
 		147F66D00321150C8B75AEE2 /* AudioPlayerServiceExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F094B80B59D15C75A721622D /* AudioPlayerServiceExtendedTests.swift */; };
 		1AB0EBED08F741E738AC9AEB /* EditChaptersSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC76742B0724C35087E33F /* EditChaptersSheet.swift */; };
-		2C2A6620C1C1838176B31C3F /* CarPlayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC22D60B668E81879EA95D5A /* CarPlayTests.swift */; };
 		30FF8FE931D7A736D125025B /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */; };
 		332D3EC26864E789F81F6063 /* ServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCAD7E06AFF0DAF5F4F6447 /* ServiceLocator.swift */; };
 		334591CA1D141A02616AA9FD /* CoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711CBD76EC8696583A54BE60 /* CoverImage.swift */; };
@@ -26,6 +25,7 @@
 		4EE594D3A9817C2260FDA473 /* CarPlayContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D15A1E670D995C15F5D203 /* CarPlayContentProvider.swift */; };
 		4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657E1B7511077F283C3F1972 /* AuthRepository.swift */; };
 		52DB44178852809417DBFFA9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7495FDDA796DFDA34333C7C8 /* RootView.swift */; };
+		55F6F6C561631CB993484FAC /* ServiceLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */; };
 		56695E5A3716F94A5500D086 /* SapphoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550305815B68B533E1045145 /* SapphoUITests.swift */; };
 		56C26C16C4747BA7D2C2C634 /* ListeningSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */; };
 		58F08BF9AD2C325D10619FE1 /* AuthRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58D47931AB29759462C1E83 /* AuthRepositoryTests.swift */; };
@@ -86,6 +86,7 @@
 		28474CB2464BD5FF1D9330CC /* ReadingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListView.swift; sourceTree = "<group>"; };
 		29D15A1E670D995C15F5D203 /* CarPlayContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentProvider.swift; sourceTree = "<group>"; };
 		2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilteredBooksView.swift; sourceTree = "<group>"; };
+		33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLocatorTests.swift; sourceTree = "<group>"; };
 		3D92DBB5FC2E3AFA18DCBD17 /* SapphoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		4C85AAC170684901D9362C63 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -112,7 +113,6 @@
 		A58D47931AB29759462C1E83 /* AuthRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepositoryTests.swift; sourceTree = "<group>"; };
 		A7C81DC708F9B6160F6AACB7 /* APIErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIErrorTests.swift; sourceTree = "<group>"; };
 		A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsListView.swift; sourceTree = "<group>"; };
-		AC22D60B668E81879EA95D5A /* CarPlayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayTests.swift; sourceTree = "<group>"; };
 		AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPI.swift; sourceTree = "<group>"; };
 		AD79599B020796E009EBF806 /* EditMetadataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditMetadataSheet.swift; sourceTree = "<group>"; };
 		B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
@@ -152,12 +152,12 @@
 				F094B80B59D15C75A721622D /* AudioPlayerServiceExtendedTests.swift */,
 				771A8F1C97746AB80B150940 /* AudioPlayerServiceTests.swift */,
 				A58D47931AB29759462C1E83 /* AuthRepositoryTests.swift */,
-				AC22D60B668E81879EA95D5A /* CarPlayTests.swift */,
 				B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */,
 				2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */,
 				5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */,
 				5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */,
 				92A7B4B85D1B873A962F0E99 /* SapphoAPITests.swift */,
+				33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */,
 				CDC789BCF8DF3C30809172BA /* TimeFormattingTests.swift */,
 			);
 			path = SapphoTests;
@@ -503,12 +503,12 @@
 				147F66D00321150C8B75AEE2 /* AudioPlayerServiceExtendedTests.swift in Sources */,
 				0402287966C19B5FAC8F48AE /* AudioPlayerServiceTests.swift in Sources */,
 				58F08BF9AD2C325D10619FE1 /* AuthRepositoryTests.swift in Sources */,
-				2C2A6620C1C1838176B31C3F /* CarPlayTests.swift in Sources */,
 				8138B55F348A0873181075CF /* DownloadManagerTests.swift in Sources */,
 				56C26C16C4747BA7D2C2C634 /* ListeningSessionTests.swift in Sources */,
 				D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */,
 				461A5143F1925B6CC0EE41E4 /* SapphoAPIExtendedTests.swift in Sources */,
 				CA42CA79E15EA0B0C21B489C /* SapphoAPITests.swift in Sources */,
+				55F6F6C561631CB993484FAC /* ServiceLocatorTests.swift in Sources */,
 				459D2C04835EDF737F6CADE7 /* TimeFormattingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
