@@ -23,16 +23,18 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
             let item = CPListItem(text: "Sappho", detailText: "Loading...")
             let section = CPListSection(items: [item])
             let template = CPListTemplate(title: "Sappho", sections: [section])
-            interfaceController.setRootTemplate(template, animated: false, completion: nil)
+            interfaceController.setRootTemplate(template, animated: false) { success, error in
+                if !success {
+                    print("CarPlay: placeholder setRootTemplate failed: \(String(describing: error))")
+                }
+            }
             return
         }
 
         contentProvider = CarPlayContentProvider(api: api)
         nowPlayingManager = CarPlayNowPlayingManager(audioPlayer: audioPlayer)
 
-        Task { @MainActor in
-            await setupTabBar(interfaceController: interfaceController)
-        }
+        setupTabBar(interfaceController: interfaceController)
     }
 
     func templateApplicationScene(
@@ -46,16 +48,23 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
 
     // MARK: - Tab Bar Setup
 
+    /// Present the tab bar immediately, then fill Home in when the network answers.
+    ///
+    /// This used to await four sequential API calls before calling
+    /// setRootTemplate. CarPlay terminates an app that has not set a root
+    /// template shortly after connecting, so in a car -- phone on cellular,
+    /// server on the home LAN -- the screen stayed blank until the watchdog
+    /// killed us. The root template now goes up synchronously and Home's
+    /// sections arrive afterwards.
     @MainActor
-    private func setupTabBar(interfaceController: CPInterfaceController) async {
+    private func setupTabBar(interfaceController: CPInterfaceController) {
         guard let contentProvider = contentProvider else { return }
 
-        let homeTemplate = await contentProvider.homeTemplate { [weak self] book in
-            self?.playBook(book)
-        }
+        let homeTemplate = CPListTemplate(title: "Home", sections: [])
         homeTemplate.tabImage = UIImage(systemName: "house")
 
         let libraryTemplate = contentProvider.libraryTemplate(
+            onSearch: { [weak self] in self?.showSearch() },
             onAuthors: { [weak self] in self?.showAuthors() },
             onSeries: { [weak self] in self?.showSeries() },
             onCollections: { [weak self] in self?.showCollections() },
@@ -63,13 +72,37 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
         )
         libraryTemplate.tabImage = UIImage(systemName: "books.vertical")
 
+        // Two tabs only. A CPSearchTemplate here is not a valid tab for an
+        // audio app; it made this call fail, and with a nil completion handler
+        // CarPlay throws rather than reporting the failure.
+        let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate])
+        interfaceController.setRootTemplate(tabBar, animated: true) { success, error in
+            if !success {
+                print("CarPlay: setRootTemplate failed: \(String(describing: error))")
+            }
+        }
+
+        Task { @MainActor [weak self] in
+            let sections = await contentProvider.homeSections { [weak self] book in
+                self?.playBook(book)
+            }
+            guard self != nil else { return }
+            homeTemplate.updateSections(sections)
+        }
+    }
+
+    /// Push the search template. Pushing is a supported presentation for
+    /// CPSearchTemplate, unlike placing it in a tab bar.
+    @MainActor
+    private func showSearch() {
+        guard let interfaceController = interfaceController else { return }
         let searchTemplate = CPSearchTemplate()
         searchTemplate.delegate = self
-        searchTemplate.tabTitle = "Search"
-        searchTemplate.tabImage = UIImage(systemName: "magnifyingglass")
-
-        let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate, searchTemplate])
-        interfaceController.setRootTemplate(tabBar, animated: true, completion: nil)
+        interfaceController.pushTemplate(searchTemplate, animated: true) { success, error in
+            if !success {
+                print("CarPlay: pushTemplate(search) failed: \(String(describing: error))")
+            }
+        }
     }
 
     // MARK: - CPSearchTemplateDelegate

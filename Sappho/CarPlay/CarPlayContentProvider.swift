@@ -14,6 +14,16 @@ final class CarPlayContentProvider {
     // MARK: - Home
 
     func homeTemplate(onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
+        CPListTemplate(title: "Home", sections: await homeSections(onSelect: onSelect))
+    }
+
+    /// The Home sections, fetched from the server.
+    ///
+    /// Split out from `homeTemplate` so the scene delegate can present an empty
+    /// Home immediately and fill it in when the network answers. CarPlay
+    /// terminates an app that has not set a root template shortly after
+    /// connecting, and in a car the server is often slow or unreachable.
+    func homeSections(onSelect: @escaping (Audiobook) -> Void) async -> [CPListSection] {
         var sections: [CPListSection] = []
 
         // Resume, on its own, first. In a car the overwhelmingly common intent
@@ -59,17 +69,32 @@ final class CarPlayContentProvider {
             sections.append(CPListSection(items: items, header: "Listen Again", sectionIndexTitle: nil))
         }
 
-        return CPListTemplate(title: "Home", sections: sections)
+        return sections
     }
 
     // MARK: - Library
 
     func libraryTemplate(
+        onSearch: @escaping () -> Void,
         onAuthors: @escaping () -> Void,
         onSeries: @escaping () -> Void,
         onCollections: @escaping () -> Void,
         onAllBooks: @escaping () -> Void
     ) -> CPListTemplate {
+        // Search is a row rather than a tab: CPSearchTemplate is not a valid
+        // tab for a CarPlay audio app, and putting it in the tab bar makes
+        // setRootTemplate fail.
+        let searchItem = CPListItem(
+            text: "Search",
+            detailText: nil,
+            image: UIImage(systemName: "magnifyingglass")
+        )
+        searchItem.accessoryType = .disclosureIndicator
+        searchItem.handler = { _, completion in
+            onSearch()
+            completion()
+        }
+
         let authorsItem = CPListItem(
             text: "Authors",
             detailText: nil,
@@ -114,7 +139,7 @@ final class CarPlayContentProvider {
             completion()
         }
 
-        let section = CPListSection(items: [authorsItem, seriesItem, collectionsItem, allBooksItem])
+        let section = CPListSection(items: [searchItem, authorsItem, seriesItem, collectionsItem, allBooksItem])
         return CPListTemplate(title: "Library", sections: [section])
     }
 
