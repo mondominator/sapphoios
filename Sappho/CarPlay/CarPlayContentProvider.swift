@@ -16,12 +16,23 @@ final class CarPlayContentProvider {
     func homeTemplate(onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
         var sections: [CPListSection] = []
 
-        // Continue Listening
-        if let books = try? await api.getInProgress(limit: 10), !books.isEmpty {
-            let items = books.prefix(100).map { book in
+        // Resume, on its own, first. In a car the overwhelmingly common intent
+        // is "carry on with the thing I was listening to" -- making that the
+        // top row means one glance and one tap instead of scanning a section.
+        let inProgress = (try? await api.getInProgress(limit: 25)) ?? []
+
+        if let current = inProgress.first {
+            let resume = listItem(for: current, onSelect: onSelect)
+            sections.append(CPListSection(items: [resume], header: "Resume", sectionIndexTitle: nil))
+        }
+
+        // Everything else still in flight, minus the one promoted above.
+        let rest = Array(inProgress.dropFirst())
+        if !rest.isEmpty {
+            let items = rest.prefix(100).map { book in
                 listItem(for: book, onSelect: onSelect)
             }
-            sections.append(CPListSection(items: items, header: "Continue Listening", sectionIndexTitle: nil))
+            sections.append(CPListSection(items: items, header: "In Progress", sectionIndexTitle: nil))
         }
 
         // Up Next
@@ -105,6 +116,25 @@ final class CarPlayContentProvider {
 
         let section = CPListSection(items: [authorsItem, seriesItem, collectionsItem, allBooksItem])
         return CPListTemplate(title: "Library", sections: [section])
+    }
+
+    // MARK: - Search
+
+    /// Finding one book among hundreds previously meant Library -> Authors ->
+    /// letter -> author -> book: four drill-downs and far too many glances.
+    /// CarPlay's search accepts voice input, so this is also the safest way in.
+    func searchTemplate(onSelect: @escaping (Audiobook) -> Void) -> CPSearchTemplate {
+        let template = CPSearchTemplate()
+        template.delegate = nil
+        return template
+    }
+
+    /// Results for a query, shaped as CarPlay list items.
+    func searchResults(for query: String, onSelect: @escaping (Audiobook) -> Void) async -> [CPListItem] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else { return [] }
+        guard let books = try? await api.getAudiobooks(search: trimmed, limit: 50) else { return [] }
+        return books.map { listItem(for: $0, onSelect: onSelect) }
     }
 
     // MARK: - Authors
@@ -244,8 +274,10 @@ final class CarPlayContentProvider {
         }
 
         if let progress = book.progress, let duration = book.duration, duration > 0 {
-            let percent = Int(Double(progress.position) / Double(duration) * 100)
-            detailParts.append("\(percent)%")
+            // "4h 12m left" is what a driver can act on at a glance; a bare
+            // percentage makes them do the arithmetic.
+            let remaining = max(0, duration - progress.position)
+            detailParts.append("\(Self.formatDuration(remaining)) left")
         } else if let duration = book.duration {
             detailParts.append(Self.formatDuration(duration))
         }

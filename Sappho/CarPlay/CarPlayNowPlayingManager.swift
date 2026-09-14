@@ -44,7 +44,53 @@ final class CarPlayNowPlayingManager {
             self?.cyclePlaybackSpeed()
         }
 
-        nowPlaying.updateNowPlayingButtons([chapterBackButton, chapterForwardButton, speedButton])
+        // Road noise loses you a line far more often than it loses you a
+        // chapter, so a short rewind earns its slot ahead of chapter-back.
+        let backThirtyButton = CPNowPlayingImageButton(
+            image: UIImage(systemName: "gobackward.30") ?? UIImage()
+        ) { [weak self] _ in
+            self?.audioPlayer?.skipBackward(seconds: 30)
+        }
+
+        // Sleep timer is a signature audiobook control and had no CarPlay
+        // affordance at all -- you had to pick up the phone to set it.
+        let sleepButton = CPNowPlayingImageButton(
+            image: UIImage(systemName: "moon.zzz.fill") ?? UIImage()
+        ) { [weak self] _ in
+            self?.cycleSleepTimer()
+        }
+
+        nowPlaying.updateNowPlayingButtons([
+            backThirtyButton,
+            chapterBackButton,
+            chapterForwardButton,
+            speedButton,
+            sleepButton
+        ])
+    }
+
+    // MARK: - Sleep Timer
+
+    /// CarPlay buttons cannot open a picker, so this cycles the common
+    /// durations and wraps back to off. Mirrors the options the phone player
+    /// offers rather than inventing a second set.
+    private func cycleSleepTimer() {
+        guard let audioPlayer = audioPlayer else { return }
+
+        let steps: [Int] = [15, 30, 45, 60]
+        let remaining = audioPlayer.sleepTimerRemaining
+
+        guard let remaining = remaining, remaining > 0 else {
+            audioPlayer.setSleepTimer(minutes: steps[0])
+            return
+        }
+
+        let currentMinutes = Int((remaining / 60).rounded(.up))
+        if let next = steps.first(where: { $0 > currentMinutes }) {
+            audioPlayer.setSleepTimer(minutes: next)
+        } else {
+            audioPlayer.cancelSleepTimer()
+        }
     }
 
     // MARK: - Chapter Navigation

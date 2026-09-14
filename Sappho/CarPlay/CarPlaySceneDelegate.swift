@@ -1,7 +1,7 @@
 import CarPlay
 import UIKit
 
-class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
+class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPSearchTemplateDelegate {
 
     // MARK: - Properties
 
@@ -63,8 +63,42 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         )
         libraryTemplate.tabImage = UIImage(systemName: "books.vertical")
 
-        let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate])
+        let searchTemplate = CPSearchTemplate()
+        searchTemplate.delegate = self
+        searchTemplate.tabTitle = "Search"
+        searchTemplate.tabImage = UIImage(systemName: "magnifyingglass")
+
+        let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate, searchTemplate])
         interfaceController.setRootTemplate(tabBar, animated: true, completion: nil)
+    }
+
+    // MARK: - CPSearchTemplateDelegate
+
+    func searchTemplate(
+        _ searchTemplate: CPSearchTemplate,
+        updatedSearchText searchText: String,
+        completionHandler: @escaping ([CPListItem]) -> Void
+    ) {
+        guard let contentProvider = contentProvider else {
+            completionHandler([])
+            return
+        }
+        Task { @MainActor in
+            let items = await contentProvider.searchResults(for: searchText) { [weak self] book in
+                self?.playBook(book)
+            }
+            completionHandler(items)
+        }
+    }
+
+    func searchTemplate(
+        _ searchTemplate: CPSearchTemplate,
+        selectedResult item: CPListItem,
+        completionHandler: @escaping () -> Void
+    ) {
+        // The item's own handler already starts playback; it is installed by
+        // listItem(for:onSelect:) when the results are built.
+        item.handler?(item, completionHandler) ?? completionHandler()
     }
 
     // MARK: - Playback
