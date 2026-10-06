@@ -5,10 +5,15 @@
     <key>method</key>
     <string>app-store-connect</string>
     <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
+    <string>S6WU9SVVDW</string>
     <key>uploadSymbols</key>
     <true/>
     <key>signingStyle</key>
     <string>automatic</string>
+    <!-- Keep the build number we set. Without this, export silently bumps
+         CFBundleVersion past any collision, so the IPA that ships is not the
+         build that was archived ("set 40, shipped 43"). -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
 </dict>
 </plist>

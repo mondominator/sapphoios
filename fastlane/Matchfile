@@ -1,0 +1,13 @@
+# Matchfile - Code signing configuration
+# https://docs.fastlane.tools/actions/match/
+#
+# Shares the encrypted certificates repo with Sashimi (same Apple team), so the
+# existing Apple Distribution certificate is reused; match only adds an App
+# Store profile for com.sappho.audiobook. CI overrides git_url with the
+# MATCH_GIT_URL secret and authenticates with MATCH_GIT_BASIC_AUTHORIZATION.
+git_url "https://github.com/bitstorm-labs/certificates.git"
+storage_mode "git"
+type "appstore"
+app_identifier ["com.sappho.audiobook"]
+team_id "S6WU9SVVDW"
+platform "ios"

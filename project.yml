@@ -12,6 +12,15 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     DEVELOPMENT_TEAM: S6WU9SVVDW
+    # Single source of truth for the version (Info.plist reads both via
+    # $(MARKETING_VERSION) / $(CURRENT_PROJECT_VERSION)).
+    # - MARKETING_VERSION: bump by hand per release (1.0.0 shipped as build 45).
+    # - CURRENT_PROJECT_VERSION: CI's `fastlane ios beta` overwrites it with
+    #   epoch seconds so every TestFlight upload is unique; the value here is
+    #   only for local builds.
+    MARKETING_VERSION: 1.0.1
+    CURRENT_PROJECT_VERSION: 46
+    VERSIONING_SYSTEM: apple-generic
 
 targets:
   Sappho:
