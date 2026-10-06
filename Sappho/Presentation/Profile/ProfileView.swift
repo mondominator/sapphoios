@@ -774,6 +774,7 @@ struct SettingsView: View {
     @AppStorage("skipBackwardSeconds") private var skipBackwardSeconds = 15
     @AppStorage("rewindOnResume") private var rewindOnResume = 0
     @AppStorage("showChapterProgress") private var showChapterProgress = true
+    @AppStorage(StreamingPolicy.dataSaverKey) private var dataSaver = false
 
     var body: some View {
         Form {
@@ -803,6 +804,14 @@ struct SettingsView: View {
                 }
 
                 Toggle("Show Chapter Progress", isOn: $showChapterProgress)
+            }
+
+            Section {
+                Toggle("Data Saver", isOn: $dataSaver)
+            } header: {
+                Text("Streaming")
+            } footer: {
+                Text("Streams books in small segments at speech quality to use less data. On cellular, segments are always used so playback starts quickly. Downloaded books are not affected. Applies the next time a book starts.")
             }
         }
         .scrollContentBackground(.hidden)
