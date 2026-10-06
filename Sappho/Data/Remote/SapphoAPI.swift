@@ -857,6 +857,33 @@ class SapphoAPI {
         return baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/stream")
     }
 
+    /// The URL for a remote stream mode (`/stream` or the HLS master).
+    func streamURL(for audiobookId: Int, mode: StreamMode) -> URL? {
+        guard let baseURL = authRepository.serverURL else { return nil }
+        return StreamingPolicy.url(for: mode, baseURL: baseURL, audiobookId: audiobookId)
+    }
+
+    /// Ask for the HLS master playlist directly, to learn what AVPlayer can't
+    /// tell us after an HLS item fails: 415 (not AAC/MP4), or a new
+    /// `X-File-Version` (the file changed under the loaded playlist).
+    func probeHLSMaster(for audiobookId: Int, timeout: TimeInterval = 15) async -> HLSProbeResult {
+        guard let url = streamURL(for: audiobookId, mode: .hls(preferLow: false)) else { return .failed(statusCode: nil) }
+        var request = URLRequest(url: url, timeoutInterval: timeout)
+        for (field, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+        guard let (_, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse else { return .failed(statusCode: nil) }
+        switch http.statusCode {
+        case 200:
+            return .available(fileVersion: http.value(forHTTPHeaderField: "X-File-Version"))
+        case 415:
+            return .unsupported
+        default:
+            return .failed(statusCode: http.statusCode)
+        }
+    }
+
     func avatarURL() -> URL? {
         guard let baseURL = authRepository.serverURL else { return nil }
         return baseURL.appendingPathComponent("api/profile/avatar")

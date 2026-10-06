@@ -39,6 +39,9 @@ struct Audiobook: Codable, Identifiable, Hashable {
     /// replaced or a multi-file book is merged, which is how a download learns
     /// it is out of date.
     let fileSize: Int64?
+    /// The book's file on the server (`audiobooks.file_path`). Only its
+    /// extension is used: an MP3 can't be served as HLS (`HLSCodecHint`).
+    let filePath: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, subtitle, author, narrator, series, duration, genre, tags
@@ -60,6 +63,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         case isQueued = "is_queued"
         case lastPlayed = "last_played"
         case fileSize = "file_size"
+        case filePath = "file_path"
     }
 
     init(from decoder: Decoder) throws {
@@ -132,6 +136,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         } else {
             fileSize = nil
         }
+        filePath = try? container.decodeIfPresent(String.self, forKey: .filePath)
     }
 
     // Memberwise initializer for previews and testing
@@ -168,7 +173,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
         isFavorite: Bool = false,
         isQueued: Bool? = nil,
         lastPlayed: String? = nil,
-        fileSize: Int64? = nil
+        fileSize: Int64? = nil,
+        filePath: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -203,6 +209,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.isQueued = isQueued
         self.lastPlayed = lastPlayed
         self.fileSize = fileSize
+        self.filePath = filePath
     }
 
     /// Returns a copy of this audiobook with the chapters replaced.
@@ -240,7 +247,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
             isFavorite: isFavorite,
             isQueued: isQueued,
             lastPlayed: lastPlayed,
-            fileSize: fileSize
+            fileSize: fileSize,
+            filePath: filePath
         )
     }
 

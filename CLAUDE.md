@@ -118,8 +118,18 @@ Sappho/
 - Never auto-resumes on route changes; interruption end resumes only if
   `.shouldResume` AND it was playing.
 - Sleep timer support
+- Stream choice (`Domain/StreamingPolicy.swift`, unit tested): downloaded → local
+  file; cellular / expensive / Low Data Mode → HLS `hls/master.m3u8`; "Data
+  saver" setting (`dataSaver`, default off) → HLS `?prefer=low` on any network;
+  otherwise progressive `/stream`. MP3 (`file_path` extension, or a 415 seen
+  this session) → `/stream`. Decided per player item, so CarPlay uses it too.
+- HLS failure: AVPlayer hides the server's status, so the app GETs the master
+  itself (`probeHLSMaster`): 404 under a loaded playlist / new `X-File-Version`
+  or 401 → reload the master (max 2); 415 or anything else → `/stream` at the
+  same position for the rest of that play. Seeks use zero tolerance
+  (`SeekPolicy`) so positions match across modes (HLS shares the timeline).
 
-The pure rules live in `Domain/PlaybackPolicy.swift` and are unit tested.
+The pure rules live in `Domain/PlaybackPolicy.swift` and `Domain/StreamingPolicy.swift` and are unit tested.
 
 **DownloadManager** - Offline downloads:
 - Background URLSession, recreated at launch (and from
@@ -208,7 +218,9 @@ struct Audiobook: Codable {
 ### Media URL Authentication
 
 Cover images and streams authenticate via the `Authorization` header (never a
-query-string token). `SapphoAPI` exposes plain URLs plus headers to attach:
+query-string token). AVPlayer sends `AVURLAssetHTTPHeaderFieldsKey` headers on
+every HLS request (master, media playlist, init, segments) — verified on iOS 26.
+`SapphoAPI` exposes plain URLs plus headers to attach:
 
 ```swift
 func coverURL(for audiobookId: Int) -> URL? {

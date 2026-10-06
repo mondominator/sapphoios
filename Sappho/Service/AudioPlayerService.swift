@@ -58,6 +58,20 @@ class AudioPlayerService: NSObject {
     private var hasRetriedCurrentItem = false
     /// Whether the current item plays a downloaded file rather than the stream.
     private var isPlayingLocalFile = false
+    /// How the current item gets its audio, and from where (`StreamingPolicy`).
+    private(set) var streamMode: StreamMode?
+    private(set) var streamURL: URL?
+    /// The network the stream choice is made for. Injectable for tests.
+    var networkConditions: () -> NetworkConditions = { NetworkMonitor.shared.conditions }
+    /// HLS failed for this play request in a way a reload can't fix: the rest
+    /// of it uses `/stream`. Reset by the next play().
+    private var hlsBlockedForCurrentPlay = false
+    /// HLS reloads (file changed, token refreshed) in this play request.
+    private var hlsReloads = 0
+    private var isRecoveringHLS = false
+    /// Books the server answered 415 for (not AAC in MP4), so they go
+    /// straight to `/stream` next time. Cleared on logout.
+    private var hlsUnsupportedBookIds: Set<Int> = []
     /// When playback was last paused, so a long-paused stream can be rebuilt
     /// with fresh auth headers before resuming.
     private var pausedAt: Date?
@@ -130,14 +144,28 @@ class AudioPlayerService: NSObject {
     /// buffering KVO, and creates the AVPlayer. Shared by play() and resume().
     /// Returns false if no stream URL could be determined.
     private func setUpPlayer(for audiobook: Audiobook) -> Bool {
-        // Check for offline download first
+        // A downloaded book plays its file; a stream is progressive or HLS
+        // depending on the network and the data saver setting. Decided per
+        // item, so a rebuild (failure, long pause) picks up a network change;
+        // both modes share one timeline, so the position carries over.
         let localURL = DownloadManager.shared.localURL(for: audiobook.id)
-        guard let streamURL = localURL ?? api?.streamURL(for: audiobook.id) else { return false }
+        let mode = StreamingPolicy.mode(
+            isDownloaded: localURL != nil,
+            network: networkConditions(),
+            dataSaver: UserDefaults.standard.bool(forKey: StreamingPolicy.dataSaverKey),
+            codec: hlsUnsupportedBookIds.contains(audiobook.id) ? .unsupported : HLSCodecHint.from(filePath: audiobook.filePath),
+            hlsBlocked: hlsBlockedForCurrentPlay
+        )
+        guard let streamURL = localURL ?? api?.streamURL(for: audiobook.id, mode: mode) else { return false }
         isPlayingLocalFile = localURL != nil
+        self.streamMode = mode
+        self.streamURL = streamURL
 
-        // Create player item — use auth headers for remote streams. The
-        // headers are read now, so a rebuild (see rebuildCurrentItem) is the
-        // only way to give a long-lived stream a refreshed token.
+        // Create player item — use auth headers for remote streams. AVPlayer
+        // sends them on every HLS request too (master, media playlists, init
+        // and segments). The headers are read now, so a rebuild (see
+        // rebuildCurrentItem) is the only way to give a long-lived stream a
+        // refreshed token.
         let asset: AVURLAsset
         if isPlayingLocalFile {
             asset = AVURLAsset(url: streamURL)
@@ -149,6 +177,7 @@ class AudioPlayerService: NSObject {
         // Spectral time-stretching keeps voices clean above 1x; the default
         // algorithm warbles noticeably on speech at 1.25x and up.
         item.audioTimePitchAlgorithm = .spectral
+        item.preferredPeakBitRate = StreamingPolicy.preferredPeakBitRate(for: mode)
         playerItem = item
         observe(item)
 
@@ -227,6 +256,23 @@ class AudioPlayerService: NSObject {
         savePlaybackState()
         print("Playback failed: \(String(describing: error))")
 
+        // HLS has its own recovery: reload the master if the file changed or
+        // the token expired, else continue on /stream at the same position.
+        if streamMode?.isHLS == true {
+            guard !isRecoveringHLS else { return }
+            isRecoveringHLS = true
+            let event = playerItem?.errorLog()?.events.last
+            // The error event often has no URI; the access log names the
+            // media playlist that was playing (`/hls/<version>/<variant>/`).
+            let failedVersion = HLSRecoveryPolicy.fileVersion(inURI: event?.uri)
+                ?? HLSRecoveryPolicy.fileVersion(inURI: playerItem?.accessLog()?.events.last?.uri)
+            let failedStatus = HLSRecoveryPolicy.httpStatus(comment: event?.errorComment, code: event?.errorStatusCode)
+            Task {
+                await recoverFromHLSFailure(failedVersion: failedVersion, failedStatusCode: failedStatus, andPlay: wasPlaying)
+            }
+            return
+        }
+
         guard !hasRetriedCurrentItem else {
             playbackError = Self.describe(error)
             return
@@ -244,13 +290,51 @@ class AudioPlayerService: NSObject {
         return "Playback failed. Try again."
     }
 
+    /// AVPlayer failed on an HLS item. It does not expose the server's
+    /// status or error body, so ask for the master playlist directly and
+    /// decide: reload HLS (404 FILE_VERSION_CHANGED, expired token) or play
+    /// `/stream` from the same position (415 HLS_UNSUPPORTED, anything else).
+    private func recoverFromHLSFailure(failedVersion: String?, failedStatusCode: Int?, andPlay shouldPlay: Bool) async {
+        guard let audiobook = currentAudiobook, let api else {
+            isRecoveringHLS = false
+            return
+        }
+        await api.ensureFreshToken()
+        let probe = await api.probeHLSMaster(for: audiobook.id)
+        guard currentAudiobook?.id == audiobook.id else {
+            isRecoveringHLS = false
+            return
+        }
+
+        if probe == .unsupported {
+            hlsUnsupportedBookIds.insert(audiobook.id)
+        }
+        let action = HLSRecoveryPolicy.action(
+            probe: probe,
+            failedVersion: failedVersion,
+            failedStatusCode: failedStatusCode,
+            reloadsSoFar: hlsReloads
+        )
+        print("HLS failed (version \(failedVersion ?? "-"), status \(failedStatusCode.map(String.init) ?? "-"), probe \(probe)): \(action)")
+        switch action {
+        case .reloadHLS:
+            hlsReloads += 1
+        case .fallBackToProgressive:
+            hlsBlockedForCurrentPlay = true
+        }
+        // The failed item's observers go with it in the rebuild; a failure of
+        // the new item must be handled, not swallowed by the guard.
+        isRecoveringHLS = false
+        await rebuildCurrentItem(andPlay: shouldPlay, refreshToken: false)
+    }
+
     /// Recreate the player item at the current position, with a token that
     /// has just been refreshed. Used after a failure and before resuming a
     /// stream that sat paused long enough for its token to expire.
-    private func rebuildCurrentItem(andPlay shouldPlay: Bool) async {
+    private func rebuildCurrentItem(andPlay shouldPlay: Bool, refreshToken: Bool = true) async {
         guard let audiobook = currentAudiobook else { return }
         let resumePosition = position
-        if DownloadManager.shared.localURL(for: audiobook.id) == nil {
+        if refreshToken, DownloadManager.shared.localURL(for: audiobook.id) == nil {
             await api?.ensureFreshToken()
         }
         // The book may have changed while the token refreshed.
@@ -322,6 +406,9 @@ class AudioPlayerService: NSObject {
         currentAudiobook = audiobook
         playbackError = nil
         hasRetriedCurrentItem = false
+        hlsBlockedForCurrentPlay = false
+        hlsReloads = 0
+        isRecoveringHLS = false
 
         guard setUpPlayer(for: audiobook) else {
             print("Failed to get stream URL for audiobook \(audiobook.id)")
@@ -511,6 +598,8 @@ class AudioPlayerService: NSObject {
 
         player = nil
         playerItem = nil
+        streamMode = nil
+        streamURL = nil
         currentAudiobook = nil
         currentChapter = nil
         isPlaying = false
@@ -529,7 +618,9 @@ class AudioPlayerService: NSObject {
 
     func seek(to time: TimeInterval) async {
         let cmTime = CMTime(seconds: time, preferredTimescale: 1000)
-        await player?.seek(to: cmTime)
+        // Exact in every mode, so a position resumes at the same spot on
+        // progressive and HLS (see SeekPolicy).
+        await player?.seek(to: cmTime, toleranceBefore: SeekPolicy.toleranceBefore, toleranceAfter: SeekPolicy.toleranceAfter)
         position = time
         updateNowPlayingInfo()
         updateCurrentChapter()
@@ -859,6 +950,7 @@ class AudioPlayerService: NSObject {
             progressStore.clear(account: account)
             HomeFeedStore.shared.clear(account: account)
         }
+        hlsUnsupportedBookIds = []
     }
 
     // MARK: - Now Playing Info

@@ -16,14 +16,25 @@ final class NetworkMonitor {
     /// delivers within moments of `start(queue:)`.
     private(set) var isConnected: Bool = true
 
+    /// Cellular / expensive / Low Data Mode, for choosing HLS over the
+    /// progressive stream (`StreamingPolicy`). Starts as unmetered and is
+    /// corrected by the first path update.
+    private(set) var conditions: NetworkConditions = .unmetered
+
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "com.sappho.networkmonitor")
 
     private init() {
         monitor.pathUpdateHandler = { [weak self] path in
             let connected = path.status == .satisfied
+            let conditions = NetworkConditions(
+                isCellular: path.usesInterfaceType(.cellular),
+                isExpensive: path.isExpensive,
+                isConstrained: path.isConstrained
+            )
             Task { @MainActor in
                 self?.isConnected = connected
+                self?.conditions = conditions
             }
         }
         monitor.start(queue: queue)
