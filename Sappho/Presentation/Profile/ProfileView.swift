@@ -89,8 +89,13 @@ struct ProfileView: View {
                 Button("Cancel", role: .cancel) { }
                 Button("Logout", role: .destructive) {
                     audioPlayer.showFullPlayer = false
-                    audioPlayer.stop()
-                    authRepository.clear()
+                    Task {
+                        // Final sync goes out while the token is still valid,
+                        // and this account's queue is dropped before the next
+                        // login can replay it.
+                        await audioPlayer.prepareForLogout()
+                        authRepository.clear()
+                    }
                 }
             } message: {
                 Text("Are you sure you want to logout?")

@@ -16,6 +16,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         handleEventsForBackgroundURLSession identifier: String,
         completionHandler: @escaping () -> Void
     ) {
+        guard identifier == DownloadManager.sessionIdentifier else {
+            completionHandler()
+            return
+        }
+        // iOS relaunched us to deliver finished transfers. Store the handler,
+        // then make sure the background session (and its delegate) exists, or
+        // the events are never delivered and the handler never called.
         DownloadManager.shared.backgroundCompletionHandler = completionHandler
+        DownloadManager.shared.reattachSession()
     }
 }

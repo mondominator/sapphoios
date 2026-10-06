@@ -12,15 +12,30 @@ class AuthRepository {
     private let kCurrentUser = "sappho_currentUser"
     private let kCurrentLoginUser = "sappho_currentLoginUser"
     private let kMigrated = "sappho_migratedToSplitStorage"
+    private let kMustChangePassword = "sappho_mustChangePassword"
 
     private(set) var serverURL: URL?
     private(set) var token: String?
     private(set) var refreshToken: String?
     private(set) var currentUser: User?
     private(set) var currentLoginUser: LoginUser?
+    /// The server requires a new password before anything else works (it
+    /// answers 403 `must_change_password` to every other route). Persisted so
+    /// a relaunch still shows the change-password screen.
+    private(set) var mustChangePassword: Bool = false
+    /// One-off message for the login screen (e.g. after a password change
+    /// signs the user out). Not persisted.
+    var loginNotice: String?
 
     var isAuthenticated: Bool {
         token != nil && serverURL != nil
+    }
+
+    /// Identifies the signed-in account (server + user id). Used to scope data
+    /// that must never leak into another account, such as queued progress.
+    var accountKey: String? {
+        guard let serverURL, let userId = currentLoginUser?.id ?? currentUser?.id else { return nil }
+        return "\(serverURL.absoluteString)|\(userId)"
     }
 
     var isAdmin: Bool {
@@ -74,14 +89,16 @@ class AuthRepository {
         if let loginUserData = defaults.data(forKey: kCurrentLoginUser) {
             currentLoginUser = try? JSONDecoder().decode(LoginUser.self, from: loginUserData)
         }
+        mustChangePassword = defaults.bool(forKey: kMustChangePassword)
     }
 
-    func store(serverURL: URL, token: String, refreshToken: String?, user: LoginUser) {
+    func store(serverURL: URL, token: String, refreshToken: String?, user: LoginUser, mustChangePassword: Bool = false) {
         self.serverURL = serverURL
         self.token = token
         self.refreshToken = refreshToken
         self.currentLoginUser = user
         self.currentUser = nil
+        setMustChangePassword(mustChangePassword)
 
         // Tokens in Keychain (secure)
         keychain.set(token, forKey: "authToken")
@@ -123,6 +140,11 @@ class AuthRepository {
         }
     }
 
+    func setMustChangePassword(_ value: Bool) {
+        mustChangePassword = value
+        defaults.set(value, forKey: kMustChangePassword)
+    }
+
     /// Clear only the auth token (called on 401 — session expired).
     /// Preserves server URL and user info so the login screen can
     /// pre-fill them instead of making the user re-enter everything.
@@ -141,12 +163,14 @@ class AuthRepository {
         refreshToken = nil
         currentUser = nil
         currentLoginUser = nil
+        mustChangePassword = false
 
         keychain.delete("authToken")
         keychain.delete("refreshToken")
         defaults.removeObject(forKey: kServerURL)
         defaults.removeObject(forKey: kCurrentUser)
         defaults.removeObject(forKey: kCurrentLoginUser)
+        defaults.removeObject(forKey: kMustChangePassword)
     }
 }
 

@@ -13,10 +13,6 @@ final class CarPlayContentProvider {
 
     // MARK: - Home
 
-    func homeTemplate(onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        CPListTemplate(title: "Home", sections: await homeSections(onSelect: onSelect))
-    }
-
     /// The Home sections, fetched from the server.
     ///
     /// Split out from `homeTemplate` so the scene delegate can present an empty
@@ -26,10 +22,16 @@ final class CarPlayContentProvider {
     func homeSections(onSelect: @escaping (Audiobook) -> Void) async -> [CPListSection] {
         var sections: [CPListSection] = []
 
+        // No signal (common in a car): don't sit on requests that cannot
+        // succeed. Offer what plays without the server instead of a blank Home.
+        guard NetworkMonitor.shared.isConnected,
+              let inProgress = try? await api.getInProgress(limit: 25) else {
+            return offlineSections(onSelect: onSelect)
+        }
+
         // Resume, on its own, first. In a car the overwhelmingly common intent
         // is "carry on with the thing I was listening to" -- making that the
         // top row means one glance and one tap instead of scanning a section.
-        let inProgress = (try? await api.getInProgress(limit: 25)) ?? []
 
         if let current = inProgress.first {
             let resume = listItem(for: current, onSelect: onSelect)
@@ -72,26 +74,64 @@ final class CarPlayContentProvider {
         return sections
     }
 
+    /// Home when the server can't be reached: the loaded book (if any) and
+    /// the downloaded books, which play from local files.
+    func offlineSections(onSelect: @escaping (Audiobook) -> Void) -> [CPListSection] {
+        var sections: [CPListSection] = []
+        let downloaded = downloadedBooks()
+
+        if let current = ServiceLocator.shared.audioPlayer?.currentAudiobook {
+            sections.append(CPListSection(items: [listItem(for: current, onSelect: onSelect)], header: "Resume", sectionIndexTitle: nil))
+        }
+        if !downloaded.isEmpty {
+            let items = downloaded.prefix(100).map { listItem(for: $0, onSelect: onSelect) }
+            sections.append(CPListSection(items: items, header: "Downloaded", sectionIndexTitle: nil))
+        }
+        if sections.isEmpty {
+            let item = CPListItem(text: "Can't reach your Sappho server", detailText: "Downloaded books appear here when you're offline.")
+            sections.append(CPListSection(items: [item]))
+        }
+        return sections
+    }
+
+    // MARK: - Downloaded
+
+    func downloadedTemplate(onSelect: @escaping (Audiobook) -> Void) -> CPListTemplate {
+        let books = downloadedBooks()
+        let items: [CPListItem]
+        if books.isEmpty {
+            items = [CPListItem(text: "No downloaded books", detailText: "Download books on your phone to listen offline.")]
+        } else {
+            items = books.prefix(100).map { listItem(for: $0, onSelect: onSelect) }
+        }
+        return CPListTemplate(title: "Downloaded", sections: [CPListSection(items: items)])
+    }
+
+    private func downloadedBooks() -> [Audiobook] {
+        DownloadManager.shared.downloadedAudiobooks()
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
     // MARK: - Library
 
     func libraryTemplate(
-        onSearch: @escaping () -> Void,
+        onDownloaded: @escaping () -> Void,
         onAuthors: @escaping () -> Void,
         onSeries: @escaping () -> Void,
         onCollections: @escaping () -> Void,
         onAllBooks: @escaping () -> Void
     ) -> CPListTemplate {
-        // Search is a row rather than a tab: CPSearchTemplate is not a valid
-        // tab for a CarPlay audio app, and putting it in the tab bar makes
-        // setRootTemplate fail.
-        let searchItem = CPListItem(
-            text: "Search",
+        // No Search row: CPSearchTemplate is only for navigation apps, and
+        // CarPlay rejects it from an audio app whether it is a tab or pushed.
+        // Downloaded is the useful extra row in a car with patchy signal.
+        let downloadedItem = CPListItem(
+            text: "Downloaded",
             detailText: nil,
-            image: UIImage(systemName: "magnifyingglass")
+            image: UIImage(systemName: "arrow.down.circle")
         )
-        searchItem.accessoryType = .disclosureIndicator
-        searchItem.handler = { _, completion in
-            onSearch()
+        downloadedItem.accessoryType = .disclosureIndicator
+        downloadedItem.handler = { _, completion in
+            onDownloaded()
             completion()
         }
 
@@ -139,27 +179,8 @@ final class CarPlayContentProvider {
             completion()
         }
 
-        let section = CPListSection(items: [searchItem, authorsItem, seriesItem, collectionsItem, allBooksItem])
+        let section = CPListSection(items: [downloadedItem, authorsItem, seriesItem, collectionsItem, allBooksItem])
         return CPListTemplate(title: "Library", sections: [section])
-    }
-
-    // MARK: - Search
-
-    /// Finding one book among hundreds previously meant Library -> Authors ->
-    /// letter -> author -> book: four drill-downs and far too many glances.
-    /// CarPlay's search accepts voice input, so this is also the safest way in.
-    func searchTemplate(onSelect: @escaping (Audiobook) -> Void) -> CPSearchTemplate {
-        let template = CPSearchTemplate()
-        template.delegate = nil
-        return template
-    }
-
-    /// Results for a query, shaped as CarPlay list items.
-    func searchResults(for query: String, onSelect: @escaping (Audiobook) -> Void) async -> [CPListItem] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 2 else { return [] }
-        guard let books = try? await api.getAudiobooks(search: trimmed, limit: 50) else { return [] }
-        return books.map { listItem(for: $0, onSelect: onSelect) }
     }
 
     // MARK: - Authors

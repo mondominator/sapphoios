@@ -96,6 +96,13 @@ struct LoginView: View {
                         .cornerRadius(10)
                     }
 
+                    if let notice = authRepository.loginNotice, errorMessage == nil {
+                        Text(notice)
+                            .font(.sapphoCaption)
+                            .foregroundColor(.sapphoSuccess)
+                            .multilineTextAlignment(.center)
+                    }
+
                     // Error Message
                     if let error = errorMessage {
                         Text(error)
@@ -175,7 +182,16 @@ struct LoginView: View {
                 return
             }
 
-            authRepository.store(serverURL: url, token: response.token, refreshToken: response.refreshToken, user: response.user)
+            authRepository.loginNotice = nil
+            // must_change_password: the server will refuse everything but the
+            // password change, so RootView shows that screen instead of Home.
+            authRepository.store(
+                serverURL: url,
+                token: response.token,
+                refreshToken: response.refreshToken,
+                user: response.user,
+                mustChangePassword: response.mustChangePassword == true
+            )
         } catch let error as APIError {
             errorMessage = error.errorDescription
         } catch {

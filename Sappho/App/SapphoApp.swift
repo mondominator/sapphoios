@@ -8,6 +8,10 @@ struct SapphoApp: App {
     @State private var audioPlayer: AudioPlayerService
 
     init() {
+        // UIDevice is main-thread API; capture the name once for the
+        // X-Device-Name header that every request carries.
+        ClientInfo.captureDeviceName()
+
         let repo = AuthRepository()
         let apiInstance = SapphoAPI(authRepository: repo)
         let playerInstance = AudioPlayerService()
@@ -50,6 +54,12 @@ struct SapphoApp: App {
                     if authRepository.isAuthenticated {
                         await audioPlayer.restoreLastPlayed()
                     }
+                    // Drop broken or outdated downloads (error bodies saved
+                    // by older builds, partial files, files the server has
+                    // since replaced or merged).
+                    await DownloadManager.shared.auditDownloads(
+                        online: authRepository.isAuthenticated && NetworkMonitor.shared.isConnected
+                    )
                 }
         }
         .onChange(of: scenePhase) { _, newPhase in
