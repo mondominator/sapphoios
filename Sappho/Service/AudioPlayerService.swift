@@ -110,6 +110,9 @@ class AudioPlayerService: NSObject {
             asset = AVURLAsset(url: streamURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         }
         playerItem = AVPlayerItem(asset: asset)
+        // Spectral time-stretching keeps voices clean above 1x; the default
+        // algorithm warbles noticeably on speech at 1.25x and up.
+        playerItem?.audioTimePitchAlgorithm = .spectral
 
         // Observe buffering state
         playerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: .new, context: nil)
