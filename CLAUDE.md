@@ -130,6 +130,17 @@ The pure rules live in `Domain/PlaybackPolicy.swift` and are unit tested.
 - Stores files in Application Support
 - Player checks for local files first
 
+**HomeFeedStore** (`Domain/HomeFeed.swift`) - Home feed shared by the phone and CarPlay:
+- Four sections load in parallel, each with its own 12 s deadline, and publish as
+  each answers; a failed section keeps its last books and is marked failed
+- Last good feed saved per account (Application Support/HomeFeed), so both
+  screens open with it; cleared on logout
+- CarPlay Home is built from it + downloads + current book with no network wait
+  (`CarPlayHomeLayout`, unit tested); covers are `?width=120` thumbnails via
+  `CoverThumbnailLoader` (3 at a time, shared `ImageCache`)
+- CarPlay taps start playback immediately (`CarPlayPlaybackStarter`); the
+  server copy of the book is fetched afterwards (`refreshAfterImmediateStart`)
+
 **Auth semantics:** 401 clears the session (unless it came back on a just-refreshed
 token); 403 never does. A 403 with `must_change_password` (or the login response
 flag) shows `ChangePasswordRequiredView`. Every request carries `X-Device-Name`

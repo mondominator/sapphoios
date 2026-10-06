@@ -6,16 +6,29 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Binding var navigationPath: NavigationPath
 
-    @State private var continueListening: [Audiobook] = []
-    @State private var recentlyAdded: [Audiobook] = []
-    @State private var listenAgain: [Audiobook] = []
-    @State private var upNext: [Audiobook] = []
-
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    /// Shared with CarPlay, and saved per account: Home opens with the last
+    /// feed and each section refreshes on its own (see HomeFeedStore).
+    private let feed = HomeFeedStore.shared
     @State private var isOffline = false
 
     private let networkMonitor = NetworkMonitor.shared
+
+    private var continueListening: [Audiobook] { feed.books(.continueListening) }
+    private var recentlyAdded: [Audiobook] { feed.books(.recentlyAdded) }
+    private var listenAgain: [Audiobook] { feed.books(.listenAgain) }
+    private var upNext: [Audiobook] { feed.books(.upNext) }
+
+    /// A spinner only when there is genuinely nothing to show yet.
+    private var isLoading: Bool {
+        feedIsEmpty && downloadedBooks.isEmpty && !isOffline
+            && HomeSectionKind.allCases.contains {
+                let status = feed.state($0).status
+                return status == .loading || status == .notLoaded
+            }
+    }
+
+    /// The server's error, only when every section failed with one.
+    private var errorMessage: String? { feed.serverErrorMessage }
 
     private var downloadedBooks: [Audiobook] {
         DownloadManager.shared.downloadedAudiobooks()
@@ -162,79 +175,28 @@ struct HomeView: View {
             } else {
                 // Went offline — drop the spinner and surface downloads immediately.
                 isOffline = true
-                isLoading = false
             }
         }
     }
 
     private func loadData() async {
-        // No network path at all — instant offline, show downloads.
-        if !networkMonitor.isConnected {
+        feed.activate(account: api?.accountKey)
+
+        // No network path at all — instant offline, show downloads and the
+        // saved feed.
+        guard networkMonitor.isConnected, let api else {
             isOffline = true
-            isLoading = false
             return
         }
 
-        // Only block the screen with a spinner when there is genuinely nothing
-        // cached to show. If downloads (or a previous feed) exist, they render
-        // immediately and the feed refreshes underneath.
-        isLoading = downloadedBooks.isEmpty && continueListening.isEmpty
-            && recentlyAdded.isEmpty && upNext.isEmpty && listenAgain.isEmpty
+        // Each section loads in parallel with its own deadline and appears
+        // as soon as it answers; one slow section no longer holds back (or,
+        // by failing, blanks) the others.
+        await feed.refresh(fetch: HomeFeedStore.apiFetcher(api))
 
-        // The device can be online while the SERVER is unreachable (e.g. it's
-        // down or we're off its network). Those requests would otherwise hang
-        // on a socket timeout and leave Home spinning "forever", so cap the
-        // whole feed load: if it doesn't come back in time, treat it as offline
-        // and fall back to the downloaded books.
-        typealias Feed = ([Audiobook], [Audiobook], [Audiobook], [Audiobook])
-        let fetch = Task { () -> Result<Feed, Error> in
-            do {
-                async let inProgress = api?.getInProgress(limit: 10)
-                async let recent = api?.getRecentlyAdded(limit: 10)
-                async let finished = api?.getFinished(limit: 10)
-                async let next = api?.getUpNext()
-                return .success((try await inProgress ?? [], try await recent ?? [],
-                                 try await finished ?? [], try await next ?? []))
-            } catch {
-                return .failure(error)
-            }
-        }
-        let timeout = Task {
-            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
-            fetch.cancel()
-        }
-        let result = await fetch.value
-        timeout.cancel()
-
-        switch result {
-        case .success(let (ip, ra, fin, un)):
-            continueListening = ip
-            recentlyAdded = ra
-            listenAgain = fin
-            upNext = un
-            isOffline = false
-            errorMessage = nil
-        case .failure(let error) where Self.isUnreachableError(error):
-            // Couldn't reach the server — surface downloads + the offline banner.
-            isOffline = true
-            errorMessage = nil
-        case .failure(let error):
-            // The server responded but with an error (HTTP failure, decoding,
-            // auth, ...) — that's not "offline", so show a real error instead
-            // of misreporting the connection state.
-            isOffline = false
-            errorMessage = error.localizedDescription
-        }
-        isLoading = false
-    }
-
-    /// True for errors meaning the server couldn't be reached at all (no
-    /// connectivity, socket timeout, or our 10s cap cancelling the fetch) —
-    /// as opposed to the server responding with an error.
-    private static func isUnreachableError(_ error: Error) -> Bool {
-        if error is URLError || error is CancellationError { return true }
-        if case APIError.networkError = error { return true }
-        return false
+        // Couldn't reach the server at all: show the offline banner (the
+        // saved feed and downloads stay on screen).
+        isOffline = feed.allFailedForConnectivity
     }
 }
 

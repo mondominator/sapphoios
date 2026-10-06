@@ -1,97 +1,63 @@
 import CarPlay
 import UIKit
 
-/// Fetches data from SapphoAPI and builds CPListItem arrays for CarPlay templates.
+/// Builds CarPlay lists. Home comes from data already on the device
+/// (`HomeFeedStore`, downloads, the current book); library lists come from the
+/// server and are pushed with a loading row first (see CarPlaySceneDelegate).
 @MainActor
 final class CarPlayContentProvider {
 
     private let api: SapphoAPI
+    private let coverLoader: CoverThumbnailLoader
 
-    init(api: SapphoAPI) {
+    init(api: SapphoAPI, coverLoader: CoverThumbnailLoader = .shared) {
         self.api = api
+        self.coverLoader = coverLoader
     }
 
     // MARK: - Home
 
-    /// The Home sections, fetched from the server.
-    ///
-    /// Split out from `homeTemplate` so the scene delegate can present an empty
-    /// Home immediately and fill it in when the network answers. CarPlay
-    /// terminates an app that has not set a root template shortly after
-    /// connecting, and in a car the server is often slow or unreachable.
-    func homeSections(onSelect: @escaping (Audiobook) -> Void) async -> [CPListSection] {
-        var sections: [CPListSection] = []
-
-        // No signal (common in a car): don't sit on requests that cannot
-        // succeed. Offer what plays without the server instead of a blank Home.
-        guard NetworkMonitor.shared.isConnected,
-              let inProgress = try? await api.getInProgress(limit: 25) else {
-            return offlineSections(onSelect: onSelect)
-        }
-
-        // Resume, on its own, first. In a car the overwhelmingly common intent
-        // is "carry on with the thing I was listening to" -- making that the
-        // top row means one glance and one tap instead of scanning a section.
-
-        if let current = inProgress.first {
-            let resume = listItem(for: current, onSelect: onSelect)
-            sections.append(CPListSection(items: [resume], header: "Resume", sectionIndexTitle: nil))
-        }
-
-        // Everything else still in flight, minus the one promoted above.
-        let rest = Array(inProgress.dropFirst())
-        if !rest.isEmpty {
-            let items = rest.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-            sections.append(CPListSection(items: items, header: "In Progress", sectionIndexTitle: nil))
-        }
-
-        // Up Next
-        if let books = try? await api.getUpNext(), !books.isEmpty {
-            let items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-            sections.append(CPListSection(items: items, header: "Up Next", sectionIndexTitle: nil))
-        }
-
-        // Recently Added
-        if let books = try? await api.getRecentlyAdded(limit: 10), !books.isEmpty {
-            let items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-            sections.append(CPListSection(items: items, header: "Recently Added", sectionIndexTitle: nil))
-        }
-
-        // Listen Again
-        if let books = try? await api.getFinished(limit: 10), !books.isEmpty {
-            let items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-            sections.append(CPListSection(items: items, header: "Listen Again", sectionIndexTitle: nil))
-        }
-
-        return sections
-    }
-
-    /// Home when the server can't be reached: the loaded book (if any) and
-    /// the downloaded books, which play from local files.
-    func offlineSections(onSelect: @escaping (Audiobook) -> Void) -> [CPListSection] {
-        var sections: [CPListSection] = []
+    /// Home as it stands right now, built only from what is on the device:
+    /// the saved feed (refreshed in the background by `HomeFeedStore`), the
+    /// current book and the downloads. Never waits on the network, so it can
+    /// be shown the instant CarPlay connects and rebuilt as each section of
+    /// the feed answers.
+    func homeSections(
+        store: HomeFeedStore,
+        onSelect: @escaping (Audiobook) -> Void,
+        onRetry: @escaping () -> Void
+    ) -> [CPListSection] {
         let downloaded = downloadedBooks()
-
-        if let current = ServiceLocator.shared.audioPlayer?.currentAudiobook {
-            sections.append(CPListSection(items: [listItem(for: current, onSelect: onSelect)], header: "Resume", sectionIndexTitle: nil))
+        let current = CarPlayHomeLayout.currentBook(
+            loaded: ServiceLocator.shared.audioPlayer?.currentAudiobook,
+            lastPlayedId: AudioPlayerService.lastPlayedAudiobookId,
+            downloaded: downloaded,
+            feed: store.sections
+        )
+        let layout = CarPlayHomeLayout.build(
+            feed: store.sections,
+            downloaded: downloaded,
+            current: current,
+            isConnected: NetworkMonitor.shared.isConnected
+        )
+        return layout.map { section in
+            let items = section.rows.map { row -> CPListItem in
+                switch row {
+                case .book(let book, let isDownloaded):
+                    return listItem(for: book, isDownloaded: isDownloaded, onSelect: onSelect)
+                case .status(let title, let detail, let retry):
+                    let item = CPListItem(text: title, detailText: detail)
+                    if retry {
+                        item.handler = { _, completion in
+                            onRetry()
+                            completion()
+                        }
+                    }
+                    return item
+                }
+            }
+            return CPListSection(items: items, header: section.header, sectionIndexTitle: nil)
         }
-        if !downloaded.isEmpty {
-            let items = downloaded.prefix(100).map { listItem(for: $0, onSelect: onSelect) }
-            sections.append(CPListSection(items: items, header: "Downloaded", sectionIndexTitle: nil))
-        }
-        if sections.isEmpty {
-            let item = CPListItem(text: "Can't reach your Sappho server", detailText: "Downloaded books appear here when you're offline.")
-            sections.append(CPListSection(items: [item]))
-        }
-        return sections
     }
 
     // MARK: - Downloaded
@@ -102,7 +68,7 @@ final class CarPlayContentProvider {
         if books.isEmpty {
             items = [CPListItem(text: "No downloaded books", detailText: "Download books on your phone to listen offline.")]
         } else {
-            items = books.prefix(100).map { listItem(for: $0, onSelect: onSelect) }
+            items = books.prefix(100).map { listItem(for: $0, isDownloaded: true, onSelect: onSelect) }
         }
         return CPListTemplate(title: "Downloaded", sections: [CPListSection(items: items)])
     }
@@ -183,136 +149,92 @@ final class CarPlayContentProvider {
         return CPListTemplate(title: "Library", sections: [section])
     }
 
-    // MARK: - Authors
+    // MARK: - Library lists
+    //
+    // Each returns the rows for a pushed list. The scene delegate pushes the
+    // list at once with a "Loading…" row and fills it in when this returns,
+    // so a tap always does something even when the server is slow.
 
-    func authorsListTemplate(onSelect: @escaping (String) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let authors = try? await api.getAuthors() {
-            items = authors.prefix(100).map { authorInfo in
-                let item = CPListItem(
-                    text: authorInfo.author,
-                    detailText: "\(authorInfo.bookCount) book\(authorInfo.bookCount == 1 ? "" : "s")"
-                )
-                item.accessoryType = .disclosureIndicator
-                item.handler = { _, completion in
-                    onSelect(authorInfo.author)
-                    completion()
-                }
-                return item
+    func authorsSections(onSelect: @escaping (String) -> Void) async throws -> [CPListSection] {
+        let authors = try await api.getAuthors()
+        let items = authors.prefix(CarPlayHomeLayout.maxRowsPerSection * 4).map { authorInfo in
+            let item = CPListItem(
+                text: authorInfo.author,
+                detailText: "\(authorInfo.bookCount) book\(authorInfo.bookCount == 1 ? "" : "s")"
+            )
+            item.accessoryType = .disclosureIndicator
+            item.handler = { _, completion in
+                onSelect(authorInfo.author)
+                completion()
             }
+            return item
         }
-
-        return CPListTemplate(title: "Authors", sections: [CPListSection(items: items)])
+        return [CPListSection(items: Array(items))]
     }
 
-    // MARK: - Series
-
-    func seriesListTemplate(onSelect: @escaping (String) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let seriesList = try? await api.getSeries() {
-            items = seriesList.prefix(100).map { seriesInfo in
-                let item = CPListItem(
-                    text: seriesInfo.series,
-                    detailText: "\(seriesInfo.bookCount) book\(seriesInfo.bookCount == 1 ? "" : "s")"
-                )
-                item.accessoryType = .disclosureIndicator
-                item.handler = { _, completion in
-                    onSelect(seriesInfo.series)
-                    completion()
-                }
-                return item
+    func seriesSections(onSelect: @escaping (String) -> Void) async throws -> [CPListSection] {
+        let seriesList = try await api.getSeries()
+        let items = seriesList.prefix(CarPlayHomeLayout.maxRowsPerSection * 4).map { seriesInfo in
+            let item = CPListItem(
+                text: seriesInfo.series,
+                detailText: "\(seriesInfo.bookCount) book\(seriesInfo.bookCount == 1 ? "" : "s")"
+            )
+            item.accessoryType = .disclosureIndicator
+            item.handler = { _, completion in
+                onSelect(seriesInfo.series)
+                completion()
             }
+            return item
         }
-
-        return CPListTemplate(title: "Series", sections: [CPListSection(items: items)])
+        return [CPListSection(items: Array(items))]
     }
 
-    // MARK: - Collections
-
-    func collectionsListTemplate(onSelect: @escaping (Collection) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let collections = try? await api.getCollections() {
-            items = collections.prefix(100).map { collection in
-                let bookCount = collection.bookCount ?? 0
-                let item = CPListItem(
-                    text: collection.name,
-                    detailText: "\(bookCount) book\(bookCount == 1 ? "" : "s")"
-                )
-                item.accessoryType = .disclosureIndicator
-                item.handler = { _, completion in
-                    onSelect(collection)
-                    completion()
-                }
-                return item
+    func collectionsSections(onSelect: @escaping (Collection) -> Void) async throws -> [CPListSection] {
+        let collections = try await api.getCollections()
+        let items = collections.prefix(CarPlayHomeLayout.maxRowsPerSection * 4).map { collection in
+            let bookCount = collection.bookCount ?? 0
+            let item = CPListItem(
+                text: collection.name,
+                detailText: "\(bookCount) book\(bookCount == 1 ? "" : "s")"
+            )
+            item.accessoryType = .disclosureIndicator
+            item.handler = { _, completion in
+                onSelect(collection)
+                completion()
             }
+            return item
         }
-
-        return CPListTemplate(title: "Collections", sections: [CPListSection(items: items)])
+        return [CPListSection(items: Array(items))]
     }
 
-    // MARK: - Books for Author
-
-    func booksForAuthor(_ author: String, onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let books = try? await api.getAudiobooksByAuthor(author) {
-            items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-        }
-
-        return CPListTemplate(title: author, sections: [CPListSection(items: items)])
+    func booksForAuthorSections(_ author: String, onSelect: @escaping (Audiobook) -> Void) async throws -> [CPListSection] {
+        bookSections(try await api.getAudiobooksByAuthor(author), onSelect: onSelect)
     }
 
-    // MARK: - Books for Series
-
-    func booksForSeries(_ series: String, onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let books = try? await api.getAudiobooksBySeries(series) {
-            let sorted = books.sorted { ($0.seriesPosition ?? 0) < ($1.seriesPosition ?? 0) }
-            items = sorted.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-        }
-
-        return CPListTemplate(title: series, sections: [CPListSection(items: items)])
+    func booksForSeriesSections(_ series: String, onSelect: @escaping (Audiobook) -> Void) async throws -> [CPListSection] {
+        let books = try await api.getAudiobooksBySeries(series)
+        return bookSections(books.sorted { ($0.seriesPosition ?? 0) < ($1.seriesPosition ?? 0) }, onSelect: onSelect)
     }
 
-    // MARK: - Books for Collection
-
-    func booksForCollection(_ collection: Collection, onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let detail = try? await api.getCollection(id: collection.id) {
-            items = detail.books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
-        }
-
-        return CPListTemplate(title: collection.name, sections: [CPListSection(items: items)])
+    func booksForCollectionSections(_ collection: Collection, onSelect: @escaping (Audiobook) -> Void) async throws -> [CPListSection] {
+        bookSections(try await api.getCollection(id: collection.id).books, onSelect: onSelect)
     }
 
-    // MARK: - All Books
+    func allBooksSections(onSelect: @escaping (Audiobook) -> Void) async throws -> [CPListSection] {
+        bookSections(try await api.getAudiobooks(), onSelect: onSelect)
+    }
 
-    func allBooksTemplate(onSelect: @escaping (Audiobook) -> Void) async -> CPListTemplate {
-        var items: [CPListItem] = []
-
-        if let books = try? await api.getAudiobooks() {
-            items = books.prefix(100).map { book in
-                listItem(for: book, onSelect: onSelect)
-            }
+    private func bookSections(_ books: [Audiobook], onSelect: @escaping (Audiobook) -> Void) -> [CPListSection] {
+        let downloadedIds = Set(DownloadManager.shared.downloadedAudiobooks().map(\.id))
+        let items = books.prefix(100).map {
+            listItem(for: $0, isDownloaded: downloadedIds.contains($0.id), onSelect: onSelect)
         }
-
-        return CPListTemplate(title: "All Books", sections: [CPListSection(items: items)])
+        return [CPListSection(items: Array(items))]
     }
 
     // MARK: - Helpers
 
-    private func listItem(for book: Audiobook, onSelect: @escaping (Audiobook) -> Void) -> CPListItem {
+    private func listItem(for book: Audiobook, isDownloaded: Bool = false, onSelect: @escaping (Audiobook) -> Void) -> CPListItem {
         var detailParts: [String] = []
 
         if let author = book.author {
@@ -328,6 +250,10 @@ final class CarPlayContentProvider {
             detailParts.append(formatDuration(duration))
         }
 
+        if isDownloaded {
+            detailParts.append("Downloaded")
+        }
+
         let detail = detailParts.joined(separator: " · ")
 
         let item = CPListItem(text: book.title, detailText: detail.isEmpty ? nil : detail)
@@ -336,53 +262,22 @@ final class CarPlayContentProvider {
             completion()
         }
 
-        // Load thumbnail asynchronously
-        loadThumbnail(for: book.id, into: item)
+        // The row is shown now; its cover arrives when it arrives. A cached
+        // cover (this size or the phone's original) is set synchronously.
+        coverLoader.load(audiobookId: book.id, width: CoverURL.listThumbnailWidth, api: api) { [weak item] image in
+            guard let item, let image else { return }
+            item.setImage(Self.thumbnail(image, maxSize: CPListItem.maximumImageSize))
+        }
 
         return item
     }
 
-    private func loadThumbnail(for bookId: Int, into item: CPListItem) {
-        guard let coverURL = api.coverURL(for: bookId) else { return }
-
-        let cacheKey = coverURL.absoluteString
-
-        // Check cache first
-        if let cached = ImageCache.shared.image(for: cacheKey) {
-            let thumbnail = Self.resizedImage(cached, to: CGSize(width: 90, height: 90))
-            item.setImage(thumbnail)
-            return
-        }
-
-        // Capture auth headers for authenticated request
-        let authHeaders = api.authHeaders
-
-        // Load asynchronously with authentication
-        Task {
-            do {
-                var request = URLRequest(url: coverURL)
-                for (field, value) in authHeaders {
-                    request.setValue(value, forHTTPHeaderField: field)
-                }
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard let httpResponse = response as? HTTPURLResponse,
-                      200..<300 ~= httpResponse.statusCode,
-                      let image = UIImage(data: data) else { return }
-
-                ImageCache.shared.setImage(image, for: cacheKey)
-                let thumbnail = Self.resizedImage(image, to: CGSize(width: 90, height: 90))
-                await MainActor.run {
-                    item.setImage(thumbnail)
-                }
-            } catch {
-                // Silently fail — item will show without thumbnail
-            }
-        }
-    }
-
-    private static func resizedImage(_ image: UIImage, to size: CGSize) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { _ in
+    /// Scale to fit (keeping the aspect ratio) within CarPlay's row image size.
+    private static func thumbnail(_ image: UIImage, maxSize: CGSize) -> UIImage {
+        let scale = min(maxSize.width / max(image.size.width, 1), maxSize.height / max(image.size.height, 1), 1)
+        guard scale < 1 else { return image }
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        return UIGraphicsImageRenderer(size: size).image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
