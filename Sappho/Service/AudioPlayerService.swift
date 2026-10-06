@@ -30,7 +30,13 @@ class AudioPlayerService: NSObject {
     var position: TimeInterval = 0
     var duration: TimeInterval = 0
     var playbackSpeed: Float = 1.0
-    var isBuffering: Bool = false
+    /// Waiting for audio (a stream starting or stalled). Reflected in Now
+    /// Playing so the lock screen and CarPlay don't show a running clock.
+    var isBuffering: Bool = false {
+        didSet {
+            if isBuffering != oldValue { updateNowPlayingInfo() }
+        }
+    }
     var sleepTimerRemaining: TimeInterval?
     /// A user-facing playback problem (stream failed, file ended early). The
     /// player and mini player show it with a Retry button. Nil when healthy.
@@ -60,6 +66,12 @@ class AudioPlayerService: NSObject {
     /// expire (7 days on the server), after which range requests get 401.
     private let staleStreamInterval: TimeInterval = 30 * 60
     private let progressStore = ProgressStore()
+    /// Where the current play request started, for `LateProgressPolicy`.
+    private var playStartedAt: TimeInterval = 0
+    /// The cover URL whose artwork download is in flight, so the periodic
+    /// Now Playing refresh doesn't start another one every few seconds.
+    private var artworkFetchKey: String?
+    private var didStartRestore = false
     /// Notification observer tokens; removed automatically when the bag deallocates,
     /// so no main-actor-isolated cleanup is needed in deinit.
     private let notificationTokens = NotificationTokenBag()
@@ -71,6 +83,13 @@ class AudioPlayerService: NSObject {
 
     // Persistence keys
     private static let lastAudiobookIdKey = "lastPlayedAudiobookId"
+
+    /// The book last played on this device, if any (saved, so it survives a
+    /// relaunch; CarPlay offers it as Resume before anything is loaded).
+    nonisolated static var lastPlayedAudiobookId: Int? {
+        let id = UserDefaults.standard.integer(forKey: lastAudiobookIdKey)
+        return id > 0 ? id : nil
+    }
     private static let lastPositionKey = "lastPlayedPosition"
     private static let playbackSpeedKey = "playbackSpeed"
 
@@ -314,15 +333,34 @@ class AudioPlayerService: NSObject {
             duration = TimeInterval(durationSeconds)
         }
 
+        // Say what is playing before waiting on anything. Seeking a stream
+        // has to wait for the server (an .m4b with its index at the end of
+        // the file needs that index first), and on a slow link that can take
+        // a while: Now Playing (phone, lock screen, CarPlay) should show the
+        // book and "buffering" meanwhile, not the previous book or nothing.
+        position = seekPosition
+        isPlaying = true
+        isBuffering = !isPlayingLocalFile
+        playStartedAt = seekPosition
+        updateNowPlayingInfo()
+
         if seekPosition > 0 {
             await seek(to: seekPosition)
         }
+        // Stopped, or another book started, while the seek waited.
+        guard currentAudiobook?.id == audiobook.id else { return }
 
-        // Start playback and apply user's speed setting
-        // (play() sets rate to 1.0, so we must set playbackSpeed after)
-        player?.play()
-        player?.rate = playbackSpeed
-        isPlaying = true
+        // Start playback and apply user's speed setting (play() sets rate to
+        // 1.0, so we must set playbackSpeed after) -- unless the listener
+        // paused while the seek waited.
+        if isPlaying {
+            if StreamStartPolicy.startImmediately(isLocalFile: isPlayingLocalFile) {
+                player?.playImmediately(atRate: playbackSpeed)
+            } else {
+                player?.play()
+                player?.rate = playbackSpeed
+            }
+        }
 
         // Start time observer
         startTimeObserver()
@@ -347,6 +385,31 @@ class AudioPlayerService: NSObject {
                     print("Failed to load chapters: \(error)")
                 }
             }
+        }
+    }
+
+    /// After a play that started from what the device already knew (CarPlay
+    /// starts at once, without asking the server first), fetch the server's
+    /// copy of the book in the background: pick up chapters, and a newer
+    /// position from another device if the listener has barely started.
+    func refreshAfterImmediateStart(audiobookId: Int, timeout: TimeInterval = 15) async {
+        guard let api, NetworkMonitor.shared.isConnected else { return }
+        let localAtStart = api.accountKey.flatMap { progressStore.localProgress(account: $0, audiobookId: audiobookId) }
+        let startedAt = playStartedAt
+        guard let fresh = try? await Deadline.run(seconds: timeout, { try await api.getAudiobook(id: audiobookId) }),
+              currentAudiobook?.id == audiobookId else { return }
+
+        if currentAudiobook?.chapters?.isEmpty ?? true, let chapters = fresh.chapters, !chapters.isEmpty {
+            currentAudiobook = currentAudiobook?.withChapters(chapters)
+            updateCurrentChapter()
+        }
+        let serverPosition = ProgressReconciler.resolve(
+            serverPosition: fresh.progress?.position,
+            serverUpdatedAt: fresh.progress?.updatedAt,
+            local: localAtStart
+        )
+        if let target = LateProgressPolicy.seekTarget(startedAt: startedAt, currentPosition: position, resolvedServerPosition: serverPosition) {
+            await seek(to: target)
         }
     }
 
@@ -576,13 +639,30 @@ class AudioPlayerService: NSObject {
 
     /// Restore last played audiobook on app launch. Call after configure(api:).
     func restoreLastPlayed() async {
+        // Called from the phone UI and from CarPlay (whichever comes up
+        // first; with the phone locked, the SwiftUI scene may never appear).
+        guard !didStartRestore else { return }
+        didStartRestore = true
         let audiobookId = UserDefaults.standard.integer(forKey: Self.lastAudiobookIdKey)
         guard audiobookId > 0, let api = api else { return }
+
+        // A downloaded book is restored from its saved metadata at once, so
+        // the mini player, lock screen and CarPlay have it without waiting on
+        // the server (which, on a slow link, could take a minute to answer).
+        if let cached = DownloadManager.shared.cachedMeta[audiobookId]?.toAudiobook(),
+           currentAudiobook == nil, player == nil {
+            currentAudiobook = cached
+            let local = api.accountKey.flatMap { progressStore.localProgress(account: $0, audiobookId: audiobookId) }
+            let saved = UserDefaults.standard.integer(forKey: Self.lastPositionKey)
+            position = TimeInterval(local?.position ?? max(saved, cached.progress?.position ?? 0))
+            if let dur = cached.duration { duration = TimeInterval(dur) }
+            updateCurrentChapter()
+        }
 
         let audiobook: Audiobook
         let fetchedFromServer: Bool
         do {
-            audiobook = try await api.getAudiobook(id: audiobookId)
+            audiobook = try await Deadline.run(seconds: 15) { try await api.getAudiobook(id: audiobookId) }
             fetchedFromServer = true
         } catch {
             // Offline cold start: a downloaded book can still be restored from
@@ -777,6 +857,7 @@ class AudioPlayerService: NSObject {
         stop(syncProgress: false)
         if let account {
             progressStore.clear(account: account)
+            HomeFeedStore.shared.clear(account: account)
         }
     }
 
@@ -790,7 +871,14 @@ class AudioPlayerService: NSObject {
         var info = [String: Any]()
         info[MPMediaItemPropertyArtist] = audiobook.author ?? "Unknown Author"
         info[MPMediaItemPropertyAlbumTitle] = audiobook.series
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? playbackSpeed : 0
+        // While waiting for audio the clock must not run on; the album line
+        // (shown under the title in CarPlay) says why nothing is heard yet.
+        let waiting = isPlaying && isBuffering
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying && !waiting ? playbackSpeed : 0
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = playbackSpeed
+        if waiting {
+            info[MPMediaItemPropertyAlbumTitle] = "Buffering…"
+        }
 
         if showChapterProgress, let chapter = currentChapter {
             // Chapter-scoped progress: show chapter title, duration, and position within chapter
@@ -822,24 +910,35 @@ class AudioPlayerService: NSObject {
             if let cached = ImageCache.shared.image(for: cacheKey) {
                 let artwork = MPMediaItemArtwork(boundsSize: cached.size) { _ in cached }
                 info[MPMediaItemPropertyArtwork] = artwork
-            } else {
-                // Cache miss — download and update after
-                Task {
-                    do {
-                        var coverRequest = URLRequest(url: coverURL)
-                        for (field, value) in (api?.authHeaders ?? [:]) {
-                            coverRequest.setValue(value, forHTTPHeaderField: field)
-                        }
-                        let (data, _) = try await URLSession.shared.data(for: coverRequest)
-                        if let image = UIImage(data: data) {
-                            ImageCache.shared.setImage(image, for: cacheKey)
+            } else if let artURL = api?.coverURL(for: audiobook.id, width: CoverURL.artworkWidth) {
+                // Cache miss: fetch a server-resized copy (an original can be
+                // megabytes, competing with the audio on a slow link), once --
+                // this runs every few seconds while playing.
+                let artKey = artURL.absoluteString
+                if let cached = ImageCache.shared.image(for: artKey) {
+                    info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: cached.size) { _ in cached }
+                } else if artworkFetchKey != artKey {
+                    artworkFetchKey = artKey
+                    var coverRequest = URLRequest(url: artURL, timeoutInterval: 30)
+                    for (field, value) in (api?.authHeaders ?? [:]) {
+                        coverRequest.setValue(value, forHTTPHeaderField: field)
+                    }
+                    let bookId = audiobook.id
+                    Task {
+                        defer { if self.artworkFetchKey == artKey { self.artworkFetchKey = nil } }
+                        do {
+                            let (data, response) = try await URLSession.shared.data(for: coverRequest)
+                            guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode,
+                                  let image = UIImage(data: data) else { return }
+                            ImageCache.shared.setImage(image, for: artKey)
+                            guard self.currentAudiobook?.id == bookId else { return }
                             let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                             var updatedInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
                             updatedInfo[MPMediaItemPropertyArtwork] = artwork
                             MPNowPlayingInfoCenter.default().nowPlayingInfo = updatedInfo
+                        } catch {
+                            print("Failed to load cover art: \(error)")
                         }
-                    } catch {
-                        print("Failed to load cover art: \(error)")
                     }
                 }
             }

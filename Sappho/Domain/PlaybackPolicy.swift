@@ -126,3 +126,54 @@ enum PlayRequestPolicy {
         explicitStart == nil && loadedBookId == requestedBookId
     }
 }
+
+// MARK: - Starting on a slow link
+
+enum StreamStartPolicy {
+    /// How to start the player item.
+    ///
+    /// A downloaded file starts with a plain play(). A stream starts with
+    /// playImmediately(atRate:): with the default
+    /// `automaticallyWaitsToMinimizeStalling`, AVPlayer holds a stream until
+    /// it predicts it can play to the end without stalling, which on a slow
+    /// cellular link can mean a long silent wait for an audiobook. Playing
+    /// as soon as there is audio, and leaving the auto-wait on so it recovers
+    /// by itself after a stall, is the better trade for speech.
+    ///
+    /// The forward buffer is left to the system (0): for a progressive
+    /// download it already buffers ahead generously, which is what gets a car
+    /// through a dead spot; capping it would only make stalls more likely.
+    static func startImmediately(isLocalFile: Bool) -> Bool {
+        !isLocalFile
+    }
+
+    static let preferredForwardBufferDuration: TimeInterval = 0
+}
+
+enum LateProgressPolicy {
+    /// Playback starts at once from what the device knows; the server's copy
+    /// of the book arrives afterwards. Move to the server's position only if
+    /// it is genuinely different (listened on another device) and the listener
+    /// has barely started -- never yank someone who is already listening.
+    static let minimumJump: TimeInterval = 5
+    static let graceListening: TimeInterval = 30
+
+    static func seekTarget(startedAt: TimeInterval, currentPosition: TimeInterval, resolvedServerPosition: Int) -> TimeInterval? {
+        let target = TimeInterval(resolvedServerPosition)
+        guard abs(target - startedAt) > minimumJump else { return nil }
+        guard currentPosition - startedAt <= graceListening else { return nil }
+        return target
+    }
+}
+
+enum CarPlayPlaybackPlan {
+    /// The copy of the book to start from a CarPlay tap: the tapped row,
+    /// with the downloaded copy's chapters when the row has none, so chapter
+    /// buttons work offline without a chapters request.
+    static func bookToPlay(tapped: Audiobook, downloaded: Audiobook?) -> Audiobook {
+        guard let downloaded, downloaded.id == tapped.id,
+              tapped.chapters?.isEmpty ?? true,
+              let chapters = downloaded.chapters, !chapters.isEmpty else { return tapped }
+        return tapped.withChapters(chapters)
+    }
+}

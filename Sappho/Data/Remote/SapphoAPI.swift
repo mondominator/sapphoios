@@ -843,7 +843,13 @@ class SapphoAPI {
 
     func coverURL(for audiobookId: Int) -> URL? {
         guard let baseURL = authRepository.serverURL else { return nil }
-        return baseURL.appendingPathComponent("api/audiobooks/\(audiobookId)/cover")
+        return CoverURL.make(baseURL: baseURL, audiobookId: audiobookId)
+    }
+
+    /// A server-resized cover, at least `width` pixels wide (see `CoverURL`).
+    func coverURL(for audiobookId: Int, width: Int) -> URL? {
+        guard let baseURL = authRepository.serverURL else { return nil }
+        return CoverURL.make(baseURL: baseURL, audiobookId: audiobookId, width: width)
     }
 
     func streamURL(for audiobookId: Int) -> URL? {
