@@ -173,7 +173,7 @@ final class HomeFeedStoreTests: XCTestCase {
         let first = HomeFeedStore(directory: directory)
         first.activate(account: "acct")
         await first.refresh(timeout: 1) { kind in kind == .continueListening ? [book(7, "Saved")] : [] }
-        try await Task.sleep(nanoseconds: 300_000_000) // snapshot is written off the main thread
+        HomeFeedStore.waitForPendingWrites() // snapshot is written off the main thread
 
         // A cold start (e.g. CarPlay connecting in the car): nothing fetched yet.
         let relaunched = HomeFeedStore(directory: directory)
@@ -475,7 +475,9 @@ final class CarPlayProviderSlowLinkTests: XCTestCase {
         let first = HomeFeedStore(directory: directory)
         first.activate(account: "acct")
         await first.refresh(timeout: 5, fetch: HomeFeedStore.apiFetcher(api))
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // The snapshot is written on a background queue; wait for it rather
+        // than sleeping (a fixed sleep raced on slower CI machines).
+        HomeFeedStore.waitForPendingWrites()
 
         SlowURLProtocol.rules = ["meta/in-progress", "meta/up-next", "meta/recent", "meta/finished"].map {
             .init(pathSuffix: $0, delay: 0, status: 503, body: "{}")

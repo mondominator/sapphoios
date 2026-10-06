@@ -337,6 +337,11 @@ final class HomeFeedStore {
 
     private static let writeQueue = DispatchQueue(label: "com.sappho.homefeed.write", qos: .utility)
 
+    /// Blocks until every queued snapshot write has reached disk (tests).
+    static func waitForPendingWrites() {
+        writeQueue.sync {}
+    }
+
     private func fileURL(account: String) -> URL {
         // Account keys contain the server URL; hash for a safe file name.
         let hash = account.utf8.reduce(into: UInt64(5381)) { $0 = $0 &* 33 &+ UInt64($1) }
