@@ -1,0 +1,8 @@
+# Fastlane Appfile
+# https://docs.fastlane.tools/advanced/Appfile/
+
+# The shipped App Store bundle id. "audiobook" (singular) is IMMUTABLE.
+app_identifier "com.sappho.audiobook"
+
+# Apple Developer team (Armando Diaz, Individual) -- same team as Sashimi.
+team_id "S6WU9SVVDW"

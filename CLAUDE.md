@@ -108,12 +108,34 @@ Sappho/
 - Background audio via AVAudioSession
 - Lock screen controls via MPRemoteCommandCenter
 - Progress syncs every 20 seconds (matching Android)
+- Failed syncs queue in `ProgressStore`, scoped to the account (server + user id),
+  and replay with `isReplay: true` so the server only lets them move forward.
+  Logout (`prepareForLogout()`) sends the final position, then clears the queue.
+- Start position = newer of server `progress.updated_at` and the locally saved
+  position (`ProgressReconciler`). Play on the already-loaded book resumes it.
+- End of audio marks the book finished only within 60 s of the known duration
+  (`PlaybackCompletionPolicy`); an early end keeps the position and shows an error.
+- Never auto-resumes on route changes; interruption end resumes only if
+  `.shouldResume` AND it was playing.
 - Sleep timer support
 
+The pure rules live in `Domain/PlaybackPolicy.swift` and are unit tested.
+
 **DownloadManager** - Offline downloads:
-- Background URLSession for downloads
+- Background URLSession, recreated at launch (and from
+  `handleEventsForBackgroundURLSession`); in-flight metadata persisted to `pending.json`
+- Rejects non-200/206 responses, error bodies, truncated and too-short files
+  (`DownloadValidator`); audits existing files on launch
+- Re-downloads when the server's `file_size` changes (replaced or merged file)
 - Stores files in Application Support
 - Player checks for local files first
+
+**Auth semantics:** 401 clears the session (unless it came back on a just-refreshed
+token); 403 never does. A 403 with `must_change_password` (or the login response
+flag) shows `ChangePasswordRequiredView`. Every request carries `X-Device-Name`
+(percent-encoded) and `X-App-Version`.
+
+**Versioning / CI:** see `docs/CI.md`. Versions live in `project.yml` only.
 
 ### State Management
 

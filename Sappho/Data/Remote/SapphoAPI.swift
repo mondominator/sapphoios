@@ -89,6 +89,7 @@ class SapphoAPI {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        ClientInfo.apply(to: &request)
         request.httpBody = try JSONEncoder().encode(RefreshRequest(refreshToken: refreshToken))
 
         let data: Data
@@ -141,6 +142,7 @@ class SapphoAPI {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        ClientInfo.apply(to: &request)
 
         if let token = authRepository.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -173,15 +175,7 @@ class SapphoAPI {
             throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
         }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-            await MainActor.run { authRepository.clearToken() }
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
-        }
+        try await checkStatus(httpResponse, data: data, retriedWithFreshToken: isRetry)
 
         do {
             return try decoder.decode(T.self, from: data)
@@ -215,6 +209,7 @@ class SapphoAPI {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        ClientInfo.apply(to: &request)
 
         if let token = authRepository.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -245,15 +240,32 @@ class SapphoAPI {
             throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
         }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        try await checkStatus(httpResponse, data: data, retriedWithFreshToken: isRetry)
+    }
+
+    /// Non-2xx handling shared by every authenticated request.
+    ///
+    /// Only a 401 that a fresh token could not have caused ends the session.
+    /// A 403 never does: the server sends it for a VALID token that a policy
+    /// forbids (admin-only routes, SSO password changes, must_change_password),
+    /// and clearing the token on it trapped must-change-password users in a
+    /// login loop. A must_change_password 403 instead raises the flag that
+    /// shows the change-password screen.
+    private func checkStatus(_ httpResponse: HTTPURLResponse, data: Data, retriedWithFreshToken: Bool) async throws {
+        let status = httpResponse.statusCode
+        guard !(200..<300 ~= status) else { return }
+
+        if AuthFailurePolicy.shouldClearSession(statusCode: status, retriedWithFreshToken: retriedWithFreshToken) {
             await MainActor.run { authRepository.clearToken() }
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
+            throw APIError.httpError(statusCode: status, message: "Session expired. Please log in again.")
         }
 
-        guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
+        if AuthFailurePolicy.isPasswordChangeRequired(statusCode: status, body: data) {
+            await MainActor.run { authRepository.setMustChangePassword(true) }
         }
+
+        let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
+        throw APIError.httpError(statusCode: status, message: message)
     }
 
     /// Reports byte-level upload progress for a single URLSession task.
@@ -303,6 +315,7 @@ class SapphoAPI {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        ClientInfo.apply(to: &request)
 
         if let token = authRepository.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -337,15 +350,7 @@ class SapphoAPI {
             throw APIError.httpError(statusCode: 401, message: "Session expired. Please log in again.")
         }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-            await MainActor.run { authRepository.clearToken() }
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: "Session expired. Please log in again.")
-        }
-
-        guard 200..<300 ~= httpResponse.statusCode else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-            throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
-        }
+        try await checkStatus(httpResponse, data: data, retriedWithFreshToken: isRetry)
 
         return data
     }
@@ -362,6 +367,7 @@ class SapphoAPI {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        ClientInfo.apply(to: &request)
 
         let credentials = LoginRequest(username: username, password: password)
         request.httpBody = try JSONEncoder().encode(credentials)
@@ -462,8 +468,11 @@ class SapphoAPI {
 
     // MARK: - Progress
 
-    func updateProgress(audiobookId: Int, position: Int, completed: Int = 0, state: String = "playing") async throws {
-        let body = ProgressUpdateRequest(position: position, completed: completed, state: state)
+    /// `isReplay` marks an update captured earlier (the offline queue). The
+    /// server then applies it only if it moves the position forward, so a
+    /// phone reconnecting hours later cannot erase listening done elsewhere.
+    func updateProgress(audiobookId: Int, position: Int, completed: Int = 0, state: String = "playing", isReplay: Bool = false) async throws {
+        let body = ProgressUpdateRequest(position: position, completed: completed, state: state, isReplay: isReplay ? true : nil)
         try await requestVoid("api/audiobooks/\(audiobookId)/progress", method: "POST", body: body)
     }
 
@@ -472,7 +481,7 @@ class SapphoAPI {
     }
 
     func markFinished(audiobookId: Int) async throws {
-        let body = ProgressUpdateRequest(position: 0, completed: 1, state: "stopped")
+        let body = ProgressUpdateRequest(position: 0, completed: 1, state: "stopped", isReplay: nil)
         try await requestVoid("api/audiobooks/\(audiobookId)/progress", method: "POST", body: body)
     }
 
@@ -649,6 +658,44 @@ class SapphoAPI {
         try await request("api/audiobooks/\(audiobookId)/previous-book-status")
     }
 
+    // MARK: - Session
+
+    /// Make sure the stored access token is usable before handing it to
+    /// something that cannot refresh it itself (AVPlayer's stream headers,
+    /// background downloads). Any authenticated call does it: a 401 runs the
+    /// single-flight refresh. Returns false when the session could not be
+    /// confirmed (offline, logged out).
+    @discardableResult
+    func ensureFreshToken() async -> Bool {
+        do {
+            let _: User = try await request("api/profile")
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// What the server would send for a stream right now, without the body:
+    /// status, length and ETag. Used to tell whether a downloaded file still
+    /// matches the server's file.
+    func streamInfo(for audiobookId: Int) async throws -> (statusCode: Int, contentLength: Int64?, etag: String?) {
+        guard let url = streamURL(for: audiobookId) else { throw APIError.notAuthenticated }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        for (field, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+        let response: URLResponse
+        do {
+            (_, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        let length = (http.value(forHTTPHeaderField: "Content-Length")).flatMap { Int64($0) }
+        return (http.statusCode, length, http.value(forHTTPHeaderField: "ETag"))
+    }
+
     // MARK: - Health
 
     func getHealth() async throws -> HealthResponse {
@@ -778,9 +825,20 @@ class SapphoAPI {
 
     // MARK: - URL Builders
 
+    /// Headers for media requests the app builds itself (streams, covers,
+    /// downloads): the bearer token plus the client identification headers.
     var authHeaders: [String: String] {
-        guard let token = authRepository.token else { return [:] }
-        return ["Authorization": "Bearer \(token)"]
+        var headers = ClientInfo.headers
+        if let token = authRepository.token {
+            headers["Authorization"] = "Bearer \(token)"
+        }
+        return headers
+    }
+
+    /// Scopes per-account local state (offline progress queue). Nil when
+    /// signed out.
+    var accountKey: String? {
+        authRepository.accountKey
     }
 
     func coverURL(for audiobookId: Int) -> URL? {
@@ -822,6 +880,8 @@ private struct ProgressUpdateRequest: Codable {
     let position: Int
     let completed: Int
     let state: String
+    /// Omitted (nil) for live updates; `true` for offline-queue replays.
+    let isReplay: Bool?
 }
 
 private struct ProfileUpdateRequest: Codable {

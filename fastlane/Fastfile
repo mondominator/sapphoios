@@ -1,0 +1,146 @@
+# Fastfile for Sappho iOS
+# Documentation: https://docs.fastlane.tools
+#
+# Mirrors Sashimi's iOS lanes (~/Documents/git/sashimi/fastlane/Fastfile):
+# App Store Connect API key from env, match for signing, epoch-seconds build
+# numbers. See docs/CI.md for the secrets these lanes need.
+
+default_platform(:ios)
+
+PROJECT = "Sappho.xcodeproj"
+SCHEME = "Sappho"
+BUNDLE_ID = "com.sappho.audiobook"
+TEAM_ID = "S6WU9SVVDW"
+
+platform :ios do
+  # ============================================
+  # TESTS (pull requests)
+  # ============================================
+
+  desc "Build and run the unit tests on a simulator"
+  lane :test do |options|
+    run_tests(
+      project: PROJECT,
+      scheme: SCHEME,
+      destination: options[:destination] || ENV["TEST_DESTINATION"] || "platform=iOS Simulator,name=iPhone 17",
+      only_testing: ["SapphoTests"],
+      # Ad-hoc signing: no certificate needed on the runner, but the test host
+      # still gets entitlements, which the Keychain tests require (with
+      # CODE_SIGNING_ALLOWED=NO they fail).
+      xcargs: "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=",
+      result_bundle: true,
+      output_directory: "./fastlane/test_output"
+    )
+  end
+
+  # ============================================
+  # SIGNING
+  # ============================================
+
+  desc "Sync the App Store certificate and profile with match"
+  lane :certificates do
+    # Temporary unlocked keychain so codesign doesn't hang on CI.
+    setup_ci
+
+    app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    # readonly on CI: the profile is created once, locally (docs/CI.md).
+    match(type: "appstore", app_identifier: BUNDLE_ID, platform: "ios", readonly: is_ci)
+  end
+
+  # ============================================
+  # BUILD
+  # ============================================
+
+  desc "Archive and export a signed App Store IPA"
+  lane :build do
+    # Do NOT run xcodegen here: CI generates the project before fastlane runs,
+    # and regenerating would reset the build number set by the beta lane.
+
+    # Local dev uses automatic signing; the CI archive uses the match profile.
+    update_code_signing_settings(
+      path: PROJECT,
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      targets: [SCHEME],
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore #{BUNDLE_ID}",
+      build_configurations: ["Release"]
+    )
+
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      destination: "generic/platform=iOS",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        # Keep OUR build number. Without this the export silently bumps
+        # CFBundleVersion past collisions, so the IPA that ships is not the
+        # build that was archived ("set 40, shipped 43").
+        manageAppVersionAndBuildNumber: false
+      },
+      output_directory: "./build",
+      output_name: "Sappho.ipa"
+    )
+  end
+
+  # ============================================
+  # TESTFLIGHT
+  # ============================================
+
+  desc "Build and upload to TestFlight (run by CI on a v* tag)"
+  lane :beta do
+    ensure_git_status_clean unless is_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    # A tag must name the version being shipped (MARKETING_VERSION in project.yml).
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    tag = ENV["GITHUB_REF_TYPE"] == "tag" ? ENV["GITHUB_REF_NAME"].to_s : ""
+    if tag.start_with?("v")
+      tag_version = tag.sub(/\Av/, "").sub(/-.*\z/, "")
+      UI.user_error!("Tag #{tag} does not match MARKETING_VERSION #{version} (project.yml)") unless tag_version == version
+    end
+
+    # Epoch seconds: unique and increasing on every upload, with no dependency
+    # on an App Store Connect query or git history (shallow checkouts).
+    build_number = Time.now.to_i.to_s
+    increment_build_number(xcodeproj: PROJECT, build_number: build_number)
+
+    certificates
+    build
+
+    # Guard against the archive/IPA mismatch trap: the IPA must carry exactly
+    # the build number we set.
+    ipa = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    Dir.mktmpdir do |dir|
+      sh("unzip", "-q", "-o", ipa, "Payload/*.app/Info.plist", "-d", dir)
+      plist = Dir.glob(File.join(dir, "Payload", "*.app", "Info.plist")).first
+      shipped = sh("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", plist, log: false).strip
+      UI.user_error!("IPA has CFBundleVersion #{shipped}, expected #{build_number}") unless shipped == build_number
+      UI.success("IPA is #{version} (#{shipped})")
+    end
+
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: BUNDLE_ID,
+      skip_waiting_for_build_processing: true,
+      changelog: changelog_from_git_commits(
+        tag_match_pattern: "v*",
+        pretty: "- %s",
+        merge_commit_filtering: "exclude_merges"
+      )
+    )
+  end
+end

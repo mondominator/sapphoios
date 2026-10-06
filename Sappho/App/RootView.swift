@@ -5,13 +5,16 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if authRepository.isAuthenticated {
+            if authRepository.isAuthenticated && authRepository.mustChangePassword {
+                ChangePasswordRequiredView()
+            } else if authRepository.isAuthenticated {
                 MainView()
             } else {
                 LoginView()
             }
         }
         .animation(.easeInOut, value: authRepository.isAuthenticated)
+        .animation(.easeInOut, value: authRepository.mustChangePassword)
     }
 }
 

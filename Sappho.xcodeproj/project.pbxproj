@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		0402287966C19B5FAC8F48AE /* AudioPlayerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771A8F1C97746AB80B150940 /* AudioPlayerServiceTests.swift */; };
+		0442E71A61B0A245B43A71E0 /* PlaybackPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D9013FEE160E8839433089 /* PlaybackPolicyTests.swift */; };
+		048D44ACE77E3125164F2242 /* DownloadValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E1B99B833EB4C4AD65DC8C /* DownloadValidator.swift */; };
 		06CCCC6A13B73DFE6E972DC5 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C682221B24D9124ECE67C /* SearchView.swift */; };
+		081DD04A499C4EAB2F065D10 /* ChangePasswordRequiredView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606EFFAAD96E31A5D57FAE84 /* ChangePasswordRequiredView.swift */; };
 		0E910386749D27DA69B74339 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B193F831F3EF80C680572FD /* PlayerView.swift */; };
 		0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E33C4FB6DC3423B9A8C4070 /* Theme.swift */; };
 		147F66D00321150C8B75AEE2 /* AudioPlayerServiceExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F094B80B59D15C75A721622D /* AudioPlayerServiceExtendedTests.swift */; };
 		1AB0EBED08F741E738AC9AEB /* EditChaptersSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BC76742B0724C35087E33F /* EditChaptersSheet.swift */; };
+		2226CEB65C0998C1818527C0 /* AuditRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6338B805BDF6B62345BA2E8 /* AuditRegressionTests.swift */; };
 		30FF8FE931D7A736D125025B /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */; };
 		332D3EC26864E789F81F6063 /* ServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCAD7E06AFF0DAF5F4F6447 /* ServiceLocator.swift */; };
 		334591CA1D141A02616AA9FD /* CoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711CBD76EC8696583A54BE60 /* CoverImage.swift */; };
@@ -21,10 +25,12 @@
 		454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28474CB2464BD5FF1D9330CC /* ReadingListView.swift */; };
 		459D2C04835EDF737F6CADE7 /* TimeFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC789BCF8DF3C30809172BA /* TimeFormattingTests.swift */; };
 		461A5143F1925B6CC0EE41E4 /* SapphoAPIExtendedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */; };
+		4AB4731BE7F0A4D71D6D6DDD /* PlaybackErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A94EF109C0269FDFC59EB4B /* PlaybackErrorBanner.swift */; };
 		4CC985518B90E1A33CF148A3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F037A7D40D68AB3F9615452A /* AppDelegate.swift */; };
 		4EE594D3A9817C2260FDA473 /* CarPlayContentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D15A1E670D995C15F5D203 /* CarPlayContentProvider.swift */; };
 		4F80BB48D47055B7EDADAA01 /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657E1B7511077F283C3F1972 /* AuthRepository.swift */; };
 		52DB44178852809417DBFFA9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7495FDDA796DFDA34333C7C8 /* RootView.swift */; };
+		55374AAD4F6E644E2A9077E3 /* ClientInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F6BD81D7CC81F25F663BA3 /* ClientInfo.swift */; };
 		55F6F6C561631CB993484FAC /* ServiceLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */; };
 		56695E5A3716F94A5500D086 /* SapphoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550305815B68B533E1045145 /* SapphoUITests.swift */; };
 		56C26C16C4747BA7D2C2C634 /* ListeningSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */; };
@@ -42,6 +48,7 @@
 		8F2719D25F1A43BBC33A941B /* APIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C81DC708F9B6160F6AACB7 /* APIErrorTests.swift */; };
 		95BF144D4EA9CA249A1C5515 /* SapphoAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */; };
 		99D95DB457A584F9C3C6C62A /* AuthorsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F973549065F7560B78B676B9 /* AuthorsListView.swift */; };
+		99F631914D627EF10E786E7F /* PlaybackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3D8B0C110E99BA81CC1EE8 /* PlaybackPolicy.swift */; };
 		9D4B268891CF6DD0EF34DFD2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C85AAC170684901D9362C63 /* HomeView.swift */; };
 		A11119800473DFAE129D39A0 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22ACA0246E31FF6761AD235 /* Models.swift */; };
 		A81AA307CFA1EA9436EA01D4 /* AudiobookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */; };
@@ -51,6 +58,7 @@
 		C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C36F9F36890A672725A97E /* ProfileView.swift */; };
 		C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F10CE90321BE63745D3C229 /* DownloadManager.swift */; };
 		CA42CA79E15EA0B0C21B489C /* SapphoAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A7B4B85D1B873A962F0E99 /* SapphoAPITests.swift */; };
+		CB3EACF66D8624D28DD87256 /* ProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F2CE4F20D33011C7C58FA7 /* ProgressStore.swift */; };
 		CD2B0C0690AE1B26BE8BF241 /* EditMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD79599B020796E009EBF806 /* EditMetadataSheet.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
 		D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */; };
@@ -78,6 +86,7 @@
 
 /* Begin PBXFileReference section */
 		09D48DA2D1495E05D31E31B2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		1A94EF109C0269FDFC59EB4B /* PlaybackErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackErrorBanner.swift; sourceTree = "<group>"; };
 		1C5C653DEA9849EE3405ACDA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeriesListView.swift; sourceTree = "<group>"; };
 		267C796462A9BF3DC8E0BE3E /* NotificationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPanel.swift; sourceTree = "<group>"; };
@@ -88,6 +97,8 @@
 		2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilteredBooksView.swift; sourceTree = "<group>"; };
 		33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLocatorTests.swift; sourceTree = "<group>"; };
 		3D92DBB5FC2E3AFA18DCBD17 /* SapphoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		44F2CE4F20D33011C7C58FA7 /* ProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressStore.swift; sourceTree = "<group>"; };
+		46F6BD81D7CC81F25F663BA3 /* ClientInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientInfo.swift; sourceTree = "<group>"; };
 		4A226F523483E56C6E048649 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		4C85AAC170684901D9362C63 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		550305815B68B533E1045145 /* SapphoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoUITests.swift; sourceTree = "<group>"; };
@@ -95,11 +106,13 @@
 		5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPIExtendedTests.swift; sourceTree = "<group>"; };
 		5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
 		5F45DCB33D32E30D66D44B8C /* GenresListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenresListView.swift; sourceTree = "<group>"; };
+		606EFFAAD96E31A5D57FAE84 /* ChangePasswordRequiredView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangePasswordRequiredView.swift; sourceTree = "<group>"; };
 		657E1B7511077F283C3F1972 /* AuthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepository.swift; sourceTree = "<group>"; };
 		6F48F2CFDFCC70987046A9B8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		711CBD76EC8696583A54BE60 /* CoverImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverImage.swift; sourceTree = "<group>"; };
 		73C07AF2BCF038C57E042CE9 /* TimeFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormatting.swift; sourceTree = "<group>"; };
 		7495FDDA796DFDA34333C7C8 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		74E1B99B833EB4C4AD65DC8C /* DownloadValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadValidator.swift; sourceTree = "<group>"; };
 		769547B62C0F087079C253F5 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		771A8F1C97746AB80B150940 /* AudioPlayerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerServiceTests.swift; sourceTree = "<group>"; };
 		875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudiobookDetailView.swift; sourceTree = "<group>"; };
@@ -115,8 +128,11 @@
 		A88A7CEDEE928187D9AF41C9 /* CollectionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsListView.swift; sourceTree = "<group>"; };
 		AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SapphoAPI.swift; sourceTree = "<group>"; };
 		AD79599B020796E009EBF806 /* EditMetadataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditMetadataSheet.swift; sourceTree = "<group>"; };
+		B1D9013FEE160E8839433089 /* PlaybackPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicyTests.swift; sourceTree = "<group>"; };
 		B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
 		B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
+		BE3D8B0C110E99BA81CC1EE8 /* PlaybackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicy.swift; sourceTree = "<group>"; };
+		C6338B805BDF6B62345BA2E8 /* AuditRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditRegressionTests.swift; sourceTree = "<group>"; };
 		C65C26BF1CCFB3F4091E68F8 /* AdditionalModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalModelsTests.swift; sourceTree = "<group>"; };
 		CDB76904102F77B21902AF7D /* ListeningHistorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningHistorySheet.swift; sourceTree = "<group>"; };
 		CDC789BCF8DF3C30809172BA /* TimeFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeFormattingTests.swift; sourceTree = "<group>"; };
@@ -151,10 +167,12 @@
 				A7C81DC708F9B6160F6AACB7 /* APIErrorTests.swift */,
 				F094B80B59D15C75A721622D /* AudioPlayerServiceExtendedTests.swift */,
 				771A8F1C97746AB80B150940 /* AudioPlayerServiceTests.swift */,
+				C6338B805BDF6B62345BA2E8 /* AuditRegressionTests.swift */,
 				A58D47931AB29759462C1E83 /* AuthRepositoryTests.swift */,
 				B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */,
 				2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */,
 				5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */,
+				B1D9013FEE160E8839433089 /* PlaybackPolicyTests.swift */,
 				5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */,
 				92A7B4B85D1B873A962F0E99 /* SapphoAPITests.swift */,
 				33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */,
@@ -202,6 +220,7 @@
 		4966611AEC813118F14F705B /* Login */ = {
 			isa = PBXGroup;
 			children = (
+				606EFFAAD96E31A5D57FAE84 /* ChangePasswordRequiredView.swift */,
 				09D48DA2D1495E05D31E31B2 /* LoginView.swift */,
 			);
 			path = Login;
@@ -243,6 +262,7 @@
 		602DCC9493DD3B19C560655B /* Remote */ = {
 			isa = PBXGroup;
 			children = (
+				46F6BD81D7CC81F25F663BA3 /* ClientInfo.swift */,
 				AD6EAA6A63000F69E89DA07C /* SapphoAPI.swift */,
 			);
 			path = Remote;
@@ -253,7 +273,9 @@
 			children = (
 				B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */,
 				8F10CE90321BE63745D3C229 /* DownloadManager.swift */,
+				74E1B99B833EB4C4AD65DC8C /* DownloadValidator.swift */,
 				272664D5190202CF8168ECD2 /* NetworkMonitor.swift */,
+				44F2CE4F20D33011C7C58FA7 /* ProgressStore.swift */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -271,6 +293,7 @@
 			isa = PBXGroup;
 			children = (
 				711CBD76EC8696583A54BE60 /* CoverImage.swift */,
+				1A94EF109C0269FDFC59EB4B /* PlaybackErrorBanner.swift */,
 				8E33C4FB6DC3423B9A8C4070 /* Theme.swift */,
 				73C07AF2BCF038C57E042CE9 /* TimeFormatting.swift */,
 			);
@@ -290,6 +313,7 @@
 		897A9AD72967BFAFC9B4B2A5 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
+				BE3D8B0C110E99BA81CC1EE8 /* PlaybackPolicy.swift */,
 				7E33F3B9CFB0FA9145931086 /* Model */,
 			);
 			path = Domain;
@@ -502,10 +526,12 @@
 				79DD8D3947602DD34D32512E /* AdditionalModelsTests.swift in Sources */,
 				147F66D00321150C8B75AEE2 /* AudioPlayerServiceExtendedTests.swift in Sources */,
 				0402287966C19B5FAC8F48AE /* AudioPlayerServiceTests.swift in Sources */,
+				2226CEB65C0998C1818527C0 /* AuditRegressionTests.swift in Sources */,
 				58F08BF9AD2C325D10619FE1 /* AuthRepositoryTests.swift in Sources */,
 				8138B55F348A0873181075CF /* DownloadManagerTests.swift in Sources */,
 				56C26C16C4747BA7D2C2C634 /* ListeningSessionTests.swift in Sources */,
 				D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */,
+				0442E71A61B0A245B43A71E0 /* PlaybackPolicyTests.swift in Sources */,
 				461A5143F1925B6CC0EE41E4 /* SapphoAPIExtendedTests.swift in Sources */,
 				CA42CA79E15EA0B0C21B489C /* SapphoAPITests.swift in Sources */,
 				55F6F6C561631CB993484FAC /* ServiceLocatorTests.swift in Sources */,
@@ -533,9 +559,12 @@
 				4EE594D3A9817C2260FDA473 /* CarPlayContentProvider.swift in Sources */,
 				8DF709EEF3199BE0957438AE /* CarPlayNowPlayingManager.swift in Sources */,
 				30FF8FE931D7A736D125025B /* CarPlaySceneDelegate.swift in Sources */,
+				081DD04A499C4EAB2F065D10 /* ChangePasswordRequiredView.swift in Sources */,
+				55374AAD4F6E644E2A9077E3 /* ClientInfo.swift in Sources */,
 				AA216E7956ED6D234CE5BCF0 /* CollectionsListView.swift in Sources */,
 				334591CA1D141A02616AA9FD /* CoverImage.swift in Sources */,
 				C9F093C399679EDF415587EC /* DownloadManager.swift in Sources */,
+				048D44ACE77E3125164F2242 /* DownloadValidator.swift in Sources */,
 				1AB0EBED08F741E738AC9AEB /* EditChaptersSheet.swift in Sources */,
 				CD2B0C0690AE1B26BE8BF241 /* EditMetadataSheet.swift in Sources */,
 				392C7BF45F4C76796DCA1322 /* FilteredBooksView.swift in Sources */,
@@ -549,8 +578,11 @@
 				A11119800473DFAE129D39A0 /* Models.swift in Sources */,
 				7EAB29802C0F218AD97F0623 /* NetworkMonitor.swift in Sources */,
 				E67D8F015CCE5913381DF6BA /* NotificationPanel.swift in Sources */,
+				4AB4731BE7F0A4D71D6D6DDD /* PlaybackErrorBanner.swift in Sources */,
+				99F631914D627EF10E786E7F /* PlaybackPolicy.swift in Sources */,
 				0E910386749D27DA69B74339 /* PlayerView.swift in Sources */,
 				C2264F7F98E8A5E893513036 /* ProfileView.swift in Sources */,
+				CB3EACF66D8624D28DD87256 /* ProgressStore.swift in Sources */,
 				454A7248CE685E59031232F6 /* ReadingListView.swift in Sources */,
 				52DB44178852809417DBFFA9 /* RootView.swift in Sources */,
 				95BF144D4EA9CA249A1C5515 /* SapphoAPI.swift in Sources */,
@@ -614,6 +646,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 46;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -633,6 +666,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -641,6 +675,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -714,6 +749,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 46;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6WU9SVVDW;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -727,6 +763,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -734,6 +771,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};

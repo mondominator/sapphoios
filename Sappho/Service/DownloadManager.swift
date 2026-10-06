@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 enum DownloadState: Equatable {
     case notDownloaded
@@ -36,6 +37,13 @@ struct DownloadedBookMeta: Codable {
     var lastPosition: Int?
     var completed: Int?
     var chapters: [CachedChapter]?
+    /// The server's `file_size` when this download was made. Compared with the
+    /// current value to detect a replaced or merged file (nil for downloads
+    /// made before it was recorded).
+    var serverFileSize: Int64?
+    /// The stream's ETag ("size-mtime") and the byte count actually saved.
+    var etag: String?
+    var downloadedBytes: Int64?
 
     init(from audiobook: Audiobook) {
         self.id = audiobook.id
@@ -50,6 +58,7 @@ struct DownloadedBookMeta: Codable {
         self.lastPosition = audiobook.progress?.position
         self.completed = audiobook.progress?.completed
         self.chapters = audiobook.chapters?.map { CachedChapter(from: $0) }
+        self.serverFileSize = audiobook.fileSize
     }
 
     func toAudiobook() -> Audiobook {
@@ -111,6 +120,8 @@ struct CachedChapter: Codable {
 class DownloadManager: NSObject {
     static let shared = DownloadManager()
 
+    static let sessionIdentifier = "com.sappho.audiobooks.download"
+
     var downloads: [Int: DownloadState] = [:]
     var backgroundCompletionHandler: (() -> Void)?
 
@@ -118,7 +129,12 @@ class DownloadManager: NSObject {
     private(set) var cachedMeta: [Int: DownloadedBookMeta] = [:]
 
     private var downloadTasks: [Int: URLSessionDownloadTask] = [:]
-    private var pendingAudiobooks: [Int: Audiobook] = [:]
+    /// Metadata for downloads in flight, persisted at enqueue time so a
+    /// transfer that completes after the app was killed (the background
+    /// session relaunches us) still gets its title, chapters and server size.
+    /// It used to live in memory only, so such books were saved without
+    /// metadata and never appeared in the offline list.
+    private var pendingMeta: [Int: DownloadedBookMeta] = [:]
     /// Resume data captured when a download is cancelled, keyed by audiobook id.
     /// Consumed by the next download(audiobook:) call for the same book so the
     /// transfer picks up where it left off instead of restarting.
@@ -130,7 +146,7 @@ class DownloadManager: NSObject {
         if let existing = _session {
             return existing
         }
-        let config = URLSessionConfiguration.background(withIdentifier: "com.sappho.audiobooks.download")
+        let config = URLSessionConfiguration.background(withIdentifier: Self.sessionIdentifier)
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
         let newSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -161,6 +177,10 @@ class DownloadManager: NSObject {
         downloadsDirectory.appendingPathComponent("metadata.json")
     }
 
+    private var pendingMetadataURL: URL {
+        downloadsDirectory.appendingPathComponent("pending.json")
+    }
+
     override init() {
         super.init()
         loadMetadata()
@@ -169,6 +189,30 @@ class DownloadManager: NSObject {
 
     func configure(api: SapphoAPI) {
         self.api = api
+        reattachSession()
+    }
+
+    /// Recreate the background session at launch (and when iOS relaunches us
+    /// for background-session events) so transfers that finished or progressed
+    /// while the app was not running are delivered to a delegate. The session
+    /// used to be created lazily by the first download() call, so completions
+    /// that arrived after a relaunch were dropped and the completion handler
+    /// iOS passed to the app delegate was never called.
+    func reattachSession() {
+        session.getAllTasks { [weak self] tasks in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for case let task as URLSessionDownloadTask in tasks {
+                    guard let idString = task.taskDescription, let id = Int(idString) else { continue }
+                    guard task.state == .running || task.state == .suspended else { continue }
+                    self.downloadTasks[id] = task
+                    if case .downloaded = self.downloads[id] { continue }
+                    let expected = task.countOfBytesExpectedToReceive
+                    let progress = expected > 0 ? Double(task.countOfBytesReceived) / Double(expected) : 0
+                    self.downloads[id] = .downloading(progress: progress)
+                }
+            }
+        }
     }
 
     // MARK: - Public Methods
@@ -179,11 +223,28 @@ class DownloadManager: NSObject {
             return
         }
 
-        // Store audiobook so we can save metadata when download completes
-        pendingAudiobooks[audiobook.id] = audiobook
+        // Persist metadata now, not on completion: see pendingMeta.
+        pendingMeta[audiobook.id] = DownloadedBookMeta(from: audiobook)
+        savePendingMetadata()
+        downloads[audiobook.id] = .downloading(progress: 0)
+
+        Task { @MainActor in
+            // The token baked into the request is used by nsurlsessiond, which
+            // cannot refresh it. Make sure it is fresh before handing it over,
+            // or an expired token downloads a 401 body.
+            if let api = self.api {
+                await api.ensureFreshToken()
+            }
+            self.startTask(for: audiobook.id, url: url)
+        }
+    }
+
+    private func startTask(for audiobookId: Int, url: URL) {
+        // A cancel during the token check wins.
+        guard case .downloading = downloads[audiobookId] else { return }
 
         let task: URLSessionDownloadTask
-        if let resumeData = resumeDataByBook.removeValue(forKey: audiobook.id) {
+        if let resumeData = resumeDataByBook.removeValue(forKey: audiobookId) {
             // Resume a previously cancelled download instead of restarting.
             // If the embedded request's auth token has since expired, the task
             // fails and a subsequent retry falls back to a fresh download.
@@ -195,9 +256,8 @@ class DownloadManager: NSObject {
             }
             task = session.downloadTask(with: request)
         }
-        task.taskDescription = String(audiobook.id)
-        downloadTasks[audiobook.id] = task
-        downloads[audiobook.id] = .downloading(progress: 0)
+        task.taskDescription = String(audiobookId)
+        downloadTasks[audiobookId] = task
         task.resume()
     }
 
@@ -211,7 +271,7 @@ class DownloadManager: NSObject {
             }
         }
         downloadTasks.removeValue(forKey: audiobookId)
-        pendingAudiobooks.removeValue(forKey: audiobookId)
+        removePendingMeta(audiobookId)
         downloads[audiobookId] = .notDownloaded
     }
 
@@ -223,6 +283,15 @@ class DownloadManager: NSObject {
         cachedMeta.removeValue(forKey: audiobookId)
         resumeDataByBook.removeValue(forKey: audiobookId)
         saveMetadata()
+    }
+
+    /// Delete a downloaded file that turned out to be wrong (truncated, an
+    /// error body, ended early during playback) and say why, so the book shows
+    /// as failed rather than Downloaded and playback falls back to the stream.
+    func invalidateDownload(audiobookId: Int, reason: String) {
+        removeDownload(audiobookId: audiobookId)
+        downloads[audiobookId] = .failed(message: reason)
+        print("Removed invalid download for audiobook \(audiobookId): \(reason)")
     }
 
     func localURL(for audiobookId: Int) -> URL? {
@@ -238,13 +307,6 @@ class DownloadManager: NSObject {
             return true
         }
         return false
-    }
-
-    func downloadProgress(for audiobookId: Int) -> Double? {
-        if case .downloading(let progress) = downloads[audiobookId] {
-            return progress
-        }
-        return nil
     }
 
     /// Update the cached position for a downloaded book.
@@ -303,6 +365,115 @@ class DownloadManager: NSObject {
         loadDownloadedFiles()
     }
 
+    // MARK: - Integrity and freshness
+
+    /// Check every downloaded file once per launch:
+    /// 1. drop files that are not audio or are too small (error bodies saved
+    ///    by builds that did not check the HTTP status), and files whose audio
+    ///    is clearly shorter than the book (partial or part-1 downloads);
+    /// 2. when online, re-download books whose file changed on the server
+    ///    (replaced, or a multi-file book merged into one m4b).
+    @MainActor
+    func auditDownloads(online: Bool) async {
+        for (id, state) in downloads {
+            guard case .downloaded(let fileURL) = state else { continue }
+            let size = Self.fileSize(at: fileURL)
+            let verdict = DownloadValidator.validateFile(
+                size: size,
+                expectedLength: nil,
+                leadingBytes: Self.leadingBytes(of: fileURL)
+            )
+            if case .invalid(let reason) = verdict {
+                invalidateDownload(audiobookId: id, reason: reason)
+                continue
+            }
+
+            if let expected = cachedMeta[id]?.duration {
+                let actual = await Self.audioDuration(of: fileURL)
+                if case .invalid(let reason) = DownloadValidator.validateDuration(actual: actual, expected: TimeInterval(expected)) {
+                    invalidateDownload(audiobookId: id, reason: reason)
+                    continue
+                }
+            }
+
+            guard online, let api else { continue }
+            await refreshIfStale(audiobookId: id, localSize: size, api: api)
+        }
+    }
+
+    @MainActor
+    private func refreshIfStale(audiobookId: Int, localSize: Int64, api: SapphoAPI) async {
+        let meta = cachedMeta[audiobookId]
+        let book: Audiobook
+        do {
+            book = try await api.getAudiobook(id: audiobookId)
+        } catch {
+            return // offline or the book is gone; leave the file alone
+        }
+
+        var stale = false
+        if book.fileSize != nil {
+            stale = DownloadValidator.isStale(
+                recordedServerSize: meta?.serverFileSize,
+                localSize: localSize,
+                currentServerSize: book.fileSize
+            )
+        } else if let info = try? await api.streamInfo(for: audiobookId) {
+            if info.statusCode == 409 {
+                stale = true // unmerged multi-file book: the local file is part 1 only
+            } else if 200..<300 ~= info.statusCode {
+                stale = DownloadValidator.isStale(
+                    recordedETag: meta?.etag,
+                    localSize: localSize,
+                    streamETag: info.etag,
+                    streamLength: info.contentLength
+                )
+            }
+        }
+
+        guard stale else { return }
+        print("Server file changed for audiobook \(audiobookId); re-downloading")
+        let chapters = meta?.chapters?.map { $0.toChapter() }
+        removeDownload(audiobookId: audiobookId)
+        download(audiobook: book.chapters == nil ? book.withChapters(chapters) : book)
+    }
+
+    /// Synchronous check with a book just fetched from the server (no extra
+    /// request): if its `file_size` says the download is out of date, delete
+    /// it and start a fresh download. Returns true when it was discarded.
+    @discardableResult
+    func discardIfStale(for book: Audiobook) -> Bool {
+        guard let fileURL = localURL(for: book.id), book.fileSize != nil else { return false }
+        let stale = DownloadValidator.isStale(
+            recordedServerSize: cachedMeta[book.id]?.serverFileSize,
+            localSize: Self.fileSize(at: fileURL),
+            currentServerSize: book.fileSize
+        )
+        guard stale else { return false }
+        let chapters = cachedMeta[book.id]?.chapters?.map { $0.toChapter() }
+        removeDownload(audiobookId: book.id)
+        download(audiobook: book.chapters == nil ? book.withChapters(chapters) : book)
+        return true
+    }
+
+    static func fileSize(at url: URL) -> Int64 {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+    }
+
+    static func leadingBytes(of url: URL, count: Int = 16) -> Data {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: count)) ?? Data()
+    }
+
+    static func audioDuration(of url: URL) async -> TimeInterval? {
+        let asset = AVURLAsset(url: url)
+        guard let duration = try? await asset.load(.duration) else { return nil }
+        let seconds = duration.seconds
+        return seconds.isFinite && seconds > 0 ? seconds : nil
+    }
+
     // MARK: - Metadata Persistence
 
     private func saveMetadata() {
@@ -315,13 +486,30 @@ class DownloadManager: NSObject {
     }
 
     private func loadMetadata() {
-        guard FileManager.default.fileExists(atPath: metadataURL.path) else { return }
-        do {
-            let data = try Data(contentsOf: metadataURL)
-            let metas = try JSONDecoder().decode([DownloadedBookMeta].self, from: data)
-            cachedMeta = Dictionary(uniqueKeysWithValues: metas.map { ($0.id, $0) })
-        } catch {
-            print("Failed to load download metadata: \(error)")
+        if FileManager.default.fileExists(atPath: metadataURL.path) {
+            do {
+                let data = try Data(contentsOf: metadataURL)
+                let metas = try JSONDecoder().decode([DownloadedBookMeta].self, from: data)
+                cachedMeta = Dictionary(metas.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+            } catch {
+                print("Failed to load download metadata: \(error)")
+            }
+        }
+        if let data = try? Data(contentsOf: pendingMetadataURL),
+           let metas = try? JSONDecoder().decode([DownloadedBookMeta].self, from: data) {
+            pendingMeta = Dictionary(metas.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        }
+    }
+
+    private func savePendingMetadata() {
+        if let data = try? JSONEncoder().encode(Array(pendingMeta.values)) {
+            try? data.write(to: pendingMetadataURL)
+        }
+    }
+
+    private func removePendingMeta(_ audiobookId: Int) {
+        if pendingMeta.removeValue(forKey: audiobookId) != nil {
+            savePendingMetadata()
         }
     }
 
@@ -341,6 +529,28 @@ class DownloadManager: NSObject {
             }
         }
     }
+
+    /// Main-thread completion bookkeeping, split out so the delegate method
+    /// (which must move the file synchronously) stays readable.
+    private func finishDownload(audiobookId: Int, destination: URL, etag: String?, bytes: Int64) {
+        downloads[audiobookId] = .downloaded(localURL: destination)
+        downloadTasks.removeValue(forKey: audiobookId)
+
+        var meta = pendingMeta[audiobookId] ?? cachedMeta[audiobookId]
+        meta?.etag = etag
+        meta?.downloadedBytes = bytes
+        if let meta {
+            cachedMeta[audiobookId] = meta
+            saveMetadata()
+        }
+        removePendingMeta(audiobookId)
+    }
+
+    private func failDownload(audiobookId: Int, message: String) {
+        downloads[audiobookId] = .failed(message: message)
+        downloadTasks.removeValue(forKey: audiobookId)
+        removePendingMeta(audiobookId)
+    }
 }
 
 // MARK: - URLSessionDownloadDelegate
@@ -351,7 +561,39 @@ extension DownloadManager: URLSessionDownloadDelegate {
             return
         }
 
+        // The temp file is deleted when this method returns, so validate and
+        // move it here, synchronously.
+        let http = downloadTask.response as? HTTPURLResponse
+        let size = Self.fileSize(at: location)
+        var verdict = DownloadValidator.validateResponse(statusCode: http?.statusCode)
+        if verdict.isValid {
+            // Content-Length is the whole file only for a 200; a resumed 206
+            // reports the remaining range.
+            let expected: Int64? = http?.statusCode == 200 && downloadTask.countOfBytesExpectedToReceive > 0
+                ? downloadTask.countOfBytesExpectedToReceive : nil
+            verdict = DownloadValidator.validateFile(
+                size: size,
+                expectedLength: expected,
+                leadingBytes: Self.leadingBytes(of: location)
+            )
+        }
+
+        if case .invalid(var reason) = verdict {
+            // Surface the server's own explanation when it sent one.
+            if size < 4096, let data = try? Data(contentsOf: location),
+               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let serverMessage = (object["error"] ?? object["message"]) as? String {
+                reason += ": \(serverMessage)"
+            }
+            try? FileManager.default.removeItem(at: location)
+            DispatchQueue.main.async {
+                self.failDownload(audiobookId: audiobookId, message: reason)
+            }
+            return
+        }
+
         let destinationURL = downloadsDirectory.appendingPathComponent("\(audiobookId).m4b")
+        let etag = http?.value(forHTTPHeaderField: "ETag")
 
         do {
             // Remove existing file if present
@@ -362,19 +604,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
             try FileManager.default.moveItem(at: location, to: destinationURL)
 
             DispatchQueue.main.async {
-                self.downloads[audiobookId] = .downloaded(localURL: destinationURL)
-                self.downloadTasks.removeValue(forKey: audiobookId)
-
-                // Save metadata for offline access
-                if let audiobook = self.pendingAudiobooks.removeValue(forKey: audiobookId) {
-                    self.cachedMeta[audiobookId] = DownloadedBookMeta(from: audiobook)
-                    self.saveMetadata()
-                }
+                self.finishDownload(audiobookId: audiobookId, destination: destinationURL, etag: etag, bytes: size)
             }
         } catch {
             DispatchQueue.main.async {
-                self.downloads[audiobookId] = .failed(message: error.localizedDescription)
-                self.downloadTasks.removeValue(forKey: audiobookId)
+                self.failDownload(audiobookId: audiobookId, message: error.localizedDescription)
             }
         }
     }
@@ -393,6 +627,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
         }
 
         DispatchQueue.main.async {
+            // Don't resurrect a download the user cancelled meanwhile.
+            guard self.downloadTasks[audiobookId] != nil else { return }
             self.downloads[audiobookId] = .downloading(progress: progress)
         }
     }
@@ -412,8 +648,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         }
 
         DispatchQueue.main.async {
-            self.downloads[audiobookId] = .failed(message: error.localizedDescription)
-            self.downloadTasks.removeValue(forKey: audiobookId)
+            self.failDownload(audiobookId: audiobookId, message: error.localizedDescription)
         }
     }
 

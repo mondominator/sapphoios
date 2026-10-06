@@ -129,7 +129,9 @@ final class SapphoAPITests: XCTestCase {
     func testAuthHeadersWithoutToken() {
         authRepo.clear()
         let freshAPI = SapphoAPI(authRepository: authRepo, session: session)
-        XCTAssertTrue(freshAPI.authHeaders.isEmpty)
+        // No bearer token; only the client identification headers remain.
+        XCTAssertNil(freshAPI.authHeaders["Authorization"])
+        XCTAssertNotNil(freshAPI.authHeaders["X-Device-Name"])
     }
 
     // MARK: - Login
@@ -286,7 +288,9 @@ final class SapphoAPITests: XCTestCase {
         }
     }
 
-    func testHTTP403ClearsAuthRepository() async {
+    /// 403 is "valid token, forbidden by policy" (server/auth.js). It used to
+    /// clear the token, which logged out must-change-password users forever.
+    func testHTTP403KeepsAuthRepository() async {
         MockURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!
             return (response, Data())
@@ -299,7 +303,7 @@ final class SapphoAPITests: XCTestCase {
             XCTFail("Should have thrown")
         } catch {
             try? await Task.sleep(nanoseconds: 100_000_000)
-            XCTAssertFalse(authRepo.isAuthenticated)
+            XCTAssertTrue(authRepo.isAuthenticated)
         }
     }
 
@@ -393,6 +397,8 @@ final class SapphoAPITests: XCTestCase {
 
         // Protected endpoint ALWAYS 401 (even with the fresh token); refresh always
         // succeeds. The client must refresh once, retry once, then give up — not loop.
+        // A 401 on a token refreshed a moment ago is the endpoint's answer, not
+        // an expired session, so the (fresh) tokens are kept.
         MockURLProtocol.requestHandler = { request in
             let url = request.url?.absoluteString ?? ""
             if url.contains("api/auth/refresh") {
@@ -408,7 +414,8 @@ final class SapphoAPITests: XCTestCase {
             XCTFail("Should have thrown")
         } catch {
             try? await Task.sleep(nanoseconds: 100_000_000)
-            XCTAssertFalse(authRepo.isAuthenticated)
+            XCTAssertTrue(authRepo.isAuthenticated)
+            XCTAssertEqual(authRepo.token, "fresh-access")
         }
 
         // Exactly one refresh, and exactly two protected calls (original + single retry).
@@ -741,8 +748,10 @@ final class SapphoAPITests: XCTestCase {
             )
             XCTFail("Should have thrown")
         } catch {
+            // A 401 on a just-refreshed token is the endpoint's answer; the
+            // fresh tokens are kept (see AuthFailurePolicy).
             try? await Task.sleep(nanoseconds: 100_000_000)
-            XCTAssertFalse(authRepo.isAuthenticated)
+            XCTAssertTrue(authRepo.isAuthenticated)
         }
 
         let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }
@@ -782,7 +791,7 @@ final class SapphoAPITests: XCTestCase {
     func testUpload403DoesNotRefresh() async {
         storeWithRefreshToken("refresh-original")
 
-        // 403 must NOT trigger a refresh — it clears auth and throws immediately.
+        // 403 must NOT trigger a refresh, and must NOT clear auth — it throws immediately.
         MockURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!
             return (response, Data())
@@ -793,7 +802,7 @@ final class SapphoAPITests: XCTestCase {
             XCTFail("Should have thrown")
         } catch {
             try? await Task.sleep(nanoseconds: 100_000_000)
-            XCTAssertFalse(authRepo.isAuthenticated)
+            XCTAssertTrue(authRepo.isAuthenticated)
         }
 
         let refreshCalls = MockURLProtocol.capturedRequests.filter { ($0.url?.absoluteString ?? "").contains("api/auth/refresh") }

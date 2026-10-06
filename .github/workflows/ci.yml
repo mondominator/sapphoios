@@ -1,0 +1,80 @@
+name: CI
+
+# Build + unit tests on every pull request and push to main.
+# Mirrors Sashimi's CI, but through `fastlane ios test`. Needs NO secrets:
+# simulator builds are ad-hoc signed (see the test lane).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    # GitHub-hosted macOS image. Set the repository variable MACOS_RUNNER to
+    # use another label (e.g. Sashimi's `xcode-27` once the repo can use it).
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ vars.XCODE_VERSION || 'latest-stable' }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          # Gemfile.lock resolves excon >= 1.7.1, which requires Ruby >= 3.3.
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        # The committed project must match project.yml; fail if it drifted.
+        run: |
+          xcodegen generate
+          git diff --exit-code -- Sappho.xcodeproj/project.pbxproj || {
+            echo "::error::Sappho.xcodeproj is out of date. Run 'xcodegen generate' and commit the result."
+            exit 1
+          }
+
+      - name: Create iOS simulator
+        # Pick an iPhone type from the newest runtime's OWN supported list, so a
+        # renamed or dropped preinstalled device can't break CI (Sashimi lesson).
+        run: |
+          RUNTIMES_JSON=$(xcrun simctl list runtimes --json)
+          RUNTIME=$(echo "$RUNTIMES_JSON" | jq -r \
+            '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
+             | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
+          if [ -z "$RUNTIME" ]; then
+            echo "::error::No available iOS simulator runtime on this runner"
+            exit 1
+          fi
+          DEVICE_TYPE=$(echo "$RUNTIMES_JSON" | jq -r --arg r "$RUNTIME" \
+            '.runtimes[] | select(.identifier == $r) | .supportedDeviceTypes
+             | map(select(.productFamily == "iPhone")) | last | .identifier // empty')
+          echo "Using $DEVICE_TYPE on $RUNTIME"
+          xcrun simctl create "ci-iphone" "$DEVICE_TYPE" "$RUNTIME"
+
+      - name: Build and run unit tests
+        run: bundle exec fastlane ios test destination:"platform=iOS Simulator,name=ci-iphone"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: fastlane/test_output
+          retention-days: 14

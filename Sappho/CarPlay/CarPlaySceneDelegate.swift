@@ -1,7 +1,7 @@
 import CarPlay
 import UIKit
 
-class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPSearchTemplateDelegate {
+class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     // MARK: - Properties
 
@@ -64,7 +64,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
         homeTemplate.tabImage = UIImage(systemName: "house")
 
         let libraryTemplate = contentProvider.libraryTemplate(
-            onSearch: { [weak self] in self?.showSearch() },
+            onDownloaded: { [weak self] in self?.showDownloaded() },
             onAuthors: { [weak self] in self?.showAuthors() },
             onSeries: { [weak self] in self?.showSeries() },
             onCollections: { [weak self] in self?.showCollections() },
@@ -72,9 +72,9 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
         )
         libraryTemplate.tabImage = UIImage(systemName: "books.vertical")
 
-        // Two tabs only. A CPSearchTemplate here is not a valid tab for an
-        // audio app; it made this call fail, and with a nil completion handler
-        // CarPlay throws rather than reporting the failure.
+        // Two tabs only. CPSearchTemplate is a navigation-app template; an
+        // audio app may not show it at all (as a tab or pushed), so there is
+        // no search in CarPlay.
         let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate])
         interfaceController.setRootTemplate(tabBar, animated: true) { success, error in
             if !success {
@@ -91,49 +91,6 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
         }
     }
 
-    /// Push the search template. Pushing is a supported presentation for
-    /// CPSearchTemplate, unlike placing it in a tab bar.
-    @MainActor
-    private func showSearch() {
-        guard let interfaceController = interfaceController else { return }
-        let searchTemplate = CPSearchTemplate()
-        searchTemplate.delegate = self
-        interfaceController.pushTemplate(searchTemplate, animated: true) { success, error in
-            if !success {
-                print("CarPlay: pushTemplate(search) failed: \(String(describing: error))")
-            }
-        }
-    }
-
-    // MARK: - CPSearchTemplateDelegate
-
-    func searchTemplate(
-        _ searchTemplate: CPSearchTemplate,
-        updatedSearchText searchText: String,
-        completionHandler: @escaping ([CPListItem]) -> Void
-    ) {
-        guard let contentProvider = contentProvider else {
-            completionHandler([])
-            return
-        }
-        Task { @MainActor in
-            let items = await contentProvider.searchResults(for: searchText) { [weak self] book in
-                self?.playBook(book)
-            }
-            completionHandler(items)
-        }
-    }
-
-    func searchTemplate(
-        _ searchTemplate: CPSearchTemplate,
-        selectedResult item: CPListItem,
-        completionHandler: @escaping () -> Void
-    ) {
-        // The item's own handler already starts playback; it is installed by
-        // listItem(for:onSelect:) when the results are built.
-        item.handler?(item, completionHandler) ?? completionHandler()
-    }
-
     // MARK: - Playback
 
     private func playBook(_ book: Audiobook) {
@@ -142,26 +99,55 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPS
 
         Task { @MainActor in
             // Fetch fresh audiobook data from server to get latest progress
-            // (user may have listened on another device since app launched)
-            let freshBook: Audiobook
-            do {
-                freshBook = try await api.getAudiobook(id: book.id)
-            } catch {
-                // Fall back to cached data if server is unreachable
-                freshBook = book
+            // (user may have listened on another device since app launched).
+            // Offline, don't wait on a request that cannot succeed: a
+            // downloaded book plays from its cached metadata.
+            var freshBook = book
+            if NetworkMonitor.shared.isConnected {
+                if let fetched = try? await api.getAudiobook(id: book.id) {
+                    freshBook = fetched
+                }
             }
 
             await audioPlayer.play(audiobook: freshBook)
+            showNowPlaying()
+        }
+    }
 
-            // Show Now Playing
-            if let interfaceController = interfaceController,
-               let nowPlayingManager = nowPlayingManager {
-                interfaceController.pushTemplate(nowPlayingManager.template, animated: true, completion: nil)
+    /// Show Now Playing without pushing it twice. A second tap on a book (or
+    /// a second play request) while it is already on the stack pushed the
+    /// same template again, which CarPlay rejects with an exception.
+    @MainActor
+    private func showNowPlaying() {
+        guard let interfaceController, let nowPlayingManager else { return }
+        let template = nowPlayingManager.template
+        if interfaceController.topTemplate === template { return }
+        if interfaceController.templates.contains(where: { $0 === template }) {
+            interfaceController.pop(to: template, animated: true) { success, error in
+                if !success {
+                    print("CarPlay: pop to Now Playing failed: \(String(describing: error))")
+                }
+            }
+            return
+        }
+        interfaceController.pushTemplate(template, animated: true) { success, error in
+            if !success {
+                print("CarPlay: push Now Playing failed: \(String(describing: error))")
             }
         }
     }
 
     // MARK: - Library Navigation
+
+    private func showDownloaded() {
+        guard let contentProvider = contentProvider else { return }
+        Task { @MainActor in
+            let template = contentProvider.downloadedTemplate { [weak self] book in
+                self?.playBook(book)
+            }
+            self.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        }
+    }
 
     private func showAuthors() {
         guard let contentProvider = contentProvider else { return }

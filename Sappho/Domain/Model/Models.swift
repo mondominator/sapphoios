@@ -34,6 +34,11 @@ struct Audiobook: Codable, Identifiable, Hashable {
     let isFavorite: Bool
     let isQueued: Bool?
     let lastPlayed: String?
+    /// Size in bytes of the book's audio on the server (`audiobooks.file_size`;
+    /// the summed size for a multi-file book). Changes when the file is
+    /// replaced or a multi-file book is merged, which is how a download learns
+    /// it is out of date.
+    let fileSize: Int64?
 
     enum CodingKeys: String, CodingKey {
         case id, title, subtitle, author, narrator, series, duration, genre, tags
@@ -54,6 +59,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         case isFavorite = "is_favorite"
         case isQueued = "is_queued"
         case lastPlayed = "last_played"
+        case fileSize = "file_size"
     }
 
     init(from decoder: Decoder) throws {
@@ -117,6 +123,15 @@ struct Audiobook: Codable, Identifiable, Hashable {
         }
 
         lastPlayed = try container.decodeIfPresent(String.self, forKey: .lastPlayed)
+
+        // SQLite can hand back an integer column as a float; accept both.
+        if let size = try? container.decodeIfPresent(Int64.self, forKey: .fileSize) {
+            fileSize = size
+        } else if let size = try? container.decodeIfPresent(Double.self, forKey: .fileSize) {
+            fileSize = Int64(size)
+        } else {
+            fileSize = nil
+        }
     }
 
     // Memberwise initializer for previews and testing
@@ -152,7 +167,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
         chapters: [Chapter]? = nil,
         isFavorite: Bool = false,
         isQueued: Bool? = nil,
-        lastPlayed: String? = nil
+        lastPlayed: String? = nil,
+        fileSize: Int64? = nil
     ) {
         self.id = id
         self.title = title
@@ -186,6 +202,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.isFavorite = isFavorite
         self.isQueued = isQueued
         self.lastPlayed = lastPlayed
+        self.fileSize = fileSize
     }
 
     /// Returns a copy of this audiobook with the chapters replaced.
@@ -222,7 +239,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
             chapters: chapters,
             isFavorite: isFavorite,
             isQueued: isQueued,
-            lastPlayed: lastPlayed
+            lastPlayed: lastPlayed,
+            fileSize: fileSize
         )
     }
 

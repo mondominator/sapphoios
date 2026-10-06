@@ -48,7 +48,11 @@ struct PlayerView: View {
 
                         Spacer()
 
-                        if audioPlayer.isPlaying {
+                        if audioPlayer.isPlaying && audioPlayer.isBuffering {
+                            ProgressView()
+                                .tint(.sapphoTextMuted)
+                                .accessibilityLabel("Buffering")
+                        } else if audioPlayer.isPlaying {
                             PlayingAnimationBars()
                                 .accessibilityHidden(true)
                         }
@@ -107,6 +111,9 @@ struct PlayerView: View {
                             }
                         }
                         .padding(.horizontal, 20)
+
+                        PlaybackErrorBanner()
+                            .padding(.horizontal, 20)
 
                         // Progress Slider
                         VStack(spacing: 8) {

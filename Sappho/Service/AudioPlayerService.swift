@@ -32,13 +32,34 @@ class AudioPlayerService: NSObject {
     var playbackSpeed: Float = 1.0
     var isBuffering: Bool = false
     var sleepTimerRemaining: TimeInterval?
+    /// A user-facing playback problem (stream failed, file ended early). The
+    /// player and mini player show it with a Retry button. Nil when healthy.
+    var playbackError: String?
 
     // MARK: - Private Properties
     private var player: AVPlayer?
     private var playerItem: AVPlayerItem?
     private var timeObserver: Any?
     private var sleepTimer: Timer?
-    private var isObservingPlayerItem = false
+    /// Block-based KVO on the current item (status, buffering). Replaced
+    /// whenever the item is, which drops the old observations with it.
+    private var itemObservations: [NSKeyValueObservation] = []
+    /// Notification observers scoped to the current item (failed / stalled).
+    private var itemNotificationTokens: [NSObjectProtocol] = []
+    /// One automatic rebuild per play request; a second failure is shown
+    /// (and reset by Retry, resume or playing another book), so a server that
+    /// keeps failing can't trap the player in a rebuild loop.
+    private var hasRetriedCurrentItem = false
+    /// Whether the current item plays a downloaded file rather than the stream.
+    private var isPlayingLocalFile = false
+    /// When playback was last paused, so a long-paused stream can be rebuilt
+    /// with fresh auth headers before resuming.
+    private var pausedAt: Date?
+    /// A paused stream older than this is rebuilt on resume: its request
+    /// headers carry the token from when it was created, and access tokens
+    /// expire (7 days on the server), after which range requests get 401.
+    private let staleStreamInterval: TimeInterval = 30 * 60
+    private let progressStore = ProgressStore()
     /// Notification observer tokens; removed automatically when the bag deallocates,
     /// so no main-actor-isolated cleanup is needed in deinit.
     private let notificationTokens = NotificationTokenBag()
@@ -51,7 +72,6 @@ class AudioPlayerService: NSObject {
     // Persistence keys
     private static let lastAudiobookIdKey = "lastPlayedAudiobookId"
     private static let lastPositionKey = "lastPlayedPosition"
-    private static let pendingSyncKey = "pendingProgressSync"
     private static let playbackSpeedKey = "playbackSpeed"
 
     // MARK: - Initialization
@@ -92,45 +112,197 @@ class AudioPlayerService: NSObject {
     /// Returns false if no stream URL could be determined.
     private func setUpPlayer(for audiobook: Audiobook) -> Bool {
         // Check for offline download first
-        let url: URL?
-        if let localURL = DownloadManager.shared.localURL(for: audiobook.id) {
-            url = localURL
-        } else {
-            url = api?.streamURL(for: audiobook.id)
-        }
+        let localURL = DownloadManager.shared.localURL(for: audiobook.id)
+        guard let streamURL = localURL ?? api?.streamURL(for: audiobook.id) else { return false }
+        isPlayingLocalFile = localURL != nil
 
-        guard let streamURL = url else { return false }
-
-        // Create player item — use auth headers for remote streams
+        // Create player item — use auth headers for remote streams. The
+        // headers are read now, so a rebuild (see rebuildCurrentItem) is the
+        // only way to give a long-lived stream a refreshed token.
         let asset: AVURLAsset
-        if DownloadManager.shared.localURL(for: audiobook.id) != nil {
+        if isPlayingLocalFile {
             asset = AVURLAsset(url: streamURL)
         } else {
             let headers = api?.authHeaders ?? [:]
             asset = AVURLAsset(url: streamURL, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         }
-        playerItem = AVPlayerItem(asset: asset)
+        let item = AVPlayerItem(asset: asset)
         // Spectral time-stretching keeps voices clean above 1x; the default
         // algorithm warbles noticeably on speech at 1.25x and up.
-        playerItem?.audioTimePitchAlgorithm = .spectral
-
-        // Observe buffering state
-        playerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: .new, context: nil)
-        playerItem?.addObserver(self, forKeyPath: "playbackLikelyToKeepUp", options: .new, context: nil)
-        isObservingPlayerItem = true
+        item.audioTimePitchAlgorithm = .spectral
+        playerItem = item
+        observe(item)
 
         // Create player
-        player = AVPlayer(playerItem: playerItem)
+        player = AVPlayer(playerItem: item)
         player?.allowsExternalPlayback = false // Force local decode + AirPlay audio routing (external playback fails with auth headers)
 
         return true
     }
 
+    /// Watch the item for failure and buffering. Nothing used to observe
+    /// `status` or the failed/stalled notifications, so a stream that 401'd or
+    /// a server that went away left the UI saying "playing" at a frozen
+    /// position with no error.
+    private func observe(_ item: AVPlayerItem) {
+        stopObservingItem()
+
+        itemObservations = [
+            item.observe(\.status, options: [.new]) { [weak self] item, _ in
+                let status = item.status
+                let error = item.error
+                Task { @MainActor [weak self] in
+                    guard let self, self.playerItem === item, status == .failed else { return }
+                    self.handleItemFailure(error)
+                }
+            },
+            item.observe(\.isPlaybackBufferEmpty, options: [.new]) { [weak self] item, _ in
+                let empty = item.isPlaybackBufferEmpty
+                Task { @MainActor [weak self] in
+                    guard let self, self.playerItem === item, empty else { return }
+                    self.isBuffering = true
+                }
+            },
+            item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
+                let likely = item.isPlaybackLikelyToKeepUp
+                Task { @MainActor [weak self] in
+                    guard let self, self.playerItem === item, likely else { return }
+                    self.isBuffering = false
+                }
+            }
+        ]
+
+        let center = NotificationCenter.default
+        itemNotificationTokens = [
+            center.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: item, queue: .main) { [weak self] note in
+                let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                MainActor.assumeIsolated {
+                    self?.handleItemFailure(error)
+                }
+            },
+            center.addObserver(forName: AVPlayerItem.playbackStalledNotification, object: item, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    // A stall is not a failure: AVPlayer resumes by itself
+                    // once data arrives. Show it as buffering.
+                    self?.isBuffering = true
+                }
+            }
+        ]
+    }
+
+    private func stopObservingItem() {
+        itemObservations.forEach { $0.invalidate() }
+        itemObservations = []
+        itemNotificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        itemNotificationTokens = []
+    }
+
+    /// The item failed (network gone, 401 on an expired token, 404). Try once
+    /// to rebuild it with a refreshed token at the current position; if that
+    /// fails too, stop claiming to play and tell the user.
+    private func handleItemFailure(_ error: Error?) {
+        let wasPlaying = isPlaying
+        isPlaying = false
+        isBuffering = false
+        updateNowPlayingInfo()
+        savePlaybackState()
+        print("Playback failed: \(String(describing: error))")
+
+        guard !hasRetriedCurrentItem else {
+            playbackError = Self.describe(error)
+            return
+        }
+        hasRetriedCurrentItem = true
+        Task {
+            await rebuildCurrentItem(andPlay: wasPlaying)
+        }
+    }
+
+    private static func describe(_ error: Error?) -> String {
+        if let error = error as NSError?, error.domain == NSURLErrorDomain {
+            return "Can't reach the server. Check your connection and try again."
+        }
+        return "Playback failed. Try again."
+    }
+
+    /// Recreate the player item at the current position, with a token that
+    /// has just been refreshed. Used after a failure and before resuming a
+    /// stream that sat paused long enough for its token to expire.
+    private func rebuildCurrentItem(andPlay shouldPlay: Bool) async {
+        guard let audiobook = currentAudiobook else { return }
+        let resumePosition = position
+        if DownloadManager.shared.localURL(for: audiobook.id) == nil {
+            await api?.ensureFreshToken()
+        }
+        // The book may have changed while the token refreshed.
+        guard currentAudiobook?.id == audiobook.id else { return }
+
+        stopTimeObserver()
+        player?.pause()
+        guard setUpPlayer(for: audiobook) else { return }
+        if resumePosition > 0 {
+            await seek(to: resumePosition)
+        }
+        startTimeObserver()
+        if shouldPlay {
+            player?.play()
+            player?.rate = playbackSpeed
+            isPlaying = true
+        }
+        updateNowPlayingInfo()
+    }
+
+    /// Retry after a playback error (the Retry button).
+    func retryPlayback() {
+        playbackError = nil
+        hasRetriedCurrentItem = false
+        Task {
+            await rebuildCurrentItem(andPlay: true)
+        }
+    }
+
     func play(audiobook: Audiobook, startPosition: TimeInterval? = nil) async {
+        // Play on the book that is already loaded continues it. Reloading
+        // would seek to the caller's copy of the server position, which can be
+        // an hour stale (the detail view fetched it when it opened), and the
+        // next sync would then write that old position back to the server.
+        if PlayRequestPolicy.shouldResumeLoadedBook(
+            loadedBookId: currentAudiobook?.id,
+            requestedBookId: audiobook.id,
+            explicitStart: startPosition
+        ) {
+            guard !isPlaying else { return }
+            // Still honour a newer position from another device: the caller's
+            // copy of the server progress wins only if its timestamp is newer
+            // than what this device saved.
+            let target = TimeInterval(resolvedStartPosition(for: audiobook))
+            if audiobook.progress != nil, abs(target - position) > 5 {
+                if player != nil {
+                    await seek(to: target)
+                } else {
+                    position = target
+                }
+            }
+            resume()
+            return
+        }
+
+        // Seek to the explicit start, else the newer of the server's position
+        // and the one saved on this device. Resolved before stop(), which
+        // clears the saved "last played" slot.
+        let seekPosition = startPosition ?? TimeInterval(resolvedStartPosition(for: audiobook))
+
         // Stop current playback
         stop()
 
+        // A download that no longer matches the server's file (replaced, or a
+        // multi-file book since merged) must not be played; stream instead
+        // while a fresh copy downloads.
+        DownloadManager.shared.discardIfStale(for: audiobook)
+
         currentAudiobook = audiobook
+        playbackError = nil
+        hasRetriedCurrentItem = false
 
         guard setUpPlayer(for: audiobook) else {
             print("Failed to get stream URL for audiobook \(audiobook.id)")
@@ -142,8 +314,6 @@ class AudioPlayerService: NSObject {
             duration = TimeInterval(durationSeconds)
         }
 
-        // Seek to start position if provided
-        let seekPosition = startPosition ?? TimeInterval(audiobook.progress?.position ?? 0)
         if seekPosition > 0 {
             await seek(to: seekPosition)
         }
@@ -183,12 +353,29 @@ class AudioPlayerService: NSObject {
     func pause() {
         player?.pause()
         isPlaying = false
+        pausedAt = Date()
         updateNowPlayingInfo()
         syncProgressToServer()
         savePlaybackState()
     }
 
     func resume() {
+        guard currentAudiobook != nil else { return }
+        playbackError = nil
+
+        // A stream paused long enough may carry an expired token in its
+        // request headers; rebuild it with a fresh one before playing.
+        let streamWentStale = !isPlayingLocalFile
+            && pausedAt.map { Date().timeIntervalSince($0) > staleStreamInterval } == true
+        if player != nil, streamWentStale || playerItem?.status == .failed {
+            self.pausedAt = nil
+            Task {
+                await rebuildCurrentItem(andPlay: true)
+            }
+            return
+        }
+        pausedAt = nil
+
         // Re-activate audio session in case it was deactivated
         do {
             try AVAudioSession.sharedInstance().setActive(true)
@@ -250,17 +437,14 @@ class AudioPlayerService: NSObject {
         }
     }
 
-    func stop() {
-        syncProgressToServer()
+    func stop(syncProgress: Bool = true) {
+        if syncProgress {
+            syncProgressToServer()
+        }
 
         player?.pause()
         stopTimeObserver()
-
-        if isObservingPlayerItem {
-            playerItem?.removeObserver(self, forKeyPath: "playbackBufferEmpty")
-            playerItem?.removeObserver(self, forKeyPath: "playbackLikelyToKeepUp")
-            isObservingPlayerItem = false
-        }
+        stopObservingItem()
 
         player = nil
         playerItem = nil
@@ -269,6 +453,9 @@ class AudioPlayerService: NSObject {
         isPlaying = false
         position = 0
         duration = 0
+        playbackError = nil
+        isBuffering = false
+        pausedAt = nil
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -362,9 +549,29 @@ class AudioPlayerService: NSObject {
         let pos = Int(position)
         UserDefaults.standard.set(audiobook.id, forKey: Self.lastAudiobookIdKey)
         UserDefaults.standard.set(pos, forKey: Self.lastPositionKey)
+        if let account = api?.accountKey {
+            progressStore.saveLocal(account: account, audiobookId: audiobook.id, position: pos)
+        }
 
         // Keep downloaded book metadata in sync
         DownloadManager.shared.updatePosition(audiobookId: audiobook.id, position: pos)
+    }
+
+    /// The position to start a book from: the newer of the server's position
+    /// and the one this device saved (by timestamp). Local wins after offline
+    /// listening or a kill within the 20 s sync interval; the server wins
+    /// after listening on another device.
+    private func resolvedStartPosition(for audiobook: Audiobook) -> Int {
+        let local = api?.accountKey.flatMap { progressStore.localProgress(account: $0, audiobookId: audiobook.id) }
+        // Builds before 1.0.1 kept only an untimed "last played" position.
+        let lastId = UserDefaults.standard.integer(forKey: Self.lastAudiobookIdKey)
+        let untimed = lastId == audiobook.id ? UserDefaults.standard.integer(forKey: Self.lastPositionKey) : nil
+        return ProgressReconciler.resolve(
+            serverPosition: audiobook.progress?.position,
+            serverUpdatedAt: audiobook.progress?.updatedAt,
+            local: local,
+            untimedLocal: untimed
+        )
     }
 
     /// Restore last played audiobook on app launch. Call after configure(api:).
@@ -372,30 +579,46 @@ class AudioPlayerService: NSObject {
         let audiobookId = UserDefaults.standard.integer(forKey: Self.lastAudiobookIdKey)
         guard audiobookId > 0, let api = api else { return }
 
+        let audiobook: Audiobook
+        let fetchedFromServer: Bool
         do {
-            let audiobook = try await api.getAudiobook(id: audiobookId)
-            await MainActor.run {
-                self.currentAudiobook = audiobook
-                // Use server progress if available, fall back to saved position
-                if let serverPosition = audiobook.progress?.position, serverPosition > 0 {
-                    self.position = TimeInterval(serverPosition)
-                } else {
-                    let savedPosition = UserDefaults.standard.integer(forKey: Self.lastPositionKey)
-                    self.position = TimeInterval(savedPosition)
-                }
-                if let dur = audiobook.duration {
-                    self.duration = TimeInterval(dur)
-                }
-            }
-            // Load chapters
-            if let chapters = try? await api.getChapters(audiobookId: audiobookId) {
-                await MainActor.run {
-                    self.currentAudiobook = audiobook.withChapters(chapters)
-                    self.updateCurrentChapter()
-                }
-            }
+            audiobook = try await api.getAudiobook(id: audiobookId)
+            fetchedFromServer = true
         } catch {
-            print("Failed to restore last played: \(error)")
+            // Offline cold start: a downloaded book can still be restored from
+            // its cached metadata, so the mini player and lock screen work.
+            guard let cached = DownloadManager.shared.cachedMeta[audiobookId]?.toAudiobook() else {
+                print("Failed to restore last played: \(error)")
+                return
+            }
+            audiobook = cached
+            fetchedFromServer = false
+        }
+
+        // Something else may have started playing while we waited.
+        guard currentAudiobook == nil || currentAudiobook?.id == audiobookId, player == nil else { return }
+
+        currentAudiobook = audiobook
+        if fetchedFromServer {
+            position = TimeInterval(resolvedStartPosition(for: audiobook))
+        } else {
+            // Cached metadata has no server timestamp; this device's saved
+            // position is the best we have.
+            let local = api.accountKey.flatMap { progressStore.localProgress(account: $0, audiobookId: audiobookId) }
+            let saved = UserDefaults.standard.integer(forKey: Self.lastPositionKey)
+            position = TimeInterval(local?.position ?? max(saved, audiobook.progress?.position ?? 0))
+        }
+        if let dur = audiobook.duration {
+            duration = TimeInterval(dur)
+        }
+        updateCurrentChapter()
+
+        // Load chapters
+        guard fetchedFromServer else { return }
+        if let chapters = try? await api.getChapters(audiobookId: audiobookId),
+           currentAudiobook?.id == audiobookId {
+            currentAudiobook = audiobook.withChapters(chapters)
+            updateCurrentChapter()
         }
     }
 
@@ -456,78 +679,104 @@ class AudioPlayerService: NSObject {
 
     private func syncProgressToServer() {
         guard let audiobook = currentAudiobook, let api = api else { return }
+        // Capture the account now: if this request fails after a logout, the
+        // retry entry must belong to the account that made it, never to
+        // whoever signs in next.
+        guard let account = api.accountKey else { return }
         let pos = Int(position)
         let state = isPlaying ? "playing" : "paused"
+        let store = progressStore
 
         Task {
             do {
                 try await api.updateProgress(audiobookId: audiobook.id, position: pos, state: state)
                 // Clear any pending sync for this book on success
-                removePendingSync(for: audiobook.id)
+                store.removePending(account: account, audiobookId: audiobook.id)
             } catch {
                 // Queue for later retry
-                savePendingSync(audiobookId: audiobook.id, position: pos)
+                store.savePending(account: account, audiobookId: audiobook.id, position: pos)
                 print("Failed to sync progress (queued for retry): \(error)")
             }
         }
     }
 
+    /// Send the current position and wait for it (bounded), for logout: the
+    /// request has to go out while the session still exists.
+    private func syncProgressNow(timeout: TimeInterval = 5) async {
+        guard let audiobook = currentAudiobook, let api = api, api.accountKey != nil else { return }
+        let pos = Int(position)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try? await api.updateProgress(audiobookId: audiobook.id, position: pos, state: "stopped")
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
     // MARK: - Pending Sync Queue
 
-    // These read-modify-write operations on the shared UserDefaults dictionary are
-    // safe because they run on the main actor (the class is @MainActor) and contain
-    // no suspension points. Internal (not private) so unit tests can exercise them.
-
-    func savePendingSync(audiobookId: Int, position: Int) {
-        var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
-        pending[String(audiobookId)] = position
-        UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
-    }
-
-    func removePendingSync(for audiobookId: Int) {
-        var pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
-        pending.removeValue(forKey: String(audiobookId))
-        UserDefaults.standard.set(pending, forKey: Self.pendingSyncKey)
-    }
-
-    /// Flush any progress updates that failed to sync while offline.
+    /// Flush any progress updates that failed to sync while offline, for the
+    /// signed-in account only.
+    ///
+    /// Each is sent with `isReplay`, so the server applies it only if it moves
+    /// the position forward: listening done on another device since must not
+    /// be erased by a phone reconnecting with an hours-old position.
     /// Entries are synced sequentially in a single task so the queue's
     /// read-modify-write updates never interleave and resurrect removed entries.
     func syncPendingProgress() {
-        guard let api = api else { return }
-        let pending = UserDefaults.standard.dictionary(forKey: Self.pendingSyncKey) as? [String: Int] ?? [:]
+        guard let api = api, let account = api.accountKey else { return }
+        progressStore.migrateLegacyPending(to: account)
+        let pending = progressStore.pending(account: account)
         guard !pending.isEmpty else { return }
+        let store = progressStore
 
         Task {
-            for (idString, position) in pending {
-                guard let audiobookId = Int(idString) else { continue }
+            for (audiobookId, position) in pending {
+                // Logged out (or switched account) mid-flush: stop.
+                guard api.accountKey == account else { return }
                 do {
-                    try await api.updateProgress(audiobookId: audiobookId, position: position, state: "paused")
-                    removePendingSync(for: audiobookId)
+                    try await api.updateProgress(audiobookId: audiobookId, position: position, state: "paused", isReplay: true)
+                    store.removePending(account: account, audiobookId: audiobookId)
                     print("Synced pending progress for audiobook \(audiobookId) at \(position)s")
                 } catch let error as APIError {
                     // Distinguish "cannot reach the server yet" from "the server
                     // answered, and the answer will never change".
                     //
-                    // Every error used to be treated as still-offline, so an
-                    // entry for a book the server no longer has retried forever
-                    // and silently never synced. That is not hypothetical: a
-                    // book was removed and re-added under a new id, and the
-                    // phone kept posting to the dead id — the position never
-                    // reached the server, and nothing surfaced to the user.
-                    //
                     // 404/410 mean the book is gone, so the entry can never
-                    // succeed; drop it rather than retry it forever. Anything
-                    // else (including 401, which the API layer refreshes) stays
+                    // succeed; drop it rather than retry it forever (a book
+                    // removed and re-added under a new id once kept the phone
+                    // posting to the dead id indefinitely). Anything else
+                    // (including 401, which the API layer refreshes) stays
                     // queued for the next attempt.
                     if case let .httpError(statusCode, _) = error, statusCode == 404 || statusCode == 410 {
-                        removePendingSync(for: audiobookId)
+                        store.removePending(account: account, audiobookId: audiobookId)
                         print("Dropped pending progress for audiobook \(audiobookId): server returned \(statusCode)")
                     }
                 } catch {
                     // Still offline — will retry next time
                 }
             }
+        }
+    }
+
+    // MARK: - Logout
+
+    /// Everything playback-related that must happen before the session is
+    /// cleared: send the final position while the token still works, stop
+    /// without queuing another sync, and forget this account's queued and
+    /// saved progress so nothing replays into the next account.
+    func prepareForLogout() async {
+        player?.pause()
+        isPlaying = false
+        await syncProgressNow()
+        let account = api?.accountKey
+        stop(syncProgress: false)
+        if let account {
+            progressStore.clear(account: account)
         }
     }
 
@@ -693,9 +942,13 @@ class AudioPlayerService: NSObject {
             forName: AVPlayerItem.didPlayToEndTimeNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            let endedItem = notification.object as AnyObject?
             MainActor.assumeIsolated {
-                self?.handlePlaybackEnd()
+                // Only our own current item; other AVPlayerItems (previews,
+                // a replaced item finishing late) must not finish the book.
+                guard let self, endedItem === self.playerItem else { return }
+                self.handlePlaybackEnd()
             }
         })
     }
@@ -718,7 +971,12 @@ class AudioPlayerService: NSObject {
         case .ended:
             let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-            if options.contains(.shouldResume) || wasPlayingBeforeInterruption {
+            let wasPlaying = wasPlayingBeforeInterruption
+            wasPlayingBeforeInterruption = false
+            if InterruptionPolicy.shouldResume(
+                systemSaysShouldResume: options.contains(.shouldResume),
+                wasPlaying: wasPlaying
+            ) {
                 do {
                     try AVAudioSession.sharedInstance().setActive(true)
                 } catch {
@@ -734,8 +992,6 @@ class AudioPlayerService: NSObject {
         }
     }
 
-    private var wasPlayingBeforeRouteChange = false
-
     private func handleRouteChange(notification: Notification) {
         guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
@@ -745,8 +1001,8 @@ class AudioPlayerService: NSObject {
 
         switch reason {
         case .oldDeviceUnavailable:
-            // Device disconnected (CarPlay off, headphones unplugged, AirPlay off)
-            wasPlayingBeforeRouteChange = isPlaying
+            // Device disconnected (CarPlay off, headphones unplugged, AirPlay off).
+            // Pause, and stay paused until the user says otherwise.
             player?.pause()
             isPlaying = false
             syncProgressToServer()
@@ -761,21 +1017,13 @@ class AudioPlayerService: NSObject {
                 print("Failed to reactivate audio session on route change: \(error)")
             }
             updateNowPlayingInfo()
-            wasPlayingBeforeRouteChange = false
         case .override, .routeConfigurationChange:
-            // Route reconfigured (e.g., speaker switch) — safe to resume
-            do {
-                try AVAudioSession.sharedInstance().setActive(true)
-            } catch {
-                print("Failed to reactivate audio session on route change: \(error)")
-            }
-            if wasPlayingBeforeRouteChange || isPlaying {
-                player?.play()
-                player?.rate = playbackSpeed
-                isPlaying = true
-                updateNowPlayingInfo()
-                wasPlayingBeforeRouteChange = false
-            }
+            // Never resume here. This used to restart playback when headphones
+            // had been unplugged earlier, so an unrelated reconfiguration
+            // (another app's category change, the AirPlay picker, CarPlay
+            // negotiation) played the book out of the phone speaker. Playing
+            // audio continues by itself; paused audio waits for the user.
+            break
         default:
             break
         }
@@ -786,6 +1034,28 @@ class AudioPlayerService: NSObject {
         isPlaying = false
         updateNowPlayingInfo()
         savePlaybackState()
+
+        let known = PlaybackCompletionPolicy.knownDuration(
+            bookDuration: audiobook.duration,
+            chapters: audiobook.chapters
+        )
+        guard PlaybackCompletionPolicy.isGenuineEnd(position: position, knownDuration: known) else {
+            // The audio stopped well before the book's known end: part 1 of an
+            // unmerged multi-file book, or a truncated file. Marking it
+            // finished would reset it to 0 and queue the next in the series.
+            // Keep the real position instead and say what happened.
+            syncProgressToServer()
+            if isPlayingLocalFile {
+                DownloadManager.shared.invalidateDownload(
+                    audiobookId: audiobook.id,
+                    reason: "The downloaded file ended early. Download it again."
+                )
+                playbackError = "The downloaded file ended early, so it was removed. Play again to stream, or download it again."
+            } else {
+                playbackError = "Playback stopped before the end of the book. The server may not have the whole book in one file."
+            }
+            return
+        }
 
         Task {
             do {
@@ -807,22 +1077,6 @@ class AudioPlayerService: NSObject {
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             print("Failed to reactivate audio session on foreground: \(error)")
-        }
-    }
-
-    // MARK: - KVO
-
-    // KVO callbacks can arrive on any thread; this override stays nonisolated
-    // and hops onto the main actor before touching observable state.
-    nonisolated override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        let observedKeyPath = keyPath
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            if observedKeyPath == "playbackBufferEmpty" {
-                self.isBuffering = true
-            } else if observedKeyPath == "playbackLikelyToKeepUp" {
-                self.isBuffering = false
-            }
         }
     }
 
