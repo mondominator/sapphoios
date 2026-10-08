@@ -289,12 +289,17 @@ struct BookSearchResult: View {
         HStack(spacing: 12) {
             CoverImage(audiobookId: audiobook.id, cornerRadius: 6)
                 .frame(width: 48, height: 48)
+                .dimmedWhenUnavailable(audiobook)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(audiobook.title)
-                    .font(.sapphoDetailMedium)
-                    .foregroundColor(.sapphoTextHigh)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(audiobook.title)
+                        .font(.sapphoDetailMedium)
+                        .foregroundColor(.sapphoTextHigh)
+                        .lineLimit(1)
+                    audiobook.sourceTag(style: .inline)
+                        .layoutPriority(-1)
+                }
 
                 HStack(spacing: 4) {
                     if let author = audiobook.author {

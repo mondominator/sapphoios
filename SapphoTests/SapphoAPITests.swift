@@ -197,7 +197,7 @@ final class SapphoAPITests: XCTestCase {
             _ = try await api.login(serverURL: loginURL, username: "bad", password: "wrong")
             XCTFail("Should have thrown")
         } catch let error as APIError {
-            if case .httpError(let code, let message) = error {
+            if case .httpError(let code, let message, _) = error {
                 XCTAssertEqual(code, 401)
                 XCTAssertEqual(message, "Invalid credentials")
             } else {
@@ -441,7 +441,7 @@ final class SapphoAPITests: XCTestCase {
             _ = try await api.getRecentlyAdded()
             XCTFail("Should have thrown")
         } catch let error as APIError {
-            if case .httpError(let code, let message) = error {
+            if case .httpError(let code, let message, _) = error {
                 XCTAssertEqual(code, 500)
                 XCTAssertEqual(message, "Internal server error")
             } else {

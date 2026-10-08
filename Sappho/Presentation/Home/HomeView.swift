@@ -252,6 +252,7 @@ struct AudiobookCard: View {
             // Cover image
             CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
                 .frame(width: cardSize, height: cardSize)
+                .dimmedWhenUnavailable(audiobook)
 
             // Overlay container
             VStack(spacing: 0) {
@@ -284,6 +285,15 @@ struct AudiobookCard: View {
 
                 Spacer()
 
+                // Linked-server tag (bottom-left), remote books only
+                if audiobook.isRemote {
+                    HStack {
+                        audiobook.sourceTag()
+                        Spacer(minLength: 0)
+                    }
+                    .padding(5)
+                }
+
                 // Progress bar at bottom
                 if progressPercent > 0 {
                     GeometryReader { geo in
@@ -303,7 +313,7 @@ struct AudiobookCard: View {
         .frame(width: cardSize, height: cardSize)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(audiobook.progress?.completed == 1 ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")")
+        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(audiobook.progress?.completed == 1 ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")\(audiobook.sourceAccessibilitySuffix)")
         .accessibilityHint("Double tap to view details")
     }
 }

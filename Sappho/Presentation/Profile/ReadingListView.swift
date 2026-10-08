@@ -171,13 +171,18 @@ struct ReadingListRow: View {
             CoverImage(audiobookId: audiobook.id)
                 .frame(width: 56, height: 56)
                 .cornerRadius(6)
+                .dimmedWhenUnavailable(audiobook)
 
             // Info
             VStack(alignment: .leading, spacing: 3) {
-                Text(audiobook.title)
-                    .font(.sapphoSubheadline)
-                    .foregroundColor(.sapphoTextHigh)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(audiobook.title)
+                        .font(.sapphoSubheadline)
+                        .foregroundColor(.sapphoTextHigh)
+                        .lineLimit(1)
+                    audiobook.sourceTag(style: .inline)
+                        .layoutPriority(-1)
+                }
 
                 HStack(spacing: 8) {
                     if let author = audiobook.author {

@@ -41,7 +41,15 @@ struct Audiobook: Codable, Identifiable, Hashable {
     let fileSize: Int64?
     /// The book's file on the server (`audiobooks.file_path`). Only its
     /// extension is used: an MP3 can't be served as HLS (`HLSCodecHint`).
+    /// A linked server's book has `sappho-remote://<link>/<id>` (no extension).
     let filePath: String?
+    /// The linked server this book is mirrored from; nil for this server's
+    /// own books and for servers older than 0.16 (no linked servers).
+    let source: BookSource?
+    /// The server's `available` flag: false when the book can't be played
+    /// right now (its linked server is offline, or a local file is missing).
+    /// Nil when the server doesn't send it (older servers): treat as available.
+    let available: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, title, subtitle, author, narrator, series, duration, genre, tags
@@ -64,6 +72,7 @@ struct Audiobook: Codable, Identifiable, Hashable {
         case lastPlayed = "last_played"
         case fileSize = "file_size"
         case filePath = "file_path"
+        case source, available
     }
 
     init(from decoder: Decoder) throws {
@@ -137,6 +146,17 @@ struct Audiobook: Codable, Identifiable, Hashable {
             fileSize = nil
         }
         filePath = try? container.decodeIfPresent(String.self, forKey: .filePath)
+
+        // Linked servers (server 0.16+). Both are optional and tolerant: a
+        // malformed value must not make the whole book list fail to decode.
+        source = (try? container.decodeIfPresent(BookSource.self, forKey: .source)) ?? nil
+        if let flag = try? container.decodeIfPresent(Bool.self, forKey: .available) {
+            available = flag
+        } else if let flag = try? container.decodeIfPresent(Int.self, forKey: .available) {
+            available = flag != 0
+        } else {
+            available = nil
+        }
     }
 
     // Memberwise initializer for previews and testing
@@ -174,7 +194,9 @@ struct Audiobook: Codable, Identifiable, Hashable {
         isQueued: Bool? = nil,
         lastPlayed: String? = nil,
         fileSize: Int64? = nil,
-        filePath: String? = nil
+        filePath: String? = nil,
+        source: BookSource? = nil,
+        available: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -210,6 +232,8 @@ struct Audiobook: Codable, Identifiable, Hashable {
         self.lastPlayed = lastPlayed
         self.fileSize = fileSize
         self.filePath = filePath
+        self.source = source
+        self.available = available
     }
 
     /// Returns a copy of this audiobook with the chapters replaced.
@@ -248,9 +272,17 @@ struct Audiobook: Codable, Identifiable, Hashable {
             isQueued: isQueued,
             lastPlayed: lastPlayed,
             fileSize: fileSize,
-            filePath: filePath
+            filePath: filePath,
+            source: source,
+            available: available
         )
     }
+
+    /// True for a book mirrored from a linked server.
+    var isRemote: Bool { source != nil }
+
+    /// False only when the server says the book can't be played right now.
+    var isAvailable: Bool { available ?? true }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -259,6 +291,22 @@ struct Audiobook: Codable, Identifiable, Hashable {
     static func == (lhs: Audiobook, rhs: Audiobook) -> Bool {
         lhs.id == rhs.id
     }
+}
+
+// MARK: - Linked servers
+
+/// Where a linked server's book comes from (`source` on a book object).
+struct BookSource: Codable, Hashable {
+    let id: Int
+    /// The admin-chosen label for the link, e.g. "Robert".
+    let name: String
+}
+
+/// One entry of `GET /api/linked-servers/sources`.
+struct LinkedSource: Codable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let available: Bool?
 }
 
 // MARK: - Progress

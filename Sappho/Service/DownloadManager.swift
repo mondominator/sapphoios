@@ -44,6 +44,10 @@ struct DownloadedBookMeta: Codable {
     /// The stream's ETag ("size-mtime") and the byte count actually saved.
     var etag: String?
     var downloadedBytes: Int64?
+    /// The linked server a remote book comes from (nil for local books and
+    /// for downloads made before it was recorded), so the source tag still
+    /// shows offline.
+    var source: BookSource?
 
     init(from audiobook: Audiobook) {
         self.id = audiobook.id
@@ -59,6 +63,7 @@ struct DownloadedBookMeta: Codable {
         self.completed = audiobook.progress?.completed
         self.chapters = audiobook.chapters?.map { CachedChapter(from: $0) }
         self.serverFileSize = audiobook.fileSize
+        self.source = audiobook.source
     }
 
     func toAudiobook() -> Audiobook {
@@ -80,7 +85,8 @@ struct DownloadedBookMeta: Codable {
             fileCount: 1,
             createdAt: "",
             progress: progress,
-            chapters: chapters?.map { $0.toChapter() }
+            chapters: chapters?.map { $0.toChapter() },
+            source: source
         )
     }
 }

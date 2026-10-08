@@ -4,7 +4,9 @@ enum APIError: Error, LocalizedError {
     case invalidURL
     case notAuthenticated
     case invalidResponse
-    case httpError(statusCode: Int, message: String?)
+    /// `code` is the server's machine-readable error code (`"code"` in the
+    /// body, e.g. `REMOTE_UNAVAILABLE`), when it sends one.
+    case httpError(statusCode: Int, message: String?, code: String? = nil)
     case decodingError(Error)
     case networkError(Error)
 
@@ -16,7 +18,10 @@ enum APIError: Error, LocalizedError {
             return "Not authenticated"
         case .invalidResponse:
             return "Invalid server response"
-        case .httpError(let code, let message):
+        case .httpError(let code, let message, let serverCode):
+            if let friendly = LinkedServerPolicy.message(forErrorCode: serverCode) {
+                return friendly
+            }
             return message ?? "HTTP error \(code)"
         case .decodingError(let error):
             return "Failed to decode response: \(error.localizedDescription)"
@@ -264,8 +269,8 @@ class SapphoAPI {
             await MainActor.run { authRepository.setMustChangePassword(true) }
         }
 
-        let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).displayMessage
-        throw APIError.httpError(statusCode: status, message: message)
+        let body = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+        throw APIError.httpError(statusCode: status, message: body?.displayMessage, code: body?.code)
     }
 
     /// Reports byte-level upload progress for a single URLSession task.
@@ -394,12 +399,14 @@ class SapphoAPI {
 
     // MARK: - Audiobooks
 
-    func getAudiobooks(search: String? = nil, status: String? = nil, sort: String? = nil, limit: Int? = nil) async throws -> [Audiobook] {
+    /// `source`: `SourceFilter.queryValue` (nil = all; older servers ignore it).
+    func getAudiobooks(search: String? = nil, status: String? = nil, sort: String? = nil, limit: Int? = nil, source: String? = nil) async throws -> [Audiobook] {
         var queryItems: [URLQueryItem] = []
         if let search { queryItems.append(URLQueryItem(name: "search", value: search)) }
         if let status { queryItems.append(URLQueryItem(name: "status", value: status)) }
         if let sort { queryItems.append(URLQueryItem(name: "sort", value: sort)) }
         if let limit { queryItems.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let source { queryItems.append(URLQueryItem(name: "source", value: source)) }
 
         let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: queryItems.isEmpty ? nil : queryItems)
         return response.audiobooks
@@ -431,6 +438,17 @@ class SapphoAPI {
         // Returns array directly, not wrapped in { audiobooks: [...] }
         let queryItems = limit.map { [URLQueryItem(name: "limit", value: String($0))] } ?? []
         return try await request("api/audiobooks/meta/up-next", queryItems: queryItems)
+    }
+
+    /// The enabled linked servers (`GET /api/linked-servers/sources`), for
+    /// the Source filter. Servers older than 0.16 have no such route: a 404
+    /// there means "no linked servers", not an error.
+    func getLinkedSources() async throws -> [LinkedSource] {
+        do {
+            return try await request("api/linked-servers/sources")
+        } catch APIError.httpError(statusCode: 404, _, _) {
+            return []
+        }
     }
 
     func getGenres() async throws -> [GenreInfo] {
@@ -895,6 +913,19 @@ class SapphoAPI {
 private struct ErrorResponse: Codable {
     let message: String?
     let error: String?
+    /// Machine-readable code, e.g. `REMOTE_UNAVAILABLE` (linked servers).
+    let code: String?
+
+    enum CodingKeys: String, CodingKey { case message, error, code }
+
+    // Each field on its own, so an unexpected type in one (a numeric `code`)
+    // doesn't lose the human-readable message.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        message = (try? container.decodeIfPresent(String.self, forKey: .message)) ?? nil
+        error = (try? container.decodeIfPresent(String.self, forKey: .error)) ?? nil
+        code = (try? container.decodeIfPresent(String.self, forKey: .code)) ?? nil
+    }
 
     /// The Sappho server inconsistently uses either `error` or `message`
     /// for the human-readable text depending on the endpoint. This getter

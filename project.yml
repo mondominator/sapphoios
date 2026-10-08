@@ -18,7 +18,7 @@ settings:
     # - CURRENT_PROJECT_VERSION: CI's `fastlane ios beta` overwrites it with
     #   epoch seconds so every TestFlight upload is unique; the value here is
     #   only for local builds.
-    MARKETING_VERSION: 1.0.2
+    MARKETING_VERSION: 1.0.3
     CURRENT_PROJECT_VERSION: 46
     VERSIONING_SYSTEM: apple-generic
 
