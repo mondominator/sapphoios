@@ -941,6 +941,11 @@ struct DownloadedBookRow: View {
                     .foregroundColor(.sapphoTextMuted)
                 }
 
+                // A download plays offline, so only the name (never "Offline").
+                if let source = audiobook.source {
+                    SourceTag(source: source, style: .inline)
+                }
+
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.sapphoTiny)

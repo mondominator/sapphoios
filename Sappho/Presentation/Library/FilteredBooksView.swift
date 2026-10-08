@@ -229,6 +229,7 @@ struct BookListItem: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.sapphoSurface.opacity(0.5), lineWidth: 1)
                 )
+                .dimmedWhenUnavailable(audiobook)
 
             // Info
             VStack(alignment: .leading, spacing: 4) {
@@ -250,6 +251,8 @@ struct BookListItem: View {
                         .foregroundColor(.sapphoTextMuted)
                         .lineLimit(1)
                 }
+
+                audiobook.sourceTag(style: .inline)
 
                 Spacer().frame(height: 4)
 

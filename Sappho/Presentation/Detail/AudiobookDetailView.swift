@@ -64,6 +64,28 @@ struct AudiobookDetailView: View {
         fullAudiobook ?? audiobook
     }
 
+    /// Admin edit/delete/convert actions; a linked server's book is read-only
+    /// (the server answers 409 REMOTE_BOOK_READ_ONLY), so they're hidden.
+    private var canEdit: Bool {
+        LinkedServerPolicy.canEdit(displayBook, isAdmin: authRepository.isAdmin)
+    }
+
+    private var isPlayable: Bool {
+        if case .downloaded = downloadState { return true }
+        return LinkedServerPolicy.isPlayable(displayBook, isDownloaded: false)
+    }
+
+    /// Play, unless the server says the book can't be played right now; then
+    /// say why instead of starting a stream that will fail.
+    private func playIfAvailable(startPosition: TimeInterval? = nil) async {
+        guard isPlayable else {
+            toastMessage = LinkedServerPolicy.unavailableMessage(for: displayBook)
+            return
+        }
+        await audioPlayer.play(audiobook: displayBook, startPosition: startPosition)
+        audioPlayer.showFullPlayer = true
+    }
+
     private var progressPercent: Double {
         guard let progress = displayBook.progress,
               let duration = displayBook.duration,
@@ -77,6 +99,9 @@ struct AudiobookDetailView: View {
                 // Cover with overlays
                 coverSection
                     .padding(.top, 16)
+
+                // "From Robert's library" for a linked server's book
+                displayBook.sourceTag(style: .detail)
 
                 // Rating Section (directly under cover)
                 ratingSection
@@ -100,7 +125,7 @@ struct AudiobookDetailView: View {
         .toolbarBackground(Color.sapphoBackground, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            if authRepository.isAdmin {
+            if canEdit {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showEditSheet = true
@@ -183,8 +208,7 @@ struct AudiobookDetailView: View {
                 onSelect: { chapter in
                     showChaptersSheet = false
                     Task {
-                        await audioPlayer.play(audiobook: displayBook, startPosition: chapter.startTime)
-                        audioPlayer.showFullPlayer = true
+                        await playIfAvailable(startPosition: chapter.startTime)
                     }
                 }
             )
@@ -272,8 +296,8 @@ struct AudiobookDetailView: View {
                         }
                     }
 
-                    // Admin-only features
-                    if authRepository.isAdmin {
+                    // Admin-only features (not for a linked server's book)
+                    if canEdit {
                         Divider().background(Color.sapphoTextMuted.opacity(0.3)).padding(.vertical, 8)
 
                         moreMenuItem(
@@ -332,7 +356,7 @@ struct AudiobookDetailView: View {
             .frame(maxWidth: .infinity)
             .background(Color.sapphoSurface)
             .presentationDetents([.fraction({
-                let base = authRepository.isAdmin ? 0.75 : (chapters.isEmpty ? 0.38 : 0.45)
+                let base = canEdit ? 0.75 : (chapters.isEmpty ? 0.38 : 0.45)
                 let isDownloaded: Bool = { if case .downloaded = downloadState { return true } else { return false } }()
                 return base + (isDownloaded ? 0.05 : 0.0)
             }())])
@@ -386,6 +410,8 @@ struct AudiobookDetailView: View {
             // Cover Image
             CoverImage(audiobookId: displayBook.id, cornerRadius: 0, refreshTrigger: coverRefreshTrigger)
                 .frame(width: 320, height: 320)
+                .opacity(isPlayable ? 1 : 0.5)
+                .saturation(isPlayable ? 1 : 0)
 
             // Bookmark button (top right)
             VStack {
@@ -714,18 +740,17 @@ struct AudiobookDetailView: View {
                     audioPlayer.togglePlayPause()
                 } else {
                     Task {
-                        await audioPlayer.play(audiobook: displayBook)
-                        audioPlayer.showFullPlayer = true
+                        await playIfAvailable()
                     }
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: isCurrentlyPlaying ? "pause.fill" : "play.fill")
+                    Image(systemName: isCurrentlyPlaying ? "pause.fill" : (isPlayable ? "play.fill" : "icloud.slash"))
                         .font(.sapphoIconMedium)
-                    Text(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue" : "Play"))
+                    Text(isCurrentlyPlaying ? "Pause" : (isPlayable ? (hasProgress ? "Continue" : "Play") : (displayBook.isRemote ? "Offline" : "Unavailable")))
                         .font(.sapphoBodySemibold)
                 }
-                .foregroundColor(.white)
+                .foregroundColor(isCurrentlyPlaying || isPlayable ? .white : .sapphoTextMuted)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
                 .background(
@@ -740,7 +765,7 @@ struct AudiobookDetailView: View {
                 .cornerRadius(12)
             }
             .accessibilityLabel(isCurrentlyPlaying ? "Pause" : (hasProgress ? "Continue listening" : "Play"))
-            .accessibilityHint(isCurrentlyPlaying ? "Double tap to pause playback" : "Double tap to start playing \(displayBook.title)")
+            .accessibilityHint(isCurrentlyPlaying ? "Double tap to pause playback" : (isPlayable ? "Double tap to start playing \(displayBook.title)" : LinkedServerPolicy.unavailableMessage(for: displayBook)))
         }
         .padding(.horizontal, 24)
     }

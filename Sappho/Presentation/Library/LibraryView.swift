@@ -405,6 +405,13 @@ struct AllBooksView: View {
     @State private var sortOption: LibrarySortOption = .title
     @State private var sortAscending = true
     @State private var filterOption: LibraryFilterOption = .all
+    /// Linked servers; the Source menu is shown only when there are any.
+    @State private var linkedSources: [LinkedSource] = []
+    @State private var sourceFilter: SourceFilter = .all
+
+    private var sourceOptions: [SourceFilter] {
+        SourceFilter.options(for: linkedSources)
+    }
 
     private var filteredAudiobooks: [Audiobook] {
         switch filterOption {
@@ -456,7 +463,8 @@ struct AllBooksView: View {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
-            } else if audiobooks.isEmpty {
+            } else if audiobooks.isEmpty && sourceFilter == .all {
+                // With a source chosen, keep the controls so it can be changed back.
                 EmptyStateView(
                     icon: "books.vertical",
                     title: "No Audiobooks",
@@ -538,6 +546,43 @@ struct AllBooksView: View {
                                 .cornerRadius(8)
                             }
 
+                            // Source dropdown (only with linked servers)
+                            if !sourceOptions.isEmpty {
+                                Menu {
+                                    ForEach(sourceOptions, id: \.self) { option in
+                                        Button {
+                                            sourceFilter = option
+                                        } label: {
+                                            Label {
+                                                Text(option.label)
+                                            } icon: {
+                                                if sourceFilter == option {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text("From")
+                                            .font(.sapphoIconMini)
+                                            .foregroundColor(.sapphoTextMuted)
+                                        Text(sourceFilter.label)
+                                            .font(.sapphoDetail)
+                                            .foregroundColor(.white)
+                                            .lineLimit(1)
+                                        Image(systemName: "chevron.down")
+                                            .font(.sapphoTiny)
+                                            .foregroundColor(.sapphoTextMuted)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.sapphoSurface)
+                                    .cornerRadius(8)
+                                }
+                                .accessibilityLabel("Source: \(sourceFilter.label)")
+                            }
+
                             Spacer()
 
                             Text("\(sortedAudiobooks.count) books")
@@ -577,16 +622,26 @@ struct AllBooksView: View {
         .task {
             await loadData()
         }
+        .onChange(of: sourceFilter) {
+            Task { await loadData() }
+        }
     }
 
     private func loadData() async {
         isLoading = true
         errorMessage = nil
 
+        // The Source menu is optional: a failure here must not fail the list.
+        async let sources = try? api?.getLinkedSources()
         do {
-            audiobooks = try await api?.getAudiobooks(limit: 10000) ?? []
+            audiobooks = try await api?.getAudiobooks(limit: 10000, source: sourceFilter.queryValue) ?? []
         } catch {
             errorMessage = error.localizedDescription
+        }
+        linkedSources = await sources ?? []
+        // The chosen server's link was removed or disabled: back to All.
+        if sourceFilter != .all, !sourceOptions.contains(where: { $0.queryValue == sourceFilter.queryValue }) {
+            sourceFilter = .all
         }
 
         isLoading = false
@@ -614,6 +669,7 @@ struct AllBooksGridItem: View {
             // Cover
             CoverImage(audiobookId: audiobook.id, cornerRadius: 0)
                 .aspectRatio(1, contentMode: .fill)
+                .dimmedWhenUnavailable(audiobook)
 
             // Overlays
             VStack(spacing: 0) {
@@ -643,23 +699,30 @@ struct AllBooksGridItem: View {
 
                 Spacer()
 
-                // Rating badge (bottom-right)
-                if let rating = audiobook.userRating ?? audiobook.averageRating, rating > 0 {
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 2) {
-                            Image(systemName: "star.fill")
-                                .font(.sapphoMicro)
-                                .foregroundColor(.sapphoRating)
-                            Text(String(format: "%.0f", rating))
-                                .font(.sapphoTinySemibold)
-                                .foregroundColor(.white)
+                // Source tag (bottom-left, remote books only) and rating
+                // badge (bottom-right)
+                let rating = audiobook.userRating ?? audiobook.averageRating ?? 0
+                if audiobook.isRemote || rating > 0 {
+                    HStack(spacing: 0) {
+                        audiobook.sourceTag()
+                            .padding(4)
+                        Spacer(minLength: 0)
+                        if rating > 0 {
+                            HStack(spacing: 2) {
+                                Image(systemName: "star.fill")
+                                    .font(.sapphoMicro)
+                                    .foregroundColor(.sapphoRating)
+                                Text(String(format: "%.0f", rating))
+                                    .font(.sapphoTinySemibold)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.75))
+                            .cornerRadius(4)
+                            .padding(4)
+                            .layoutPriority(1)
                         }
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.75))
-                        .cornerRadius(4)
-                        .padding(4)
                     }
                 }
 
@@ -689,7 +752,7 @@ struct AllBooksGridItem: View {
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(isCompleted ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")")
+        .accessibilityLabel("\(audiobook.title), by \(audiobook.author ?? "Unknown Author")\(isCompleted ? ", Completed" : progressPercent > 0 ? ", \(Int(progressPercent * 100)) percent complete" : "")\(audiobook.isQueued == true ? ", In reading list" : "")\(audiobook.sourceAccessibilitySuffix)")
         .accessibilityHint("Double tap to view details")
     }
 }

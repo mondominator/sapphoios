@@ -156,6 +156,17 @@ token); 403 never does. A 403 with `must_change_password` (or the login response
 flag) shows `ChangePasswordRequiredView`. Every request carries `X-Device-Name`
 (percent-encoded) and `X-App-Version`.
 
+**Linked servers** (server 0.16+, `Domain/LinkedServerPolicy.swift`, unit tested):
+books mirrored from another Sappho server carry `source` (`{id, name}`, nil for
+local) and `available` (nil on older servers = available). They use the same ids
+and endpoints, so downloads, progress and CarPlay need nothing special.
+`SourceTag` shows the server name on cards/rows/detail for remote books only;
+unavailable books are dimmed and Play explains why. Admin edit/delete/convert
+are hidden for remote books (409 `REMOTE_BOOK_READ_ONLY`). All Books has a
+Source filter (`?source=`) shown only when `GET /api/linked-servers/sources` is
+non-empty. `REMOTE_*` errors (502/503/404/409) carry `APIError.httpError.code`
+and a friendly message, and never clear the session.
+
 **Versioning / CI:** see `docs/CI.md`. Versions live in `project.yml` only.
 
 ### State Management

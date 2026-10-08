@@ -274,7 +274,7 @@ class AudioPlayerService: NSObject {
         }
 
         guard !hasRetriedCurrentItem else {
-            playbackError = Self.describe(error)
+            playbackError = Self.describe(error, book: currentAudiobook)
             return
         }
         hasRetriedCurrentItem = true
@@ -283,11 +283,9 @@ class AudioPlayerService: NSObject {
         }
     }
 
-    private static func describe(_ error: Error?) -> String {
-        if let error = error as NSError?, error.domain == NSURLErrorDomain {
-            return "Can't reach the server. Check your connection and try again."
-        }
-        return "Playback failed. Try again."
+    private static func describe(_ error: Error?, book: Audiobook?) -> String {
+        let isNetworkError = (error as NSError?)?.domain == NSURLErrorDomain
+        return LinkedServerPolicy.playbackFailureMessage(for: book, isNetworkError: isNetworkError)
     }
 
     /// AVPlayer failed on an HLS item. It does not expose the server's
@@ -923,7 +921,7 @@ class AudioPlayerService: NSObject {
                     // posting to the dead id indefinitely). Anything else
                     // (including 401, which the API layer refreshes) stays
                     // queued for the next attempt.
-                    if case let .httpError(statusCode, _) = error, statusCode == 404 || statusCode == 410 {
+                    if case let .httpError(statusCode, _, _) = error, statusCode == 404 || statusCode == 410 {
                         store.removePending(account: account, audiobookId: audiobookId)
                         print("Dropped pending progress for audiobook \(audiobookId): server returned \(statusCode)")
                     }
