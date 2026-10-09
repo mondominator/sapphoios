@@ -853,12 +853,12 @@ struct AdminUser: Decodable, Identifiable {
     let isAdmin: Int
     let createdAt: String?
     let isDisabled: Int?
-    /// Server 0.16.5+, SQLite UTC timestamps; see `UserActivity`.
+    /// Server 0.16.5+, SQLite UTC timestamps; see `ListeningActivity`.
     let lastLoginAt: String?
-    let lastActiveAt: String?
     let lastListenedAt: String?
+    let lastListenedTitle: String?
     /// False when the server predates activity tracking (fields absent, not
-    /// null), so the UI shows nothing instead of "No activity yet".
+    /// null), so the UI shows nothing instead of "No listening yet".
     let reportsActivity: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -868,8 +868,8 @@ struct AdminUser: Decodable, Identifiable {
         case createdAt = "created_at"
         case isDisabled = "is_disabled"
         case lastLoginAt = "last_login_at"
-        case lastActiveAt = "last_active_at"
         case lastListenedAt = "last_listened_at"
+        case lastListenedTitle = "last_listened_title"
     }
 
     init(from decoder: Decoder) throws {
@@ -882,9 +882,9 @@ struct AdminUser: Decodable, Identifiable {
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         isDisabled = try c.decodeIfPresent(Int.self, forKey: .isDisabled)
         lastLoginAt = try c.decodeIfPresent(String.self, forKey: .lastLoginAt)
-        lastActiveAt = try c.decodeIfPresent(String.self, forKey: .lastActiveAt)
         lastListenedAt = try c.decodeIfPresent(String.self, forKey: .lastListenedAt)
-        reportsActivity = c.contains(.lastListenedAt) || c.contains(.lastActiveAt)
+        lastListenedTitle = try c.decodeIfPresent(String.self, forKey: .lastListenedTitle)
+        reportsActivity = c.contains(.lastListenedAt)
     }
 
     var isAdminUser: Bool {

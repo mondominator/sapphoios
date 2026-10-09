@@ -1176,12 +1176,9 @@ struct AdminUserRow: View {
                     }
 
                     // Older servers don't report activity: show nothing rather
-                    // than a misleading "No activity yet".
+                    // than a misleading "No listening yet".
                     if user.reportsActivity {
-                        Text(UserActivity.activeLabel(user.lastActivityDate))
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoTextMuted)
-                            .lineLimit(1)
+                        LastListenLine(activity: user.lastListen)
                     }
                 }
             }

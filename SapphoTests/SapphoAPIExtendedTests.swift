@@ -544,7 +544,7 @@ final class SapphoAPIExtendedTests: XCTestCase {
     func testGetUsers() async throws {
         let responseJSON = """
         [
-            {"id": 1, "username": "admin", "email": "admin@example.com", "is_admin": 1, "created_at": "2024-01-01 00:00:00", "last_login_at": "2025-03-21 09:00:00", "last_active_at": "2025-03-22 10:00:00", "last_listened_at": null},
+            {"id": 1, "username": "admin", "email": "admin@example.com", "is_admin": 1, "created_at": "2024-01-01 00:00:00", "last_login_at": "2025-03-21 09:00:00", "last_listened_at": "2025-03-22 10:00:00", "last_listened_title": "Golden Son"},
             {"id": 2, "username": "reader", "email": null, "is_admin": 0, "created_at": "2024-06-15", "is_disabled": 0}
         ]
         """.data(using: .utf8)!
@@ -563,7 +563,7 @@ final class SapphoAPIExtendedTests: XCTestCase {
         XCTAssertTrue(users[0].isAdminUser)
         XCTAssertFalse(users[1].isAdminUser)
         XCTAssertTrue(users[0].reportsActivity)
-        XCTAssertNotNil(users[0].lastActivityDate)
+        XCTAssertEqual(users[0].lastListen?.title, "Golden Son")
         XCTAssertFalse(users[1].reportsActivity, "pre-0.16.5 row omits the activity fields")
     }
 
