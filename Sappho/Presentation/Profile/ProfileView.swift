@@ -1146,40 +1146,45 @@ struct AdminUserRow: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(user.username)
-                        .foregroundColor(.sapphoTextHigh)
+            // The link covers the user info only, so the trash button keeps
+            // its own tap target instead of opening the detail.
+            NavigationLink {
+                AdminUserDetailView(user: user)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(user.username)
+                            .foregroundColor(.sapphoTextHigh)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
-                    if user.isAdminUser {
-                        Text("Admin")
-                            .font(.sapphoSmall)
-                            .foregroundColor(.sapphoPrimary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.sapphoPrimary.opacity(0.2))
-                            .cornerRadius(8)
+                        if user.isAdminUser {
+                            badge("Admin", color: .sapphoPrimary)
+                        }
+
+                        if user.isAccountDisabled {
+                            badge("Disabled", color: .sapphoError)
+                        }
                     }
 
-                    if user.isAccountDisabled {
-                        Text("Disabled")
+                    if let email = user.email {
+                        Text(email)
                             .font(.sapphoSmall)
-                            .foregroundColor(.sapphoError)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.sapphoError.opacity(0.2))
-                            .cornerRadius(8)
+                            .foregroundColor(.sapphoTextMuted)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                }
 
-                if let email = user.email {
-                    Text(email)
-                        .font(.sapphoSmall)
-                        .foregroundColor(.sapphoTextMuted)
+                    // Older servers don't report activity: show nothing rather
+                    // than a misleading "No activity yet".
+                    if user.reportsActivity {
+                        Text(UserActivity.activeLabel(user.lastActivityDate))
+                            .font(.sapphoSmall)
+                            .foregroundColor(.sapphoTextMuted)
+                            .lineLimit(1)
+                    }
                 }
             }
-
-            Spacer()
 
             Button(role: .destructive) {
                 onDelete()
@@ -1187,8 +1192,20 @@ struct AdminUserRow: View {
                 Image(systemName: "trash")
                     .foregroundColor(.sapphoError)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
         }
+    }
+
+    private func badge(_ title: String, color: Color) -> some View {
+        Text(title)
+            .font(.sapphoSmall)
+            .foregroundColor(color)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.2))
+            .cornerRadius(8)
     }
 }
 
