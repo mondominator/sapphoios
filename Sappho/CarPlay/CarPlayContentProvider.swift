@@ -221,7 +221,8 @@ final class CarPlayContentProvider {
     }
 
     func allBooksSections(onSelect: @escaping (Audiobook) -> Void) async throws -> [CPListSection] {
-        bookSections(try await api.getAudiobooks(), onSelect: onSelect)
+        // bookSections shows at most 100; without a limit the server sends 50.
+        bookSections(try await api.getAudiobooks(limit: 100), onSelect: onSelect)
     }
 
     private func bookSections(_ books: [Audiobook], onSelect: @escaping (Audiobook) -> Void) -> [CPListSection] {

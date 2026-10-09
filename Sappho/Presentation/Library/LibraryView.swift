@@ -233,8 +233,9 @@ struct LibraryView: View {
                 }
             }
             group.addTask {
-                if let b = try? await api?.getAudiobooks() {
-                    await MainActor.run { totalBooks = b.count }
+                // The server's default page is 50 books; ask for the real total.
+                if let n = try? await api?.getLibraryBookCount() {
+                    await MainActor.run { totalBooks = n }
                 }
             }
         }
@@ -473,90 +474,61 @@ struct AllBooksView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Sort and filter controls
-                        HStack(spacing: 8) {
-                            // Sort dropdown
-                            Menu {
-                                ForEach(LibrarySortOption.allCases, id: \.self) { option in
-                                    Button {
-                                        if sortOption == option {
-                                            sortAscending.toggle()
-                                        } else {
-                                            sortOption = option
-                                            sortAscending = true
-                                        }
-                                    } label: {
-                                        Label {
-                                            Text(option.rawValue)
-                                        } icon: {
-                                            if sortOption == option {
-                                                Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                                            }
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Text("Sort")
-                                        .font(.sapphoIconMini)
-                                        .foregroundColor(.sapphoTextMuted)
-                                    Text(sortOption.rawValue)
-                                        .font(.sapphoDetail)
-                                        .foregroundColor(.white)
-                                    Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                                        .font(.sapphoTiny)
-                                        .foregroundColor(.sapphoTextMuted)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.sapphoSurface)
-                                .cornerRadius(8)
-                            }
-
-                            // Filter dropdown
-                            Menu {
-                                ForEach(LibraryFilterOption.allCases, id: \.self) { option in
-                                    Button {
-                                        filterOption = option
-                                    } label: {
-                                        Label {
-                                            Text(option.rawValue)
-                                        } icon: {
-                                            if filterOption == option {
-                                                Image(systemName: "checkmark")
-                                            }
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Text("Show")
-                                        .font(.sapphoIconMini)
-                                        .foregroundColor(.sapphoTextMuted)
-                                    Text(filterOption.rawValue)
-                                        .font(.sapphoDetail)
-                                        .foregroundColor(.white)
-                                    Image(systemName: "chevron.down")
-                                        .font(.sapphoTiny)
-                                        .foregroundColor(.sapphoTextMuted)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.sapphoSurface)
-                                .cornerRadius(8)
-                            }
-
-                            // Source dropdown (only with linked servers)
-                            if !sourceOptions.isEmpty {
+                        // Sort and filter controls. Scrolls sideways rather than
+                        // squeezing the labels until they wrap mid-word on a phone.
+                        // The book count is the navigation title, not repeated here.
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                // Sort dropdown
                                 Menu {
-                                    ForEach(sourceOptions, id: \.self) { option in
+                                    ForEach(LibrarySortOption.allCases, id: \.self) { option in
                                         Button {
-                                            sourceFilter = option
+                                            if sortOption == option {
+                                                sortAscending.toggle()
+                                            } else {
+                                                sortOption = option
+                                                sortAscending = true
+                                            }
                                         } label: {
                                             Label {
-                                                Text(option.label)
+                                                Text(option.rawValue)
                                             } icon: {
-                                                if sourceFilter == option {
+                                                if sortOption == option {
+                                                    Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
+                                                }
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text("Sort")
+                                            .font(.sapphoIconMini)
+                                            .foregroundColor(.sapphoTextMuted)
+                                        Text(sortOption.rawValue)
+                                            .font(.sapphoDetail)
+                                            .foregroundColor(.white)
+                                        Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
+                                            .font(.sapphoTiny)
+                                            .foregroundColor(.sapphoTextMuted)
+                                    }
+                                    .lineLimit(1)
+                                    .fixedSize()
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.sapphoSurface)
+                                    .cornerRadius(8)
+                                }
+
+                                // Filter dropdown
+                                Menu {
+                                    ForEach(LibraryFilterOption.allCases, id: \.self) { option in
+                                        Button {
+                                            filterOption = option
+                                        } label: {
+                                            Label {
+                                                Text(option.rawValue)
+                                            } icon: {
+                                                if filterOption == option {
                                                     Image(systemName: "checkmark")
                                                 }
                                             }
@@ -564,33 +536,66 @@ struct AllBooksView: View {
                                     }
                                 } label: {
                                     HStack(spacing: 6) {
-                                        Text("From")
+                                        Text("Show")
                                             .font(.sapphoIconMini)
                                             .foregroundColor(.sapphoTextMuted)
-                                        Text(sourceFilter.label)
+                                        Text(filterOption.rawValue)
                                             .font(.sapphoDetail)
                                             .foregroundColor(.white)
-                                            .lineLimit(1)
                                         Image(systemName: "chevron.down")
                                             .font(.sapphoTiny)
                                             .foregroundColor(.sapphoTextMuted)
                                     }
+                                    .lineLimit(1)
+                                    .fixedSize()
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
                                     .background(Color.sapphoSurface)
                                     .cornerRadius(8)
                                 }
-                                .accessibilityLabel("Source: \(sourceFilter.label)")
+
+                                // Source dropdown (only with linked servers)
+                                if !sourceOptions.isEmpty {
+                                    Menu {
+                                        ForEach(sourceOptions, id: \.self) { option in
+                                            Button {
+                                                sourceFilter = option
+                                            } label: {
+                                                Label {
+                                                    Text(option.label)
+                                                } icon: {
+                                                    if sourceFilter == option {
+                                                        Image(systemName: "checkmark")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Text("From")
+                                                .font(.sapphoIconMini)
+                                                .foregroundColor(.sapphoTextMuted)
+                                            Text(sourceFilter.label)
+                                                .font(.sapphoDetail)
+                                                .foregroundColor(.white)
+                                                .lineLimit(1)
+                                            Image(systemName: "chevron.down")
+                                                .font(.sapphoTiny)
+                                                .foregroundColor(.sapphoTextMuted)
+                                        }
+                                        .lineLimit(1)
+                                        .fixedSize()
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color.sapphoSurface)
+                                        .cornerRadius(8)
+                                    }
+                                    .accessibilityLabel("Source: \(sourceFilter.label)")
+                                }
                             }
-
-                            Spacer()
-
-                            Text("\(sortedAudiobooks.count) books")
-                                .font(.sapphoCaption)
-                                .foregroundColor(.sapphoTextMuted)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
 
                         // Grid
                         LazyVGrid(columns: [
@@ -634,7 +639,7 @@ struct AllBooksView: View {
         // The Source menu is optional: a failure here must not fail the list.
         async let sources = try? api?.getLinkedSources()
         do {
-            audiobooks = try await api?.getAudiobooks(limit: 10000, source: sourceFilter.queryValue) ?? []
+            audiobooks = try await api?.getAllAudiobooks(source: sourceFilter.queryValue) ?? []
         } catch {
             errorMessage = error.localizedDescription
         }
