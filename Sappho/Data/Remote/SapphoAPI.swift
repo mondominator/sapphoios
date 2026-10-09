@@ -796,7 +796,7 @@ class SapphoAPI {
     // MARK: - Admin: Maintenance
 
     func scanLibrary() async throws -> ScanResponse {
-        try await request("api/maintenance/scan", method: "POST")
+        try await request("api/maintenance/scan-library", method: "POST")
     }
 
     func forceRescan() async throws -> ScanResponse {

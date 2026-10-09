@@ -613,7 +613,7 @@ final class SapphoAPIExtendedTests: XCTestCase {
 
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertTrue(request.url?.absoluteString.contains("api/maintenance/scan") ?? false)
+            XCTAssertTrue(request.url?.absoluteString.hasSuffix("api/maintenance/scan-library") ?? false)
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-token-abc123")
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, responseJSON)
