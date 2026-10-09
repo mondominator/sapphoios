@@ -61,7 +61,7 @@ struct AuthorsListView: View {
 
         do {
             async let authorsData = api?.getAuthors()
-            async let booksData = api?.getAudiobooks(limit: 10000)
+            async let booksData = api?.getAllAudiobooks()
 
             authors = try await authorsData ?? []
             allBooks = try await booksData ?? []

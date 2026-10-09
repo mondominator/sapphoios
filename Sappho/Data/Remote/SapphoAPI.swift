@@ -412,6 +412,70 @@ class SapphoAPI {
         return response.audiobooks
     }
 
+    /// Books per request when paging the whole library. The server clamps
+    /// `limit` to 2000, so a single `limit: 10000` request silently stops at
+    /// 2000 books; the web client pages in 1000s too.
+    static let audiobookPageSize = 1000
+
+    /// The entire library (optionally one source), fetched page by page.
+    /// `source`: `SourceFilter.queryValue` (nil = all).
+    func getAllAudiobooks(source: String? = nil) async throws -> [Audiobook] {
+        try await getAllAudiobookPages(filter: source.map { [URLQueryItem(name: "source", value: $0)] } ?? [])
+    }
+
+    /// Pages `GET /api/audiobooks` with `limit`/`offset` until the server has
+    /// nothing more: an empty page, the reported `total` reached, or (servers
+    /// that send no `total`) a short page. Books are de-duplicated by id, and a
+    /// page that adds nothing new ends the loop, so a server that ignores
+    /// `offset` cannot spin it forever.
+    private func getAllAudiobookPages(filter: [URLQueryItem]) async throws -> [Audiobook] {
+        let pageSize = Self.audiobookPageSize
+        var books: [Audiobook] = []
+        var seen = Set<Int>()
+        var offset = 0
+
+        while true {
+            let page: AudiobooksResponse = try await request("api/audiobooks", queryItems: filter + [
+                URLQueryItem(name: "limit", value: String(pageSize)),
+                URLQueryItem(name: "offset", value: String(offset))
+            ])
+            if page.audiobooks.isEmpty { break }
+
+            var added = 0
+            for book in page.audiobooks where seen.insert(book.id).inserted {
+                books.append(book)
+                added += 1
+            }
+            offset += page.audiobooks.count
+
+            if added == 0 { break }
+            if let total = page.total {
+                if offset >= total { break }
+            } else if page.audiobooks.count < pageSize {
+                break
+            }
+        }
+        return books
+    }
+
+    /// Library totals (`GET /api/audiobooks/meta/stats`; older servers 404).
+    func getLibraryStats(source: String? = nil) async throws -> LibraryStats {
+        try await request("api/audiobooks/meta/stats", queryItems: source.map { [URLQueryItem(name: "source", value: $0)] })
+    }
+
+    /// How many books the library holds. Uses the stats endpoint; servers
+    /// without it get a one-book page and its `total` instead of the whole list.
+    func getLibraryBookCount(source: String? = nil) async throws -> Int {
+        if let stats = try? await getLibraryStats(source: source) {
+            return stats.totalBooks
+        }
+        var queryItems = [URLQueryItem(name: "limit", value: "1")]
+        if let source { queryItems.append(URLQueryItem(name: "source", value: source)) }
+        let page: AudiobooksResponse = try await request("api/audiobooks", queryItems: queryItems)
+        if let total = page.total { return total }
+        return try await getAllAudiobooks(source: source).count
+    }
+
     func getAudiobook(id: Int) async throws -> Audiobook {
         try await request("api/audiobooks/\(id)")
     }
@@ -464,24 +528,18 @@ class SapphoAPI {
     }
 
     func getAudiobooksByGenre(_ genre: String) async throws -> [Audiobook] {
-        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
-            URLQueryItem(name: "genre", value: genre)
-        ])
-        return response.audiobooks
+        // Without a limit the server returns only its default 50.
+        try await getAllAudiobookPages(filter: [URLQueryItem(name: "genre", value: genre)])
     }
 
     func getAudiobooksBySeries(_ series: String) async throws -> [Audiobook] {
-        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
-            URLQueryItem(name: "series", value: series)
-        ])
-        return response.audiobooks
+        // Without a limit the server returns only its default 50.
+        try await getAllAudiobookPages(filter: [URLQueryItem(name: "series", value: series)])
     }
 
     func getAudiobooksByAuthor(_ author: String) async throws -> [Audiobook] {
-        let response: AudiobooksResponse = try await request("api/audiobooks", queryItems: [
-            URLQueryItem(name: "author", value: author)
-        ])
-        return response.audiobooks
+        // Without a limit the server returns only its default 50.
+        try await getAllAudiobookPages(filter: [URLQueryItem(name: "author", value: author)])
     }
 
     // MARK: - Progress

@@ -62,7 +62,7 @@ struct SeriesListView: View {
 
         do {
             async let seriesData = api?.getSeries()
-            async let booksData = api?.getAudiobooks(limit: 10000)
+            async let booksData = api?.getAllAudiobooks()
 
             series = try await seriesData ?? []
             allBooks = try await booksData ?? []

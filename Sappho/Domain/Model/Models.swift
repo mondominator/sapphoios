@@ -473,6 +473,16 @@ struct LoginUser: Codable {
 // MARK: - Audiobooks Response
 struct AudiobooksResponse: Codable {
     let audiobooks: [Audiobook]
+    /// Books matching the query across all pages. Optional: older servers omit it.
+    let total: Int?
+}
+
+// MARK: - Library Stats
+/// `GET /api/audiobooks/meta/stats`
+struct LibraryStats: Codable {
+    let totalBooks: Int
+    /// Seconds. A Double so a REAL-typed SUM from SQLite still decodes.
+    let totalDuration: Double?
 }
 
 // MARK: - User Stats
