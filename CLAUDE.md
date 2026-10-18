@@ -151,7 +151,8 @@ The pure rules live in `Domain/PlaybackPolicy.swift` and `Domain/StreamingPolicy
   covers are `?width=300` (shelves) / `?width=120` (list rows) via
   `CoverThumbnailLoader` (3 at a time, shared `ImageCache`)
 - CarPlay search is Siri: `CPSearchTemplate` is navigation-only, so Home and
-  Library carry an Ask Siri row. `PlayMediaIntentHandler` (in-app, no Intents
+  Library have no search row (an Ask Siri row was dropped as clutter); "play X"
+  goes through the car's Siri button. `PlayMediaIntentHandler` (in-app, no Intents
   extension; AppDelegate `handlerFor`/`handle`) resolves "play X" with
   `VoiceSearch` (unit tested) over a server search plus the downloads
 - CarPlay taps start playback immediately (`CarPlayPlaybackStarter`); the

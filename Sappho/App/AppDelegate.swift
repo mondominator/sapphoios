@@ -9,7 +9,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Audio session is configured by AudioPlayerService.setupAudioSession()
         // which sets .playback category with .longFormAudio policy.
 
-        // Siri ("play <book> on Sappho", and CarPlay's Ask Siri row) needs the
+        // Siri ("play <book> on Sappho", on the phone or in the car) needs the
         // user's permission once; asked on the phone, since CarPlay can't.
         if INPreferences.siriAuthorizationStatus() == .notDetermined {
             INPreferences.requestSiriAuthorization { _ in }
