@@ -76,7 +76,6 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
         let homeTemplate = CPListTemplate(title: "Home", sections: [])
         homeTemplate.tabImage = UIImage(systemName: "house")
-        homeTemplate.assistantCellConfiguration = Self.askSiri
         self.homeTemplate = homeTemplate
         rebuildHome()
 
@@ -88,11 +87,10 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
             onAllBooks: { [weak self] in self?.showAllBooks() }
         )
         libraryTemplate.tabImage = UIImage(systemName: "books.vertical")
-        libraryTemplate.assistantCellConfiguration = Self.askSiri
 
         // Two tabs only. CPSearchTemplate is a navigation-app template; an
         // audio app may not show it at all (as a tab or pushed). Search is by
-        // voice instead: the Ask Siri row at the top of Home and Library
+        // voice instead: "play <book> on Sappho" through the car's Siri button
         // (PlayMediaIntentHandler).
         let tabBar = CPTabBarTemplate(templates: [homeTemplate, libraryTemplate])
         interfaceController.setRootTemplate(tabBar, animated: true) { success, error in
@@ -178,11 +176,6 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         )
         homeTemplate.updateSections(sections)
     }
-
-    /// "Ask Siri" at the top of a list: CarPlay's search for audio apps.
-    private static let askSiri = CPAssistantCellConfiguration(
-        position: .top, visibility: .always, assistantAction: .playMedia
-    )
 
     // MARK: - Playback
 

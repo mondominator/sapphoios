@@ -1,9 +1,8 @@
 import Intents
 
 /// Siri's "play <book> on Sappho" -- the search CarPlay allows an audio app
-/// (CPSearchTemplate is navigation-only; see CarPlaySceneDelegate). CarPlay's
-/// Home and Library carry an "Ask Siri" row that lands here; the phone gets the
-/// same request from Siri anywhere.
+/// (CPSearchTemplate is navigation-only; see CarPlaySceneDelegate). The car's
+/// Siri button lands here; the phone gets the same request from Siri anywhere.
 ///
 /// Resolving picks the book (`VoiceSearch`) from a server search, falling back
 /// on the downloads when the server can't answer in time; handling asks iOS to

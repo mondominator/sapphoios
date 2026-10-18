@@ -225,7 +225,7 @@ final class CarPlayContentProvider {
     ) -> CPListTemplate {
         // No Search row: CPSearchTemplate is only for navigation apps, and
         // CarPlay rejects it from an audio app whether it is a tab or pushed.
-        // The template's Ask Siri row is the search (CarPlaySceneDelegate).
+        // Search is by voice through Siri (CarPlaySceneDelegate).
         // Downloaded is the useful extra row in a car with patchy signal.
         let downloadedItem = CPListItem(
             text: "Downloaded",
