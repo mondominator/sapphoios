@@ -146,8 +146,14 @@ The pure rules live in `Domain/PlaybackPolicy.swift` and `Domain/StreamingPolicy
 - Last good feed saved per account (Application Support/HomeFeed), so both
   screens open with it; cleared on logout
 - CarPlay Home is built from it + downloads + current book with no network wait
-  (`CarPlayHomeLayout`, unit tested); covers are `?width=120` thumbnails via
+  (`CarPlayHomeLayout`, unit tested): the phone's rows in the phone's order, each
+  a `CPListImageRowItem` of covers (tap a cover to play, the title for the list);
+  covers are `?width=300` (shelves) / `?width=120` (list rows) via
   `CoverThumbnailLoader` (3 at a time, shared `ImageCache`)
+- CarPlay search is Siri: `CPSearchTemplate` is navigation-only, so Home and
+  Library carry an Ask Siri row. `PlayMediaIntentHandler` (in-app, no Intents
+  extension; AppDelegate `handlerFor`/`handle`) resolves "play X" with
+  `VoiceSearch` (unit tested) over a server search plus the downloads
 - CarPlay taps start playback immediately (`CarPlayPlaybackStarter`); the
   server copy of the book is fetched afterwards (`refreshAfterImmediateStart`)
 

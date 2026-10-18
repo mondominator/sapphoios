@@ -53,6 +53,16 @@
 			</array>
 		</dict>
 	</dict>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryAudiobooks</string>
+	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>Siri can find and play your audiobooks, including from CarPlay.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
