@@ -1,5 +1,6 @@
 import XCTest
 import AVFoundation
+import CarPlay
 @testable import Sappho
 
 // Every test here is deterministic on a slow, loaded machine: correctness is
@@ -454,14 +455,15 @@ final class HomeFeedStoreTests: XCTestCase {
 final class CarPlayHomeLayoutTests: XCTestCase {
     private func headers(_ sections: [CarPlayHomeSection]) -> [String?] { sections.map(\.header) }
 
-    func testOfflineLeadsWithTheDownloadedCurrentBookThenDownloads() {
+    func testOfflinePutsDownloadedFirstLikeThePhone() {
         let current = book(5, "Current")
         let downloaded = [book(5, "Current"), book(6, "Other download")]
-        let sections = CarPlayHomeLayout.build(feed: [:], downloaded: downloaded, current: current, isConnected: false)
+        let feed: [HomeSectionKind: HomeSectionState] = [.continueListening: loaded([book(1), book(5)])]
+        let sections = CarPlayHomeLayout.build(feed: feed, downloaded: downloaded, current: current, isConnected: false)
 
-        XCTAssertEqual(headers(sections).prefix(2), ["Resume", "Downloaded"])
-        XCTAssertEqual(sections[0].rows, [.book(current, isDownloaded: true)])
-        XCTAssertEqual(sections[1].rows.compactMap(\.bookId), [6], "current book isn't listed twice")
+        XCTAssertEqual(headers(sections).prefix(2), ["Downloaded", "Continue Listening"])
+        XCTAssertEqual(sections[0].rows.compactMap(\.bookId), [5, 6])
+        XCTAssertEqual(sections[1].rows.compactMap(\.bookId), [5, 1], "the current book leads Continue Listening")
         if case .status(let title, _, _) = sections.last?.rows.first {
             XCTAssertEqual(title, "Offline")
         } else {
@@ -469,25 +471,27 @@ final class CarPlayHomeLayoutTests: XCTestCase {
         }
     }
 
-    func testOfflineDoesNotOfferAStreamOnlyCurrentBookOnTop() {
+    func testOfflineDoesNotPutAStreamOnlyCurrentBookOnTop() {
+        let feed: [HomeSectionKind: HomeSectionState] = [.continueListening: loaded([book(1)])]
         let sections = CarPlayHomeLayout.build(
-            feed: [:], downloaded: [book(6)], current: book(5), isConnected: false
+            feed: feed, downloaded: [book(6)], current: book(5), isConnected: false
         )
         XCTAssertEqual(sections.first?.header, "Downloaded")
+        XCTAssertEqual(sections[1].rows.compactMap(\.bookId), [1])
     }
 
-    func testSlowLinkColdStartShowsSavedFeedAndDownloadsImmediately() {
+    func testSlowLinkColdStartShowsTheSavedFeedInThePhonesOrder() {
         // Nothing has answered yet this session; the feed is the saved one.
         var feed: [HomeSectionKind: HomeSectionState] = [:]
         feed[.continueListening] = HomeSectionState(books: [book(1), book(2)], status: .loading, updatedAt: Date())
         feed[.upNext] = HomeSectionState(books: [book(3)], status: .loading, updatedAt: Date())
         let sections = CarPlayHomeLayout.build(feed: feed, downloaded: [book(8)], current: nil, isConnected: true)
 
-        XCTAssertEqual(headers(sections), ["Resume", "Downloaded", "In Progress", "Up Next"])
-        XCTAssertEqual(sections[0].rows.compactMap(\.bookId), [1])
+        XCTAssertEqual(headers(sections), ["Continue Listening", "Up Next", "Downloaded"])
+        XCTAssertEqual(sections[0].rows.compactMap(\.bookId), [1, 2])
     }
 
-    func testFreshFeedOrderMatchesThePhoneWithDownloadsLast() {
+    func testOnlineOrderMatchesThePhoneWithDownloadsLast() {
         let feed: [HomeSectionKind: HomeSectionState] = [
             .continueListening: loaded([book(1), book(2)]),
             .upNext: loaded([book(3)]),
@@ -495,8 +499,19 @@ final class CarPlayHomeLayoutTests: XCTestCase {
             .listenAgain: loaded([book(5)])
         ]
         let sections = CarPlayHomeLayout.build(feed: feed, downloaded: [book(2), book(9)], current: nil, isConnected: true)
-        XCTAssertEqual(headers(sections), ["Resume", "In Progress", "Up Next", "Recently Added", "Listen Again", "Downloaded"])
-        XCTAssertEqual(sections[1].rows, [.book(book(2), isDownloaded: true)])
+        XCTAssertEqual(headers(sections), ["Continue Listening", "Up Next", "Recently Added", "Listen Again", "Downloaded"])
+        XCTAssertEqual(sections[0].rows, [.book(book(1), isDownloaded: false), .book(book(2), isDownloaded: true)])
+        XCTAssertFalse(headers(sections).contains("Resume"), "the phone has no Resume row")
+    }
+
+    func testTheCurrentBookLeadsContinueListeningWithoutRepeating() {
+        let feed: [HomeSectionKind: HomeSectionState] = [.continueListening: loaded([book(1), book(2), book(3)])]
+        let moved = CarPlayHomeLayout.build(feed: feed, downloaded: [], current: book(3), isConnected: true)
+        XCTAssertEqual(moved[0].rows.compactMap(\.bookId), [3, 1, 2])
+
+        // Cold start: the last-played book isn't in the saved feed yet.
+        let added = CarPlayHomeLayout.build(feed: feed, downloaded: [], current: book(7), isConnected: true)
+        XCTAssertEqual(added[0].rows.compactMap(\.bookId), [7, 1, 2, 3])
     }
 
     func testAFailedSectionKeepsSavedBooksAndOffersRetry() {
@@ -601,6 +616,11 @@ final class CoverThumbnailTests: XCTestCase {
 final class CarPlayProviderSlowLinkTests: XCTestCase {
     private var directory: URL!
 
+    /// Home's rows of covers, by title.
+    private func shelves(_ sections: [CPListSection]) -> [String] {
+        sections.flatMap(\.items).compactMap { ($0 as? CPListImageRowItem)?.text }
+    }
+
     override func setUp() async throws {
         try await super.setUp()
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("CarPlayHome-\(UUID().uuidString)")
@@ -612,7 +632,7 @@ final class CarPlayProviderSlowLinkTests: XCTestCase {
     }
 
     /// Up Next never answers (and its deadline is far away), so CarPlay Home
-    /// can only show In Progress if sections are independent.
+    /// can only show Continue Listening if sections are independent.
     func testHomeShowsFastSectionsWhileOneStalls() async {
         let server = FakeServer([
             .json("meta/in-progress", booksJSON([1, 2])),
@@ -627,11 +647,11 @@ final class CarPlayProviderSlowLinkTests: XCTestCase {
         let store = HomeFeedStore(directory: directory)
         store.activate(account: "acct")
 
-        let shown = expectation(description: "Home has In Progress")
+        let shown = expectation(description: "Home has Continue Listening")
         shown.assertForOverFulfill = false
         store.addListener { _ in
-            let sections = provider.homeSections(store: store, onSelect: { _ in }, onRetry: {})
-            if sections.contains(where: { $0.header == "In Progress" }) { shown.fulfill() }
+            let sections = provider.homeSections(store: store, onSelect: { _ in }, onOpenShelf: { _, _ in }, onRetry: {})
+            if self.shelves(sections).contains("Continue Listening") { shown.fulfill() }
         }
         _ = Task { await store.refresh(timeout: 600, fetch: HomeFeedStore.apiFetcher(api)) }
         await fulfillment(of: [shown], timeout: hangGuard)
@@ -661,8 +681,8 @@ final class CarPlayProviderSlowLinkTests: XCTestCase {
         relaunched.activate(account: "acct")
         await relaunched.refresh(timeout: 600, fetch: HomeFeedStore.apiFetcher(api))
         let provider = CarPlayContentProvider(api: api, coverLoader: CoverThumbnailLoader(session: server.session()))
-        let sections = provider.homeSections(store: relaunched, onSelect: { _ in }, onRetry: {})
-        XCTAssertTrue(sections.contains { $0.header == "Up Next" }, "saved feed: \(sections.map { $0.header ?? "-" })")
+        let sections = provider.homeSections(store: relaunched, onSelect: { _ in }, onOpenShelf: { _, _ in }, onRetry: {})
+        XCTAssertTrue(shelves(sections).contains("Up Next"), "saved feed: \(shelves(sections))")
     }
 
     func testCoversAreThumbnailsAndThrottled() async throws {
@@ -679,16 +699,18 @@ final class CarPlayProviderSlowLinkTests: XCTestCase {
         store.activate(account: "acct")
         await store.refresh(timeout: 600, fetch: HomeFeedStore.apiFetcher(api))
 
-        // All 20 rows' covers answered: every cover request has been made.
-        let coversDone = server.expectation("20 covers answered") { $0.answeredCount("/cover") >= 20 }
+        // One row of covers: only the covers it can show are fetched, at the
+        // shelf size, a few at a time.
+        let visible = min(20, CPMaximumNumberOfGridImages)
+        let coversDone = server.expectation("visible covers answered") { $0.answeredCount("/cover") >= visible }
         let provider = CarPlayContentProvider(api: api, coverLoader: CoverThumbnailLoader(session: server.session()))
-        let sections = provider.homeSections(store: store, onSelect: { _ in }, onRetry: {})
-        XCTAssertEqual(sections.reduce(0) { $0 + $1.items.count }, 20)
+        let sections = provider.homeSections(store: store, onSelect: { _ in }, onOpenShelf: { _, _ in }, onRetry: {})
+        XCTAssertEqual(shelves(sections), ["Continue Listening"])
         await fulfillment(of: [coversDone], timeout: hangGuard)
 
         let covers = server.requests.compactMap(\.url).filter { $0.path.hasSuffix("/cover") }
-        XCTAssertEqual(covers.count, 20)
-        XCTAssertTrue(covers.allSatisfy { $0.query == "width=120" }, "full-size covers requested: \(covers.prefix(2))")
+        XCTAssertEqual(covers.count, visible)
+        XCTAssertTrue(covers.allSatisfy { $0.query == "width=300" }, "full-size covers requested: \(covers.prefix(2))")
         XCTAssertLessThanOrEqual(server.maxInFlight, 3, "concurrent requests: \(server.maxInFlight)")
     }
 }

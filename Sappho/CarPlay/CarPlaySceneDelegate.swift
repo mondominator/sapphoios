@@ -105,7 +105,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         }
 
         // With the phone locked the SwiftUI scene may never run, so restore
-        // the last-played book here too (it is idempotent); it fills Resume.
+        // the last-played book here too (it is idempotent); it leads Continue Listening.
         if let audioPlayer = ServiceLocator.shared.audioPlayer, audioPlayer.currentAudiobook == nil {
             Task { @MainActor [weak self] in
                 await audioPlayer.restoreLastPlayed()
@@ -119,7 +119,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 
     /// Rebuild Home when something it shows changes outside the feed: the
     /// connection (back online: refresh; gone: downloads first) or the book
-    /// in the player (Resume row).
+    /// in the player (it leads Continue Listening).
     @MainActor
     private func observeHomeInputs() {
         withObservationTracking {
@@ -170,6 +170,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
         let sections = contentProvider.homeSections(
             store: HomeFeedStore.shared,
             onSelect: { [weak self] book in self?.playBook(book) },
+            onOpenShelf: { [weak self] title, books in self?.showShelf(title: title, books: books) },
             onRetry: { [weak self] in self?.refreshHome() }
         )
         homeTemplate.updateSections(sections)
@@ -217,6 +218,15 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
                 print("CarPlay: push Now Playing failed: \(String(describing: error))")
             }
         }
+    }
+
+    /// A Home section's title was tapped: its books as a list, at once
+    /// (they are already on the device).
+    @MainActor
+    private func showShelf(title: String, books: [Audiobook]) {
+        guard let contentProvider else { return }
+        let sections = contentProvider.shelfSections(books) { [weak self] book in self?.playBook(book) }
+        interfaceController?.pushTemplate(CPListTemplate(title: title, sections: sections), animated: true, completion: nil)
     }
 
     // MARK: - Library Navigation

@@ -25,6 +25,7 @@ final class CarPlayContentProvider {
     func homeSections(
         store: HomeFeedStore,
         onSelect: @escaping (Audiobook) -> Void,
+        onOpenShelf: @escaping (String, [Audiobook]) -> Void,
         onRetry: @escaping () -> Void
     ) -> [CPListSection] {
         let downloaded = downloadedBooks()
@@ -40,23 +41,158 @@ final class CarPlayContentProvider {
             current: current,
             isConnected: NetworkMonitor.shared.isConnected
         )
-        return layout.map { section in
-            let items = section.rows.map { row -> CPListItem in
-                switch row {
-                case .book(let book, let isDownloaded):
-                    return listItem(for: book, isDownloaded: isDownloaded, onSelect: onSelect)
-                case .status(let title, let detail, let retry):
-                    let item = CPListItem(text: title, detailText: detail)
-                    if retry {
-                        item.handler = { _, completion in
-                            onRetry()
-                            completion()
-                        }
-                    }
-                    return item
-                }
+        // One row of covers per section, as the phone's Home shows each as a
+        // row of cards; status rows stay plain list rows.
+        var items: [CPListTemplateItem] = []
+        for section in layout {
+            let books = section.rows.compactMap { row -> Audiobook? in
+                if case .book(let book, _) = row { return book }
+                return nil
             }
-            return CPListSection(items: items, header: section.header, sectionIndexTitle: nil)
+            if let header = section.header, !books.isEmpty {
+                items.append(shelfItem(
+                    title: header,
+                    books: books,
+                    showProgress: header == CarPlayHomeLayout.continueListeningHeader,
+                    onSelect: onSelect,
+                    onOpen: onOpenShelf
+                ))
+                continue
+            }
+            for row in section.rows {
+                guard case .status(let title, let detail, let retry) = row else { continue }
+                let item = CPListItem(text: title, detailText: detail)
+                if retry {
+                    item.handler = { _, completion in
+                        onRetry()
+                        completion()
+                    }
+                }
+                items.append(item)
+            }
+        }
+        return [CPListSection(items: items)]
+    }
+
+    /// The rows of a Home section as a plain list, for "see all" from its
+    /// title. Built from the books already on screen: no network.
+    func shelfSections(_ books: [Audiobook], onSelect: @escaping (Audiobook) -> Void) -> [CPListSection] {
+        bookSections(books, onSelect: onSelect)
+    }
+
+    /// A Home section as one row of covers: tap a cover to play that book,
+    /// tap the title for the whole section as a list. Covers start as a
+    /// placeholder and are filled in as they load (cache first).
+    private func shelfItem(
+        title: String,
+        books: [Audiobook],
+        showProgress: Bool,
+        onSelect: @escaping (Audiobook) -> Void,
+        onOpen: @escaping (String, [Audiobook]) -> Void
+    ) -> CPListImageRowItem {
+        let shown = Array(books.prefix(CPMaximumNumberOfGridImages))
+        let size: CGSize
+        if #available(iOS 26.0, *) {
+            size = CPListImageRowItemRowElement.maximumImageSize
+        } else {
+            size = CPListImageRowItem.maximumImageSize
+        }
+        let placeholder = Self.placeholderCover(size: size)
+
+        let item: CPListImageRowItem
+        let setCover: (Int, UIImage) -> Void
+        if #available(iOS 26.0, *) {
+            let elements = shown.map {
+                CPListImageRowItemRowElement(image: placeholder, title: $0.title, subtitle: Self.shelfSubtitle($0))
+            }
+            let row = CPListImageRowItem(text: title, elements: elements, allowsMultipleLines: false)
+            item = row
+            setCover = { [weak row] index, image in
+                elements[index].image = image
+                row?.elements = elements
+            }
+        } else {
+            var images = Array(repeating: placeholder, count: shown.count)
+            let row: CPListImageRowItem
+            if #available(iOS 17.4, *) {
+                row = CPListImageRowItem(text: title, images: images, imageTitles: shown.map(\.title))
+            } else {
+                row = CPListImageRowItem(text: title, images: images)
+            }
+            item = row
+            setCover = { [weak row] index, image in
+                images[index] = image
+                row?.update(images)
+            }
+        }
+
+        item.listImageRowHandler = { _, index, completion in
+            if shown.indices.contains(index) { onSelect(shown[index]) }
+            completion()
+        }
+        item.handler = { _, completion in
+            onOpen(title, books)
+            completion()
+        }
+
+        for (index, book) in shown.enumerated() {
+            let progress = showProgress ? Self.progressFraction(book) : nil
+            coverLoader.load(audiobookId: book.id, width: CoverURL.shelfCoverWidth, api: api) { image in
+                guard let image else { return }
+                setCover(index, Self.shelfCover(image, size: size, progress: progress))
+            }
+        }
+        return item
+    }
+
+    /// "4h 12m left" for a book in progress, else its author.
+    private static func shelfSubtitle(_ book: Audiobook) -> String? {
+        if let progress = book.progress, let duration = book.duration, duration > 0, progress.position > 0 {
+            return "\(formatDuration(max(0, duration - progress.position))) left"
+        }
+        return book.author
+    }
+
+    private static func progressFraction(_ book: Audiobook) -> Double? {
+        guard let progress = book.progress, let duration = book.duration, duration > 0, progress.position > 0 else {
+            return nil
+        }
+        return min(1, max(0, Double(progress.position) / Double(duration)))
+    }
+
+    /// A blank cover until the real one loads, so the row has its shape at once.
+    private static func placeholderCover(size: CGSize) -> UIImage {
+        UIGraphicsImageRenderer(size: size).image { context in
+            UIColor(white: 0.22, alpha: 1).setFill()
+            UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 6).fill()
+            if let symbol = UIImage(systemName: "book.closed")?.withTintColor(UIColor(white: 0.55, alpha: 1), renderingMode: .alwaysOriginal) {
+                let side = min(size.width, size.height) * 0.4
+                symbol.draw(in: CGRect(x: (size.width - side) / 2, y: (size.height - side) / 2, width: side, height: side))
+            }
+        }
+    }
+
+    /// The cover filling the row's square (centred, cropped), with the book's
+    /// progress as a bar along the bottom -- the phone's Continue Listening
+    /// cards show the same bar.
+    private static func shelfCover(_ image: UIImage, size: CGSize, progress: Double?) -> UIImage {
+        UIGraphicsImageRenderer(size: size).image { _ in
+            let scale = max(size.width / max(image.size.width, 1), size.height / max(image.size.height, 1))
+            let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            image.draw(in: CGRect(
+                x: (size.width - drawn.width) / 2, y: (size.height - drawn.height) / 2,
+                width: drawn.width, height: drawn.height
+            ))
+            guard let progress else { return }
+            let inset = size.width * 0.08
+            let height = max(3, size.height * 0.045)
+            let track = CGRect(x: inset, y: size.height - inset - height, width: size.width - inset * 2, height: height)
+            UIColor(white: 0, alpha: 0.55).setFill()
+            UIBezierPath(roundedRect: track, cornerRadius: height / 2).fill()
+            UIColor.white.setFill()
+            var filled = track
+            filled.size.width = max(height, track.width * progress)
+            UIBezierPath(roundedRect: filled, cornerRadius: height / 2).fill()
         }
     }
 

@@ -18,6 +18,9 @@ enum CoverURL {
     /// CarPlay list rows draw covers at most ~90 pt; 120 px is the server's
     /// smallest size and plenty for a row.
     static let listThumbnailWidth = 120
+    /// CarPlay Home's rows of covers draw each one larger than a list row's
+    /// (and at the car screen's scale); 300 px stays sharp and small.
+    static let shelfCoverWidth = 300
     /// Now Playing / lock screen artwork.
     static let artworkWidth = 600
 
