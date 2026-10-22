@@ -956,39 +956,42 @@ class AudioPlayerService: NSObject {
     private func updateNowPlayingInfo() {
         guard let audiobook = currentAudiobook else { return }
 
-        let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
+        let showChapterProgress = ChapterProgressSetting.isOn()
+        let chapters = audiobook.chapters ?? []
+        let chapterIndex = currentChapter.flatMap { chapter in chapters.firstIndex { $0.id == chapter.id } }
+
+        // While waiting for audio the clock must not run on; the second line
+        // (under the book title in CarPlay) says why nothing is heard yet.
+        let waiting = isPlaying && isBuffering
+        let text = NowPlayingText.lines(
+            bookTitle: audiobook.title,
+            author: audiobook.author,
+            series: audiobook.series,
+            chapterTitle: currentChapter?.title,
+            chapterNumber: chapterIndex.map { $0 + 1 },
+            chapterCount: chapters.isEmpty ? nil : chapters.count,
+            waiting: waiting
+        )
 
         var info = [String: Any]()
-        info[MPMediaItemPropertyArtist] = audiobook.author ?? "Unknown Author"
-        info[MPMediaItemPropertyAlbumTitle] = audiobook.series
-        // While waiting for audio the clock must not run on; the album line
-        // (shown under the title in CarPlay) says why nothing is heard yet.
-        let waiting = isPlaying && isBuffering
+        info[MPMediaItemPropertyTitle] = text.title
+        info[MPMediaItemPropertyArtist] = text.artist
+        info[MPMediaItemPropertyAlbumTitle] = text.album
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying && !waiting ? playbackSpeed : 0
         info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = playbackSpeed
-        if waiting {
-            info[MPMediaItemPropertyAlbumTitle] = "Buffering…"
+        if let chapterIndex {
+            info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
+            info[MPNowPlayingInfoPropertyChapterNumber] = chapterIndex + 1
         }
 
         if showChapterProgress, let chapter = currentChapter {
-            // Chapter-scoped progress: show chapter title, duration, and position within chapter
+            // Chapter-scoped progress: the scrubber covers the current chapter
             let chapterStart = chapter.startTime
             let chapterDuration = chapter.duration ?? (duration - chapterStart)
-            let chapterPosition = max(0, position - chapterStart)
-
-            info[MPMediaItemPropertyTitle] = chapter.title ?? audiobook.title
             info[MPMediaItemPropertyPlaybackDuration] = chapterDuration
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = chapterPosition
-
-            if let chapters = audiobook.chapters {
-                info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
-                if let idx = chapters.firstIndex(where: { $0.id == chapter.id }) {
-                    info[MPNowPlayingInfoPropertyChapterNumber] = idx + 1
-                }
-            }
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = max(0, position - chapterStart)
         } else {
             // Full book progress
-            info[MPMediaItemPropertyTitle] = audiobook.title
             info[MPMediaItemPropertyPlaybackDuration] = duration
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
         }
@@ -1090,8 +1093,7 @@ class AudioPlayerService: NSObject {
             let positionTime = event.positionTime
             Task { @MainActor in
                 guard let self = self else { return }
-                let showChapterProgress = UserDefaults.standard.bool(forKey: "showChapterProgress")
-                if showChapterProgress, let chapter = self.currentChapter {
+                if ChapterProgressSetting.isOn(), let chapter = self.currentChapter {
                     // Scrubber position is chapter-relative; convert to global
                     await self.seek(to: chapter.startTime + positionTime)
                 } else {

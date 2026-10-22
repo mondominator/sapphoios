@@ -177,3 +177,63 @@ enum CarPlayPlaybackPlan {
         return tapped.withChapters(chapters)
     }
 }
+
+// MARK: - Now Playing text
+
+enum ChapterProgressSetting {
+    static let key = "showChapterProgress"
+
+    /// Whether the scrubber covers the current chapter rather than the book.
+    /// The app's toggles default it to true (@AppStorage); reading it with
+    /// `bool(forKey:)` gave false until the toggle was flipped, so the lock
+    /// screen and CarPlay used the whole book while the app used the chapter.
+    static func isOn(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: key) as? Bool ?? true
+    }
+}
+
+enum NowPlayingText {
+    struct Lines: Equatable {
+        let title: String
+        let artist: String
+        let album: String?
+    }
+
+    /// The lines CarPlay and the lock screen show. The title is always the
+    /// book: with the chapter as the title the car showed "Chapter 12" and not
+    /// which book it was. The chapter goes on the second line, after the
+    /// author, in the album slot the series used; while audio is loading that
+    /// slot says "Buffering…" instead.
+    static func lines(
+        bookTitle: String,
+        author: String?,
+        series: String?,
+        chapterTitle: String?,
+        chapterNumber: Int?,
+        chapterCount: Int?,
+        waiting: Bool
+    ) -> Lines {
+        let album: String?
+        if waiting {
+            album = "Buffering…"
+        } else if let chapter = chapterLine(title: chapterTitle, number: chapterNumber, count: chapterCount,
+                                            bookTitle: bookTitle) {
+            album = chapter
+        } else {
+            album = series
+        }
+        return Lines(title: bookTitle, artist: author ?? "Unknown Author", album: album)
+    }
+
+    /// "Ch 12 of 40: The Storm". The name is dropped when it only repeats the
+    /// number ("Chapter 12", "12") or the book title.
+    static func chapterLine(title: String?, number: Int?, count: Int?, bookTitle: String) -> String? {
+        let name = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let isFiller = name.isEmpty || name == bookTitle
+            || name.range(of: #"^(chapter|ch\.?|part|track)?\s*\d+$"#, options: [.regularExpression, .caseInsensitive]) != nil
+        guard let number else { return isFiller ? nil : name }
+        var line = "Ch \(number)"
+        if let count, count > 1 { line += " of \(count)" }
+        return isFiller ? line : "\(line): \(name)"
+    }
+}

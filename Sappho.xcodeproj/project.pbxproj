@@ -72,6 +72,7 @@
 		CAB106934457B6FCA877D982 /* SourceTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F71A3F506CF26F31C890E74 /* SourceTag.swift */; };
 		CB3EACF66D8624D28DD87256 /* ProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F2CE4F20D33011C7C58FA7 /* ProgressStore.swift */; };
 		CD2B0C0690AE1B26BE8BF241 /* EditMetadataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD79599B020796E009EBF806 /* EditMetadataSheet.swift */; };
+		D317CD8094A9069F20195DCF /* NowPlayingTextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5D9915100FD13DE22A3A50 /* NowPlayingTextTests.swift */; };
 		D3586370275B413604F87D99 /* PlayMediaIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2A2C93A795B4985AECFB54 /* PlayMediaIntentHandler.swift */; };
 		D5E191B91ED7C52467B3F15E /* SapphoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */; };
 		D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */; };
@@ -138,6 +139,7 @@
 		74E1B99B833EB4C4AD65DC8C /* DownloadValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadValidator.swift; sourceTree = "<group>"; };
 		769547B62C0F087079C253F5 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		771A8F1C97746AB80B150940 /* AudioPlayerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerServiceTests.swift; sourceTree = "<group>"; };
+		7F5D9915100FD13DE22A3A50 /* NowPlayingTextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingTextTests.swift; sourceTree = "<group>"; };
 		833E2DE59C85C86A8EFCF220 /* CarPlayHomeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayHomeLayout.swift; sourceTree = "<group>"; };
 		875C968AC2ABB9901BA77DAC /* AudiobookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudiobookDetailView.swift; sourceTree = "<group>"; };
 		8B193F831F3EF80C680572FD /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				6B99C74A900A12FFE5D37FFA /* ListeningActivityTests.swift */,
 				2681BB90F02706F6A73D7B27 /* ListeningSessionTests.swift */,
 				5D91D7F7D8671C620261ADB0 /* ModelsTests.swift */,
+				7F5D9915100FD13DE22A3A50 /* NowPlayingTextTests.swift */,
 				B1D9013FEE160E8839433089 /* PlaybackPolicyTests.swift */,
 				5A1756CE74D9A130FBBEA152 /* SapphoAPIExtendedTests.swift */,
 				92A7B4B85D1B873A962F0E99 /* SapphoAPITests.swift */,
@@ -594,6 +597,7 @@
 				477565AB812CB4C8E1442AC9 /* ListeningActivityTests.swift in Sources */,
 				56C26C16C4747BA7D2C2C634 /* ListeningSessionTests.swift in Sources */,
 				D728A989F45362B79A64AC8A /* ModelsTests.swift in Sources */,
+				D317CD8094A9069F20195DCF /* NowPlayingTextTests.swift in Sources */,
 				0442E71A61B0A245B43A71E0 /* PlaybackPolicyTests.swift in Sources */,
 				461A5143F1925B6CC0EE41E4 /* SapphoAPIExtendedTests.swift in Sources */,
 				CA42CA79E15EA0B0C21B489C /* SapphoAPITests.swift in Sources */,
@@ -742,7 +746,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.10;
+				MARKETING_VERSION = 1.0.11;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -839,7 +843,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.10;
+				MARKETING_VERSION = 1.0.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
