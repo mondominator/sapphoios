@@ -401,8 +401,7 @@ struct CategoryCardWide: View {
 struct AllBooksView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var audiobooks: [Audiobook] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
     @State private var sortOption: LibrarySortOption = .title
     @State private var sortAscending = true
     @State private var filterOption: LibraryFilterOption = .all
@@ -458,9 +457,9 @@ struct AllBooksView: View {
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -633,15 +632,14 @@ struct AllBooksView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         // The Source menu is optional: a failure here must not fail the list.
         async let sources = try? api?.getLinkedSources()
         do {
             audiobooks = try await api?.getAllAudiobooks(source: sourceFilter.queryValue) ?? []
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
         linkedSources = await sources ?? []
         // The chosen server's link was removed or disabled: back to All.
@@ -649,7 +647,7 @@ struct AllBooksView: View {
             sourceFilter = .all
         }
 
-        isLoading = false
+        load.end()
     }
 }
 

@@ -3,8 +3,9 @@ import SwiftUI
 struct CollectionsListView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var collections: [Collection] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
+    /// A failed create/delete. Shown as an alert so it is seen over a loaded list.
+    @State private var actionError: String?
     @State private var showCreateSheet = false
     @State private var newCollectionName = ""
     @State private var newCollectionDescription = ""
@@ -12,9 +13,9 @@ struct CollectionsListView: View {
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -85,22 +86,29 @@ struct CollectionsListView: View {
                 }
             )
         }
+        .alert("Something went wrong", isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(actionError ?? "")
+        }
         .task {
             await loadData()
         }
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             collections = try await api?.getCollections() ?? []
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 
     private func createCollection() async {
@@ -116,7 +124,7 @@ struct CollectionsListView: View {
             showCreateSheet = false
             await loadData()
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = error.localizedDescription
         }
     }
 
@@ -267,15 +275,16 @@ struct CollectionDetailView: View {
     let collection: Collection
 
     @State private var collectionDetail: CollectionDetail?
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
+    /// A failed create/delete. Shown as an alert so it is seen over a loaded list.
+    @State private var actionError: String?
     @State private var showDeleteAlert = false
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -334,22 +343,29 @@ struct CollectionDetailView: View {
         } message: {
             Text("This action cannot be undone. The audiobooks will not be deleted.")
         }
+        .alert("Something went wrong", isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(actionError ?? "")
+        }
         .task {
             await loadData()
         }
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             collectionDetail = try await api?.getCollection(id: collection.id)
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 
     private func deleteCollection() async {
@@ -357,7 +373,7 @@ struct CollectionDetailView: View {
             try await api?.deleteCollection(id: collection.id)
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            actionError = error.localizedDescription
         }
     }
 }
