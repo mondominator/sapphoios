@@ -4,14 +4,13 @@ struct AuthorsListView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var authors: [AuthorInfo] = []
     @State private var allBooks: [Audiobook] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -56,8 +55,7 @@ struct AuthorsListView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             async let authorsData = api?.getAuthors()
@@ -69,10 +67,10 @@ struct AuthorsListView: View {
             // Sort authors by book count (descending)
             authors.sort { $0.bookCount > $1.bookCount }
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 }
 

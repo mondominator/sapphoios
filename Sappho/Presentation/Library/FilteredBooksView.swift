@@ -11,8 +11,7 @@ struct FilteredBooksView: View {
     @Environment(\.sapphoAPI) private var api
     @Environment(\.dismiss) private var dismiss
     @State private var audiobooks: [Audiobook] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
     @State private var showRecapSheet = false
 
     let title: String
@@ -20,9 +19,9 @@ struct FilteredBooksView: View {
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -89,8 +88,7 @@ struct FilteredBooksView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             switch filterType {
@@ -111,10 +109,10 @@ struct FilteredBooksView: View {
                 audiobooks = collection?.books ?? []
             }
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 }
 

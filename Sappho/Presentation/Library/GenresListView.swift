@@ -3,14 +3,13 @@ import SwiftUI
 struct GenresListView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var genres: [GenreInfo] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -53,8 +52,7 @@ struct GenresListView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             genres = try await api?.getGenres() ?? []
@@ -62,10 +60,10 @@ struct GenresListView: View {
             // Sort genres by book count (descending)
             genres.sort { $0.count > $1.count }
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 }
 
