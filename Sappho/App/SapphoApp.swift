@@ -27,6 +27,10 @@ struct SapphoApp: App {
         // if the phone screen is off and CarPlay is the only active
         // scene, .task never fires and playBook() silently fails
         // because audioPlayer.api is nil.
+        #if DEBUG
+        UITestLaunch.apply(authRepository: repo, audioPlayer: playerInstance)
+        #endif
+
         playerInstance.configure(api: apiInstance)
         DownloadManager.shared.configure(api: apiInstance)
 

@@ -44,6 +44,7 @@
 		67ED1EFEE720295DCA598959 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */; };
 		6E81A81A83E4A980DC60FC8D /* TimeFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C07AF2BCF038C57E042CE9 /* TimeFormatting.swift */; };
 		731015E6B088ED705983ACE5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D48DA2D1495E05D31E31B2 /* LoginView.swift */; };
+		75EC0476EE694CD2C258304B /* MiniPlayerTapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFF785373E007773F3E4FFDC /* MiniPlayerTapTests.swift */; };
 		79665374B6C061218FB33AE5 /* HomeFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7ACB7AF7907863841857C5B /* HomeFeed.swift */; };
 		79DD8D3947602DD34D32512E /* AdditionalModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65C26BF1CCFB3F4091E68F8 /* AdditionalModelsTests.swift */; };
 		7C1A1F66AB65CC21FDB0B3B1 /* VoiceSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BE69665E5CB852F94F8FEF /* VoiceSearchTests.swift */; };
@@ -81,6 +82,7 @@
 		E6BECCD0FC706004E7D721FF /* LinkedServerPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA0B4FEB34FE721E0FC23F33 /* LinkedServerPolicy.swift */; };
 		E8DA27966E904077874A4CFD /* ListeningActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237FA51EF9C0FEF3093682DD /* ListeningActivity.swift */; };
 		E9E309099E8A2C7196040ADB /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 769547B62C0F087079C253F5 /* LibraryView.swift */; };
+		FA491CF3BC28541A1CCE20C5 /* UITestLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A64BA5AF3E19E6D15D962E2 /* UITestLaunch.swift */; };
 		FC5B3C0318563B458DB4022A /* CoverThumbnailLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16BE9AB060DA9DD8B09BE19C /* CoverThumbnailLoader.swift */; };
 		FFF784B03F316D4684372482 /* SeriesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB9ACC8CC2BD27A815D91C5 /* SeriesListView.swift */; };
 /* End PBXBuildFile section */
@@ -117,6 +119,7 @@
 		272664D5190202CF8168ECD2 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		28474CB2464BD5FF1D9330CC /* ReadingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListView.swift; sourceTree = "<group>"; };
 		29D15A1E670D995C15F5D203 /* CarPlayContentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentProvider.swift; sourceTree = "<group>"; };
+		2A64BA5AF3E19E6D15D962E2 /* UITestLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestLaunch.swift; sourceTree = "<group>"; };
 		2CCFA0969C567CC9934DE850 /* FilteredBooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilteredBooksView.swift; sourceTree = "<group>"; };
 		33D2946F4578FC723BC29859 /* ServiceLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceLocatorTests.swift; sourceTree = "<group>"; };
 		3D92DBB5FC2E3AFA18DCBD17 /* SapphoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SapphoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -161,6 +164,7 @@
 		B5220F67A856EFA43F73C00C /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
 		B7D4E4F957BC1B67073F81BA /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
 		BE3D8B0C110E99BA81CC1EE8 /* PlaybackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicy.swift; sourceTree = "<group>"; };
+		BFF785373E007773F3E4FFDC /* MiniPlayerTapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerTapTests.swift; sourceTree = "<group>"; };
 		C32CE08DC50BB3ADA8E7FA55 /* StreamingPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingPolicyTests.swift; sourceTree = "<group>"; };
 		C6338B805BDF6B62345BA2E8 /* AuditRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditRegressionTests.swift; sourceTree = "<group>"; };
 		C65C26BF1CCFB3F4091E68F8 /* AdditionalModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalModelsTests.swift; sourceTree = "<group>"; };
@@ -393,6 +397,7 @@
 				7495FDDA796DFDA34333C7C8 /* RootView.swift */,
 				E142C4CF7AE094FD49A7FE77 /* SapphoApp.swift */,
 				FDCAD7E06AFF0DAF5F4F6447 /* ServiceLocator.swift */,
+				2A64BA5AF3E19E6D15D962E2 /* UITestLaunch.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -424,6 +429,7 @@
 		B167A064C7D54EB54DBDE173 /* SapphoUITests */ = {
 			isa = PBXGroup;
 			children = (
+				BFF785373E007773F3E4FFDC /* MiniPlayerTapTests.swift */,
 				550305815B68B533E1045145 /* SapphoUITests.swift */,
 			);
 			path = SapphoUITests;
@@ -612,6 +618,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				75EC0476EE694CD2C258304B /* MiniPlayerTapTests.swift in Sources */,
 				56695E5A3716F94A5500D086 /* SapphoUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -671,6 +678,7 @@
 				2C2D64491F55265555C0F187 /* StreamingPolicy.swift in Sources */,
 				0FDCEF266D2C84F1BA43C29F /* Theme.swift in Sources */,
 				6E81A81A83E4A980DC60FC8D /* TimeFormatting.swift in Sources */,
+				FA491CF3BC28541A1CCE20C5 /* UITestLaunch.swift in Sources */,
 				8D3298E5DA038BD886B91B42 /* UploadView.swift in Sources */,
 				33C9DC0C89A901A691FAF574 /* VoiceSearch.swift in Sources */,
 			);
@@ -746,7 +754,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.11;
+				MARKETING_VERSION = 1.0.12;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -843,7 +851,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.11;
+				MARKETING_VERSION = 1.0.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -140,6 +140,16 @@ class AuthRepository {
         }
     }
 
+    #if DEBUG
+    /// UI tests only: a session held in memory, never written to the
+    /// Keychain or UserDefaults.
+    func useInMemorySession(serverURL: URL, token: String) {
+        self.serverURL = serverURL
+        self.token = token
+        self.mustChangePassword = false
+    }
+    #endif
+
     func setMustChangePassword(_ value: Bool) {
         mustChangePassword = value
         defaults.set(value, forKey: kMustChangePassword)

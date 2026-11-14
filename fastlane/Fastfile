@@ -17,13 +17,13 @@ platform :ios do
   # TESTS (pull requests)
   # ============================================
 
-  desc "Build and run the unit tests on a simulator"
+  desc "Build and run the unit and UI tests on a simulator"
   lane :test do |options|
     run_tests(
       project: PROJECT,
       scheme: SCHEME,
       destination: options[:destination] || ENV["TEST_DESTINATION"] || "platform=iOS Simulator,name=iPhone 17",
-      only_testing: ["SapphoTests"],
+      only_testing: ["SapphoTests", "SapphoUITests"],
       # Ad-hoc signing: no certificate needed on the runner, but the test host
       # still gets entitlements, which the Keychain tests require (with
       # CODE_SIGNING_ALLOWED=NO they fail).
