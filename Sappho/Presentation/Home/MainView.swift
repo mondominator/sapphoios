@@ -446,19 +446,13 @@ struct MiniPlayerView: View {
 
                 // Main content
                 HStack(spacing: 10) {
-                    // Cover art (tappable to open full player)
+                    // Cover art
                     CoverImage(audiobookId: audiobook.id, cornerRadius: 8)
                         .frame(width: 56, height: 56)
                         .shadow(color: (audioPlayer.isPlaying ? Color.sapphoPlayingGreen : Color.sapphoPrimaryLight).opacity(0.4), radius: 8)
                         .scaleEffect(audioPlayer.isPlaying && coverPulsing ? 1.04 : 1.0)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                                audioPlayer.showFullPlayer = true
-                            }
-                        }
 
-                    // Title + Author + Chapter (tappable to open full player)
+                    // Title + Author + Chapter
                     VStack(alignment: .leading, spacing: 2) {
                         // Marquee title when playing, static when paused
                         if audioPlayer.isPlaying {
@@ -492,14 +486,11 @@ struct MiniPlayerView: View {
                             )
                         }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                            audioPlayer.showFullPlayer = true
-                        }
-                    }
-
-                    Spacer(minLength: 4)
+                    // Fill the gap up to the buttons. A paused title is plain
+                    // Text sized to its words; only the playing marquee
+                    // stretched, so the gap was dead while paused.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 4)
 
                     // Skip backward
                     Button {
@@ -553,6 +544,14 @@ struct MiniPlayerView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                // The whole row opens the full player, playing or paused;
+                // the skip and play buttons keep their own taps.
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        audioPlayer.showFullPlayer = true
+                    }
+                }
             }
             .background(Color.sapphoSurfaceElevated)
             .animation(.easeInOut(duration: 0.3), value: audioPlayer.isPlaying)
