@@ -4,14 +4,13 @@ struct SeriesListView: View {
     @Environment(\.sapphoAPI) private var api
     @State private var series: [SeriesInfo] = []
     @State private var allBooks: [Audiobook] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @State private var load = ListLoadState()
 
     var body: some View {
         Group {
-            if isLoading {
+            if load.showsSpinner {
                 LoadingView()
-            } else if let error = errorMessage {
+            } else if let error = load.blockingError {
                 ErrorView(message: error) {
                     Task { await loadData() }
                 }
@@ -57,8 +56,7 @@ struct SeriesListView: View {
     }
 
     private func loadData() async {
-        isLoading = true
-        errorMessage = nil
+        load.begin()
 
         do {
             async let seriesData = api?.getSeries()
@@ -69,10 +67,10 @@ struct SeriesListView: View {
 
             // Keep server order (alphabetical by series name)
         } catch {
-            errorMessage = error.localizedDescription
+            load.failed(error.localizedDescription)
         }
 
-        isLoading = false
+        load.end()
     }
 }
 
